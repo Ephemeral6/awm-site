@@ -144,23 +144,110 @@
     return done;
   }
 
+  // ---------------------------------------------------------------- C1: Figure 1, one part at a time (§1, §2)
+  // Boxes are in the points of figure-1-awm-process-v13 (396 × 176 pt page; content ends at 145 pt).
+  var STEPS = [
+    [58, 36, 43, 31, "Explore & Prototype", "The agent presses a button in a game it has never seen."],
+    [2, 23, 156, 66, "Explore & Prototype", "It records the transition: the frame before and the frame after."],
+    [0, 97, 160, 48, "Explore & Prototype", "Each hypothesis is a Python program checked against every recorded transition; one that a transition contradicts is revised."],
+    [165, 21, 113, 38, "Structure & Simplify", "Four transformations, inspired by projective and inductive limits, simplify object types and rules."],
+    [165, 68, 114, 78, "Structure & Simplify", "The result is an algebraic world model: typed objects, rules w, a → w′, and a goal predicate."],
+    [284, 67, 111, 38, "Formalize & Prove", "In Lean 4, a winning witness proves that a level can be won."],
+    [284, 109, 111, 38, "Formalize & Prove", "An invariant or a cost bound proves that no legal winning sequence exists."]
+  ];
   var heroTimer = null;
-  function hero() {
-    var g = S.featured;
-    loadGame(g).then(function (D) {
-      var cv = document.getElementById("hero-cv"); if (!cv) return;
-      var R = D.replay, F = decodeFrames(R), pal = palette(R), i = 0, N = R.recs.length;
-      var cap = document.getElementById("hero-cap");
-      if (heroTimer) clearInterval(heroTimer);
-      heroTimer = setInterval(function () {
-        if (!document.getElementById("hero-cv")) { clearInterval(heroTimer); heroTimer = null; return; }
-        var r = R.recs[i];
-        drawFrame(cv, F.X[i], pal, 4, null, null);
-        cap.innerHTML = "<b>" + g + "</b>, recorded run, step " + r.st + " of " + R.recs[N - 1].st + " · level " + r.l + " · <code>" + esc(r.a) + "</code> · " +
-          '<a href="#' + g + ".replay." + r.s + '">open this step</a>';
-        i = (i + 1) % N;
-      }, 160);
-    }).catch(function () {});
+  function teaser() {
+    return '<figure class="teaser"><svg id="t-svg" viewBox="0 0 396 147" role="img" aria-label="Figure 1 of the paper, highlighted one part at a time">' +
+      '<defs><mask id="t-mask"><rect x="0" y="0" width="396" height="147" fill="#fff"/><rect id="t-hole" rx="3" fill="#000"/></mask></defs>' +
+      '<image href="' + esc((S.figs || {}).steps) + '" x="0" y="0" width="396" height="176"/>' +
+      '<rect class="t-dim" x="0" y="0" width="396" height="147" mask="url(#t-mask)"/><rect id="t-ring" class="t-ring" rx="3"/></svg>' +
+      '<figcaption><b id="t-stage"></b> <span id="t-text"></span><span class="t-ctrl"><button type="button" id="t-play" class="btn">Pause</button> ' +
+      '<span id="t-dots"></span></span><span class="note">Figure 1 of the paper, one part at a time (§1, §2).</span></figcaption></figure>';
+  }
+  function heroAnim() {
+    var k = 0, dots = document.getElementById("t-dots");
+    if (!dots) return;
+    dots.innerHTML = STEPS.map(function (s, i) { return '<button type="button" class="t-dot" data-i="' + i + '" aria-label="Part ' + (i + 1) + '"></button>'; }).join("");
+    function show(i) {
+      k = (i + STEPS.length) % STEPS.length;
+      var s = STEPS[k];
+      ["t-hole", "t-ring"].forEach(function (id) {
+        var r = document.getElementById(id); if (!r) return;
+        r.setAttribute("x", s[0]); r.setAttribute("y", s[1]); r.setAttribute("width", s[2]); r.setAttribute("height", s[3]);
+      });
+      document.getElementById("t-stage").textContent = s[4] + ".";
+      document.getElementById("t-text").textContent = s[5];
+      Array.prototype.forEach.call(dots.children, function (b, j) { b.classList.toggle("on", j === k); });
+    }
+    function stop() { if (heroTimer) { clearInterval(heroTimer); heroTimer = null; } document.getElementById("t-play").textContent = "Play"; }
+    function play() {
+      stop(); document.getElementById("t-play").textContent = "Pause";
+      heroTimer = setInterval(function () { if (!document.getElementById("t-svg")) { clearInterval(heroTimer); heroTimer = null; return; } show(k + 1); }, 1500);
+    }
+    document.getElementById("t-play").onclick = function () { if (heroTimer) stop(); else play(); };
+    dots.onclick = function (e) { var b = e.target.closest("[data-i]"); if (b) { stop(); show(parseInt(b.getAttribute("data-i"), 10)); } };
+    show(0);
+    var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (still) stop(); else play();
+  }
+
+  // ---------------------------------------------------------------- C2: which caps each judgment gets right (§4.2, Figure 4)
+  // Three numbers from the paper: engine optimum 19, AWM's proved bound 19, GPT-6 Astra's claimed bound 22. A cap c admits a win iff c ≥ the least winning cost.
+  function capWidget() {
+    return '<div class="pane capw"><h4>Drag the budget cap</h4><div class="ctrl"><input type="range" id="cap" min="18" max="22" step="1" value="18" aria-label="Budget cap">' +
+      '<span class="mono" id="cap-v"></span></div><div class="tbox"><table class="t" id="cap-t"></table></div>' +
+      '<p class="note">The sealed level uses cap 18. The engine wins at a cap of 19 or more. Each judgment below says “winnable” exactly when the cap is at least the minimum cost it reports. ' +
+      "GPT-6 Astra's 22 would wrongly rule out wins that cost 19 to 21 (§1).</p></div>";
+  }
+  function capInit() {
+    var el = document.getElementById("cap"); if (!el) return;
+    var rows = [["Engine (ground truth)", 19], ["AWM (proved in Lean)", 19], ["GPT-6 Astra (claimed)", 22]];
+    function upd() {
+      var c = parseInt(el.value, 10), truth = c >= 19;
+      document.getElementById("cap-v").textContent = "cap = " + c + (c === 18 ? " (sealed)" : "");
+      document.getElementById("cap-t").innerHTML = "<thead><tr><th>Who</th><th>Minimum cost</th><th>Says at this cap</th><th></th></tr></thead><tbody>" +
+        rows.map(function (r, i) {
+          var says = c >= r[1];
+          var ok = says === truth;
+          return "<tr><td>" + r[0] + '</td><td class="n">' + r[1] + "</td><td>" + (says ? "winnable" : "impossible") + "</td><td>" +
+            (i === 0 ? "" : '<span class="chip ' + (ok ? "ok" : "bad") + '">' + (ok ? "✓ correct" : "✗ wrong") + "</span>") + "</td></tr>";
+        }).join("") + "</tbody>";
+    }
+    el.oninput = upd; upd();
+  }
+
+  function bibtex() {
+    return '<section id="bibtex"><h2>BibTeX</h2><pre id="bib-text"><code>' + esc(S.bibtex) + '</code></pre>' +
+      '<div class="btns"><button type="button" class="btn" id="bib-copy">Copy BibTeX</button><span class="note" id="bib-ok"></span></div></section>';
+  }
+  function bibInit() {
+    var b = document.getElementById("bib-copy"); if (!b) return;
+    b.onclick = function () {
+      var t = S.bibtex, ok = document.getElementById("bib-ok");
+      function fallback() {
+        var r = document.createRange(); r.selectNodeContents(document.getElementById("bib-text"));
+        var s = window.getSelection(); s.removeAllRanges(); s.addRange(r); ok.textContent = "Selected; press Ctrl+C.";
+      }
+      try { navigator.clipboard.writeText(t).then(function () { ok.textContent = "Copied."; }, fallback); } catch (e) { fallback(); }
+    };
+  }
+
+  function repro() {
+    var rows = S.games.map(function (i) {
+      return ['<a href="#' + i.g + '.proof"><code>' + i.g + "</code></a>", i.lean_ok ? '<span class="chip ok">pass</span>' : '<span class="chip bad">—</span>',
+        i.lean_s === null || i.lean_s === undefined ? "—" : esc(i.lean_s) + " s", esc((i.axioms || []).join(", ") || "—"),
+        "<code>" + esc(String(i.lean_sha || "—")) + "</code>"];
+    });
+    return '<section id="repro"><h2>Reproducibility</h2>' +
+      "<p>The paper's statement is in its <a href=\"#paper.Reproducibility-statement\">Reproducibility statement</a>: one command per game regenerates the model, tests and Lean project; the per-game Lean projects are checked with Lean 4.34.0. " +
+      "Below, the sealed <code>Game.lean</code> of each game shown on this site, the local kernel check recorded in its <code>VERIFY.json</code>, and its sha256. Check it with <code>python ledger/lean_check.py &lt;formal directory&gt;</code> in the bench repository.</p>" +
+      table(["Game", "Kernel check", "Time", "Axioms", "Game.lean sha256"], rows, [2]) + "</section>";
+  }
+
+  function faq() {
+    return '<section id="faq"><h2>Questions about the impossibility proofs</h2>' + (S.faq || []).map(function (f, i) {
+      return '<details class="item" id="faq.' + (i + 1) + '"><summary>' + esc(f[0]) + '</summary><div class="body prose">' + f[1] + "</div></details>";
+    }).join("") + "</section>";
   }
 
   function home(anchor) {
@@ -168,8 +255,16 @@
     var P = S.paper || {};
     var secs = paperSections();
     var tiles = S.tiles.map(function (t) { return '<div class="stat"><div class="v">' + esc(t[0]) + '</div><div class="k">' + esc(t[1]) + "</div><p>" + esc(t[2]) + "</p></div>"; }).join("");
-    var toc = '<a href="#paper.abstract">Abstract</a>' + secs.map(function (s) { return '<a href="#' + secId(s) + '">' + esc((s.number ? s.number + " " : "") + s.title) + "</a>"; }).join("") +
-      (P.bib_html ? '<a href="#paper.references">References</a>' : "") + '<a href="#games">Appendix: the 25 games</a><a href="#data">Data and sources</a>';
+    var toc = '<a href="#results">Main result</a><a href="#paper.abstract">Abstract</a>' + secs.map(function (s) { return '<a href="#' + secId(s) + '">' + esc((s.number ? s.number + " " : "") + s.title) + "</a>"; }).join("") +
+      (P.bib_html ? '<a href="#paper.references">References</a>' : "") + '<a href="#games">Appendix: the 25 games</a><a href="#data">Data and sources</a>' +
+      '<a href="#repro">Reproducibility</a><a href="#faq">Questions</a><a href="#autorepair">Autonomous repair (preliminary)</a><a href="#bibtex">BibTeX</a>';
+    var T = S.tables || {};
+    var results = '<section id="results"><h2>Main result: proving impossibility</h2>' +
+      "<p>Two levels of <code>sc25</code> are sealed one unit below their minimum winning cost. The question is whether any legal winning sequence remains (§4 of the paper).</p>" +
+      '<figure class="paper-figure"><img src="' + esc((S.figs || {}).l4) + '" alt="GPT-6 Astra claims a minimum cost of 22 on sealed sc25 level 4; AWM proves 19 in Lean." loading="lazy">' +
+      '<figcaption class="paper-caption">Figure 4 of the paper. <a href="#paper.fig-l4attempts">Read its caption in the paper</a>.</figcaption></figure>' +
+      capWidget() + (T["tab:verdicts"] || "") +
+      '<p class="note">More: <a href="#faq">questions about the proofs</a>, the <a href="#sc25">sc25 game</a> as played, and how <a href="#lp85.merge">eleven lp85 concepts became one rule</a> (§2.5).</p></section>';
     var cards = S.games.map(function (i) {
       var start = i.fresh ? "started from an empty book" : ("started with " + (i.init === null ? "—" : i.init) + " concepts");
       return '<a class="gcard" href="#' + i.g + '"><img src="thumbs/' + i.g + '.png" alt="' + i.g + ', first frame" loading="lazy">' +
@@ -179,15 +274,18 @@
     var C = S.compare;
     var crow = C.rows.map(function (r) { return ['<a href="#' + r[0] + '"><code>' + r[0] + "</code></a>"].concat(r.slice(1).map(esc)); });
     app.innerHTML =
-      '<section class="hero"><div><div class="kicker">ARC-AGI-3 · Python hypotheses · Lean 4</div>' +
+      '<section class="hero"><div class="h-text"><div class="kicker">ARC-AGI-3 · Python hypotheses · Lean 4</div>' +
       "<h1>" + esc(P.title || "Algebraic World Model") + "</h1>" +
+      '<p class="authors">Anonymous authors · Under review at ICLR 2027</p>' +
+      '<p class="tldr"><b>TL;DR</b> ' + esc(S.tldr) + "</p>" +
       '<p class="lede">An agent plays a game it has never seen, writes each guess about the rules as a Python function checked against every recorded step, simplifies the guesses into typed objects and shared rules, and proves in Lean 4 which levels can and cannot be won.</p>' +
-      '<div class="btns"><a class="btn primary" href="#paper.abstract">Read the paper</a>' + (S.pdf ? '<a class="btn" href="' + S.pdf + '" target="_blank" rel="noopener">PDF</a>' : "") +
-      '<a class="btn" href="#games">The 25 games</a></div></div>' +
-      '<figure><div class="cvwrap"><canvas id="hero-cv"></canvas></div><figcaption id="hero-cap">Loading the replay…</figcaption></figure></section>' +
-      '<div class="stats">' + tiles + "</div>" +
+      '<div class="btns"><a class="btn primary" href="#paper.abstract">Read the paper</a>' + (S.pdf ? '<a class="btn" href="' + S.pdf + '" target="_blank" rel="noopener">Paper (PDF)</a>' : "") +
+      (S.supplement ? '<a class="btn" href="' + S.supplement + '" target="_blank" rel="noopener">Supplementary (PDF)</a>' : "") +
+      '<a class="btn" href="#games">The 25 games</a><a class="btn" href="#bibtex">BibTeX</a></div></div>' +
+      '<div class="h-fig">' + teaser() + '<p class="note"><a href="#' + esc(S.featured) + '.replay">Watch a recorded run</a> step by step.</p></div>' +
+      '<div class="stats h-stats">' + tiles + "</div></section>" +
       '<div class="paperwrap"><nav class="toc" aria-label="Contents">' + toc + "</nav>" +
-      '<article class="paper" id="paper">' +
+      '<article class="paper" id="paper">' + results +
       '<p class="note">' + provenance() + ".</p>" +
       '<section id="paper.abstract"><h2>Abstract</h2>' + (P.abstract_html || "") + "</section>" +
       '<figure><figcaption>The loop the paper describes, as run on each game below.</figcaption>' + PIPE + "</figure>" +
@@ -216,12 +314,61 @@
         ["Official results", "<code>bench/site/data/official_public_demo.json</code>"],
         ["Paper", "<code>paper-revision/main.tex</code>, the <code>sec/*.tex</code> it inputs, <code>Reference.bib</code>, figures (git " + esc(P.source_commit || "—") + ")"],
         ["Colour palette", "<code>" + esc(S.palette_src) + "</code>"]
-      ]) + "</section>" +
+      ]) + "</section>" + repro() + faq() +
+      '<section id="autorepair-link"><h2>Autonomous repair (preliminary)</h2><p>Runs that build the audit into the method, with no external signal that a bound is wrong, are on <a href="#autorepair">their own page</a>. They are reported in the supplementary material, not in the six-run evaluation.</p></section>' +
+      bibtex() +
       '<footer class="site">' + provenance() + ".</footer></article></div>";
     addExploreCards(document.getElementById("paper"));
     typeset(document.getElementById("paper"));
-    hero();
+    heroAnim(); capInit(); bibInit();
     scrollTo(anchor && anchor !== "home" ? anchor : "");
+  }
+
+  // ---------------------------------------------------------------- C9: autonomous repair (supplementary material, Appendix C.22)
+  function autorepair() {
+    setNav("home");
+    app.innerHTML = '<p class="crumb"><a href="#home">Paper</a> / Autonomous repair</p><h1>Autonomous repair (preliminary)</h1>' +
+      '<p class="lede">Preliminary; reported in the supplementary material, not in the six-run evaluation.</p>' +
+      "<p>These pilots build the audit into the initial procedure, with no external signal that the bound is wrong. They are separate from both the six main runs and the four-attempt feedback repairs of §4.3. " +
+      "The table is Appendix C.22 of the supplementary material; it separates numerical outcomes, the subject's own proof reports and independent rebuilding.</p>" +
+      table(["Record", "Numerical outcome", "Proof verification"], (S.autorepair || []).map(function (r) { return r.map(esc); })) +
+      "<p>The two phase2 pilots each restarted the dialogue session once while keeping their workspace files, so they are not uninterrupted-session replications. " +
+      "These versions, interruptions and verification statuses do not define a common sampling protocol or a pooled success rate (Appendix C.22).</p>" +
+      (S.supplement ? '<p><a class="btn" href="' + S.supplement + '" target="_blank" rel="noopener">Supplementary material (PDF)</a></p>' : "") +
+      '<footer class="site">Source: <code>paper-revision/supplement/sec/92-appendix-c-sc25.tex</code>, §C.22 · ' + provenance() + ".</footer>";
+    window.scrollTo(0, 0);
+  }
+
+  // ---------------------------------------------------------------- C4: how eleven lp85 concepts became press_permutes (§2.5, Figure 3)
+  function mergeView(D) {
+    var M = S.lp85_merge; if (!M || D.g !== "lp85") return "";
+    var maxSt = 1;
+    D.replay.recs.forEach(function (r) { if (r.st > maxSt) maxSt = r.st; });
+    M.from.forEach(function (c) { c.vs.forEach(function (v) { if (v.st > maxSt) maxSt = v.st; }); if (c.rs > maxSt) maxSt = c.rs; });
+    var W = 640, X0 = 150, H = 22, top = 24, n = M.from.length;
+    function x(st) { return X0 + (W - X0 - 20) * (st || 0) / maxSt; }
+    var svg = '<svg class="merge" viewBox="0 0 ' + (W + 170) + " " + (top + n * H + 40) + '" role="img" aria-label="When each of the eleven concepts was written, revised and withdrawn, and their merge into press_permutes">';
+    svg += '<line class="ax" x1="' + X0 + '" y1="' + (top + n * H + 6) + '" x2="' + (W - 20) + '" y2="' + (top + n * H + 6) + '"/>' +
+      '<text class="lb" x="' + X0 + '" y="' + (top + n * H + 22) + '">step 0</text><text class="lb" x="' + (W - 20) + '" y="' + (top + n * H + 22) + '" text-anchor="end">step ' + maxSt + "</text>";
+    M.from.forEach(function (c, i) {
+      var y = top + i * H, sameRun = function (v) { return v.run === D.run; };
+      var st0 = c.vs.length ? c.vs[0].st : 0, end = c.fate === "retired" && c.rs ? c.rs : maxSt;
+      svg += '<text class="nm" x="' + (X0 - 8) + '" y="' + (y + 4) + '" text-anchor="end">' + esc(c.name) + "</text>" +
+        '<line class="life" x1="' + x(st0) + '" y1="' + y + '" x2="' + x(end) + '" y2="' + y + '"/>';
+      c.vs.forEach(function (v) {
+        var dot = '<circle class="v" cx="' + x(v.st) + '" cy="' + y + '" r="4"><title>v' + v.v + " written at step " + v.st + "</title></circle>";
+        svg += sameRun(v) ? '<a href="#lp85.replay.s' + v.st + '">' + dot + "</a>" : dot;
+      });
+      if (c.fate === "retired" && c.rs) svg += '<text class="x" x="' + x(c.rs) + '" y="' + (y + 4) + '" text-anchor="middle">×<title>withdrawn at step ' + c.rs + "</title></text>";
+      svg += '<path class="to" d="M' + (W - 14) + "," + y + " C" + (W + 30) + "," + y + " " + (W + 30) + "," + (top + n * H / 2 - H / 2) + " " + (W + 52) + "," + (top + n * H / 2 - H / 2) + '"/>';
+    });
+    svg += '<text class="rule" x="' + (W + 56) + '" y="' + (top + n * H / 2 - H / 2 + 4) + '">' + esc(M.rule) + "</text></svg>";
+    return '<h2 id="lp85.merge">How eleven concepts became one rule</h2>' +
+      "<p>During play the agent wrote the eleven concepts below for four button mechanisms: belts, stars, hubs and panels. Each dot is a version, placed at the play step where it was written (click one in this run to open that step)" +
+      (M.from.some(function (c) { return c.fate === "retired"; }) ? "; × marks a withdrawal. " : "; none of the eleven was withdrawn during play. ") +
+      "Generalization then replaces all eleven with one shared operation, <code>press_permutes</code>, parameterized by the pressed button. The unified rule preserves all 55 diagnostic rejections of the original concepts and detects 21 additional invalid transitions (§2.5, Figure 3).</p>" +
+      '<div class="tbox" style="padding:8px">' + svg + "</div>" +
+      '<p class="note">Concept names and merge sources: <code>' + esc(M.src) + "</code> (field <code>rules.press_permutes.from</code>); versions and steps: <code>bench/ledger/games/lp85/registry.json</code>.</p>";
   }
 
   // ---------------------------------------------------------------- one game: shared parts
@@ -270,7 +417,7 @@
       '<div class="md prose">' + (D.explain.en || "<p>—</p>") + "</div>" +
       (D.explain.zh ? '<details class="orig"><summary>Original</summary><div class="md" style="white-space:normal">' + D.explain.zh + "</div></details>" : "") +
       (D.notes.en ? '<h2 id="' + g + '.notes">Notes on the repaired rules (header of Game.lean)</h2><pre>' + esc(D.notes.en) + "</pre>" + orig(D.notes.zh, D.notes.en) : "") +
-      sources(D.src);
+      mergeView(D) + sources(D.src);
     window.scrollTo(0, 0);
   }
 
@@ -531,7 +678,7 @@
   window.addEventListener("resize", function () { if (RP) RP.resize(); });
 
   // ---------------------------------------------------------------- routing
-  var HOME_ANCHORS = ["home", "games", "compare", "data"];
+  var HOME_ANCHORS = ["home", "games", "compare", "data", "results", "repro", "faq", "bibtex", "autorepair-link"];
   var current = "";
   function route() {
     var h = decodeURIComponent(location.hash.replace(/^#/, ""));
@@ -542,6 +689,7 @@
       return;
     }
     if (RP) { RP.stop(); RP = null; }
+    if (head === "autorepair") { current = "autorepair"; autorepair(); return; }
     if (head === "paper") {                     // a place inside the paper on the home page
       if (current !== "home") { current = "home"; home(""); }
       scrollTo(h === "paper" ? "paper.abstract" : h);
@@ -557,13 +705,13 @@
         else if (view === "rules") rules(D, arg);
         else if (view === "proof") proof(D);
         else if (view === "wb") wb(D, arg);
-        else if (view === "explain" || view === "notes") { overview(D); scrollTo(head + "." + view); }
+        else if (view === "explain" || view === "notes" || view === "merge") { overview(D); scrollTo(head + "." + view); }
         else overview(D);
       }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
       return;
     }
     var anchor = HOME_ANCHORS.indexOf(head) >= 0 ? head : "home";
-    if (current === "home") { setNav(anchor === "home" ? "home" : anchor === "data" ? "data" : "games"); scrollTo(anchor === "home" ? "" : anchor); return; }
+    if (current === "home") { setNav(anchor === "games" || anchor === "compare" ? "games" : anchor === "data" ? "data" : "home"); scrollTo(anchor === "home" ? "" : anchor); return; }
     current = "home";
     home(anchor);
   }

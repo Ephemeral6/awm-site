@@ -1,10 +1,23 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Algebraic World Model</title>
 <meta charset="utf-8">
 <meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="AWM learns a formal model of a game from play and proves in Lean which levels can and cannot be won; on sealed levels it proves impossibility where frontier coding agents cannot.">
+<meta property="og:title" content="Algebraic World Model: From Observations to Axioms and Proofs">
+<meta property="og:description" content="AWM learns a formal model of a game from play and proves in Lean which levels can and cannot be won; on sealed levels it proves impossibility where frontier coding agents cannot.">
+<meta property="og:type" content="article">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Algebraic World Model: From Observations to Axioms and Proofs">
+<meta name="twitter:description" content="AWM learns a formal model of a game from play and proves in Lean which levels can and cannot be won; on sealed levels it proves impossibility where frontier coding agents cannot.">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "ScholarlyArticle", "headline": "Algebraic World Model: From Observations to Axioms and Proofs", "abstract": "AI has made remarkable progress in mathematics, solving challenging problems with machine-checkable proofs in Lean, yet typically relying on predefined mathematical definitions and formal specifications. This raises a natural question: can it reason rigorously about an unknown world? We introduce the Algebraic World Model (AWM), which turns interaction with an unfamiliar environment into a mathematical model of it. The agent explores the environment and prototypes executable hypotheses, revising them through each transition. It then structures these hypotheses into typed objects and shared rules, simplifies them through category-theory-inspired transformations, and formalizes the resulting model in Lean 4 to prove reachability and impossibility. On two impossible game levels, AWM agents construct closed, kernel-checked Lean proofs that exclude every legal winning sequence under explicit learned models in all six runs. Without AWM, Claude Opus 5.5 and GPT-6 Astra produce no such certificates in twelve runs; even the sole numerically correct bound leaves route minimality as an explicit, unchecked assumption. AWM also substantially improves bound accuracy to 4/6, compared with 1/6 for Opus 5.5 and 0/6 for GPT-6 Astra, and reaches 100% across the six runs after feedback-guided repair. AWM also models all 25 public ARC-AGI-3 games: Lean replays the winning runs of all 183 levels, and with Opus 5 it scores 99.9 with the fewest certified actions among the systems that report them.", "author": {"@type": "Person", "name": "Anonymous"}, "url": "https://ephemeral6.github.io/awm-site/", "image": "https://ephemeral6.github.io/awm-site/og.png", "encoding": {"@type": "MediaObject", "contentUrl": "https://ephemeral6.github.io/awm-site/paper.pdf", "encodingFormat": "application/pdf"}}</script>
 <style>
 /* AWM site. Every colour is a token on :root; dark values are defined twice below (system preference and explicit choice). */
 :root {
@@ -78,8 +91,33 @@ p { margin: 8px 0 12px; }
 .btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
 .btn:hover { text-decoration: none; border-color: var(--accent); }
 
-/* hero */
-.hero { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; align-items: center; padding: 12px 0 8px; }
+/* hero: text | Figure 1 on wide screens, the tiles below both; on phones text, tiles, figure */
+.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-areas: "text fig" "stats stats";
+        gap: 8px 32px; align-items: center; padding: 12px 0 8px; }
+.hero .h-text { grid-area: text; } .hero .h-fig { grid-area: fig; } .hero .h-stats { grid-area: stats; }
+.authors { color: var(--dim); font-size: 15px; margin: 0 0 8px; }
+.tldr { font: 16px/1.55 var(--sans); background: var(--panel); border-left: 3px solid var(--accent); padding: 8px 12px; margin: 10px 0; max-width: 760px; }
+.teaser { margin: 0; }
+.teaser svg { display: block; width: 100%; height: auto; background: #fff; border: 1px solid var(--line); border-radius: 4px; }
+.teaser .t-dim { fill: #f6f4ee; opacity: .78; }
+.teaser .t-ring { fill: none; stroke: var(--warm); stroke-width: 1.6; }
+.teaser figcaption { min-height: 4.6em; }
+.teaser figcaption .note { display: block; margin-top: 4px; }
+.t-ctrl { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
+.t-ctrl .btn { padding: 2px 10px; font-size: 13px; }
+.t-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--faint); background: none; padding: 0; margin-right: 4px; cursor: pointer; }
+.t-dot.on { background: var(--warm); border-color: var(--warm); }
+.capw { margin: 16px 0; font-family: var(--sans); }
+.capw table.t td, .capw table.t th { font-size: 14px; }
+svg.merge { width: 100%; height: auto; display: block; font-family: var(--mono); }
+svg.merge .nm, svg.merge .lb { fill: var(--dim); font-size: 11px; }
+svg.merge .ax { stroke: var(--line); }
+svg.merge .life { stroke: var(--line); stroke-width: 2; }
+svg.merge .v { fill: var(--accent); }
+svg.merge a .v:hover { fill: var(--warm); }
+svg.merge .x { fill: var(--bad); font-size: 14px; font-weight: 600; }
+svg.merge .to { fill: none; stroke: var(--faint); stroke-width: 1; }
+svg.merge .rule { fill: var(--ink); font-size: 13px; font-weight: 600; }
 .hero figure { margin: 0; }
 .hero .cvwrap { position: relative; aspect-ratio: 1; background: #000; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
 .hero canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
@@ -203,6 +241,8 @@ footer.site ul { padding-left: 18px; margin: 6px 0; }
 }
 @media (max-width: 860px) {
   .hero, .rp { grid-template-columns: 1fr; }
+  .hero { grid-template-areas: "text" "stats" "fig"; }
+  .hero .h-fig { width: 100%; }
   h1 { font-size: 29px; }
   .paper { font-size: 16.5px; }
 }
