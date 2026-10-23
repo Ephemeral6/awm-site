@@ -102,17 +102,21 @@
   }
 
   // ---------------------------------------------------------------- home = the paper
-  var PIPE = '<svg class="pipeline" viewBox="0 0 1000 210" role="img" aria-label="AWM pipeline: observe, Python hypotheses, objects and shared rules, Lean proof">' +
+  // The three stages of §1 and §2, in the paper's own names.
+  var PIPE = '<svg class="pipeline" viewBox="0 0 1000 190" role="img" aria-label="AWM in three stages: Explore and Prototype, Structure and Simplify, Formalize and Prove">' +
     '<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path class="ah" d="M0,0 L10,5 L0,10 z"/></marker></defs>' +
-    box(10, "1  Observe", ["act in the game and record", "every transition (frame,", "action, next frame)"]) +
-    box(265, "2  Hypothesise in Python", ["each hypothesis is a function", "that judges every transition", "counterexample → revise / retire"]) +
-    box(520, "3  Objects and shared rules", ["condense the hypotheses into", "typed objects (World / parse)", "and shared rules"]) +
-    box(775, "4  Prove in Lean 4", ["rules become definitions;", "the kernel checks consistent,", "faithful, reachable / unreachable"]) +
-    '<path class="ar" d="M225,90 L262,90" marker-end="url(#ah)"/><path class="ar" d="M480,90 L517,90" marker-end="url(#ah)"/><path class="ar" d="M735,90 L772,90" marker-end="url(#ah)"/>' +
-    '<path class="ar" d="M372,150 C372,195 118,195 118,153" marker-end="url(#ah)"/><text class="sb" x="182" y="202">a bet fails or a counterexample appears: run an experiment</text></svg>';
+    box(10, "1  Explore & Prototype", ["explore the environment;", "build and revise an executable", "model from observed transitions"]) +
+    box(350, "2  Structure & Simplify", ["typed objects and rules,", "simplified by four transformations", "that keep tested distinctions"]) +
+    box(690, "3  Formalize & Prove", ["encode the model in Lean 4;", "kernel-checked proofs of", "reachability or impossibility"]) +
+    '<path class="ar" d="M310,90 L347,90" marker-end="url(#ah)"/><path class="ar" d="M650,90 L687,90" marker-end="url(#ah)"/></svg>';
   function box(x, h, lines) {
-    return '<rect class="box" x="' + x + '" y="30" width="215" height="120" rx="4"/><text class="hd" x="' + (x + 14) + '" y="60">' + h + "</text>" +
+    return '<rect class="box" x="' + x + '" y="30" width="300" height="120" rx="4"/><text class="hd" x="' + (x + 14) + '" y="60">' + esc(h) + "</text>" +
       lines.map(function (l, i) { return '<text class="sb" x="' + (x + 14) + '" y="' + (86 + 18 * i) + '">' + l + "</text>"; }).join("");
+  }
+  function provenance() {
+    var D = S.data || {}, P = S.paper || {};
+    return "Paper text at commit " + esc(P.source_commit || "—") + " (the PDF is built from the same commit) · data commit " + esc(D.commit || "—") +
+      (D.date ? " (" + esc(D.date) + ")" : "") + " · built " + esc(S.built);
   }
   function paperSections() { return ((S.paper || {}).sections) || []; }
   function secId(s) { var id = String(s.id || ""); return id.indexOf("paper.") === 0 ? id : "paper." + tok(id); }
@@ -120,7 +124,7 @@
   function exploreCard(g) {
     var i = INFO[g]; if (!i) return "";
     return '<div class="explore"><a href="#' + g + '"><img src="thumbs/' + g + '.png" alt="' + g + ', first frame"></a><div>' +
-      "<b>" + g + "</b> · " + i.levels + "/" + i.level_count + " levels · " + i.steps + " actions · " + i.concepts + " hypotheses · score " + esc(i.score) +
+      "<b>" + g + "</b> · " + i.levels + "/" + i.level_count + " levels · " + i.steps + " actions · " + i.concepts + " concepts · score " + esc(i.score) +
       '<div class="links"><a href="#' + g + '.replay">Step-by-step replay</a><a href="#' + g + '.rules">Concept book</a><a href="#' + g + '.proof">Lean proof</a><a href="#' + g + '">Overview</a></div></div></div>';
   }
   function addExploreCards(root) {
@@ -177,24 +181,30 @@
     app.innerHTML =
       '<section class="hero"><div><div class="kicker">ARC-AGI-3 · Python hypotheses · Lean 4</div>' +
       "<h1>" + esc(P.title || "Algebraic World Model") + "</h1>" +
-      '<p class="lede">An agent plays a game it has never seen, writes each guess about the rules as a Python function checked against every recorded step, condenses the guesses into typed objects and shared rules, and proves in Lean 4 which levels can and cannot be won.</p>' +
+      '<p class="lede">An agent plays a game it has never seen, writes each guess about the rules as a Python function checked against every recorded step, simplifies the guesses into typed objects and shared rules, and proves in Lean 4 which levels can and cannot be won.</p>' +
       '<div class="btns"><a class="btn primary" href="#paper.abstract">Read the paper</a>' + (S.pdf ? '<a class="btn" href="' + S.pdf + '" target="_blank" rel="noopener">PDF</a>' : "") +
       '<a class="btn" href="#games">The 25 games</a></div></div>' +
       '<figure><div class="cvwrap"><canvas id="hero-cv"></canvas></div><figcaption id="hero-cap">Loading the replay…</figcaption></figure></section>' +
       '<div class="stats">' + tiles + "</div>" +
       '<div class="paperwrap"><nav class="toc" aria-label="Contents">' + toc + "</nav>" +
       '<article class="paper" id="paper">' +
+      '<p class="note">' + provenance() + ".</p>" +
       '<section id="paper.abstract"><h2>Abstract</h2>' + (P.abstract_html || "") + "</section>" +
       '<figure><figcaption>The loop the paper describes, as run on each game below.</figcaption>' + PIPE + "</figure>" +
       secs.map(function (s) { return '<section id="' + secId(s) + '"><h2>' + esc((s.number ? s.number + " " : "") + s.title) + "</h2>" + s.html + "</section>"; }).join("") +
       (P.bib_html ? '<section id="paper.references"><h2>References</h2><div class="bib">' + P.bib_html + "</div></section>" : "") +
       '<section id="games"><h2>Appendix: the 25 games</h2><p>Every public ARC-AGI-3 game, as the agent played it. Each game has the same five views: overview with the agent\'s own explanation, step-by-step replay, concept book, Lean proof, and the original workbench.</p>' +
+      '<p class="note">In 22 games the certified clear followed uncertified sessions of the same run (Table 1). In ' + esc(S.inherited) + " games the sealed run started from a concept book written by an earlier run of the same game; those cards say how many concepts it started with, and each game's overview lists the run that wrote them. The other " + esc(GAMES.length - S.inherited) + " started from an empty book.</p>" +
       '<div class="gallery">' + cards + "</div>" +
-      '<h3 id="compare">Official results on the same 25 games</h3><p>The first column is the scorecard of each sealed run; the other three are the per-game results published by ARC Prize (fetched ' + esc(C.fetched) + ").</p>" +
+      '<h3 id="compare">Official results on the same 25 games</h3><p>Table 1 of the paper:</p>' + ((S.tables || {})["tab:scores"] || "") +
+      '<p>Per game: the first column is the scorecard of each sealed run; the other three are the per-game results published by ARC Prize (fetched ' + esc(C.fetched) + ").</p>" +
       table(C.head.map(esc), crow, [1, 2, 3, 4]) +
       '<ul class="note">' + C.conditions.map(function (c) { return "<li>" + esc(c) + "</li>"; }).join("") + "</ul>" +
       '<p class="note">Sources: ' + C.sources.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + "</a>"; }).join(", ") + "</p></section>" +
-      '<section id="data"><h2>Data and sources</h2>' + table(["What", "From"], [
+      '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
+      "<p>Figures and tables on this site are read from commit <code>" + esc((S.data || {}).commit) + "</code>" + ((S.data || {}).date ? " (" + esc(S.data.date) + ")" : "") +
+      ", the build reported in the paper; the game data in <code>archive/</code>, <code>ledger/games/</code> and <code>site/data/</code> is unchanged up to the bench commit <code>" + esc((S.data || {}).head) + "</code> this site was built from.</p>" +
+      table(["What", "From"], [
         ["Frames of every step", "<code>bench/runs/&lt;run&gt;/transitions.jsonl</code>; each frame pair is checked against the sealed <code>formal/abstract.jsonl</code> by tid = sha1(action, frame, next frame)"],
         ["Reasoning at each step", "<code>bench/runs/&lt;run&gt;/reasoning.jsonl</code>, sent with each action"],
         ["Bets and journal lines", "the timeline of <code>bench/archive/&lt;seal&gt;/report/index.html</code>, generated from the journal"],
@@ -207,7 +217,7 @@
         ["Paper", "<code>paper-revision/main.tex</code>, the <code>sec/*.tex</code> it inputs, <code>Reference.bib</code>, figures (git " + esc(P.source_commit || "—") + ")"],
         ["Colour palette", "<code>" + esc(S.palette_src) + "</code>"]
       ]) + "</section>" +
-      '<footer class="site">Built locally ' + esc(S.built) + ".</footer></article></div>";
+      '<footer class="site">' + provenance() + ".</footer></article></div>";
     addExploreCards(document.getElementById("paper"));
     typeset(document.getElementById("paper"));
     hero();
@@ -271,10 +281,10 @@
     var nv = D.rules.reduce(function (a, r) { return a + r.vs.length; }, 0);
     var items = D.rules.map(function (r) {
       var last = r.vs[r.vs.length - 1] || {};
-      var chips = '<span class="chip ' + (r.fate === "alive" ? "ok" : "bad") + '">' + (r.fate === "alive" ? "alive" : r.fate === "retired" ? "retired" : esc(r.fate)) + "</span>" +
+      var chips = '<span class="chip ' + (r.fate === "alive" ? "ok" : "bad") + '">' + (r.fate === "alive" ? "alive" : r.fate === "retired" ? "withdrawn" : esc(r.fate)) + "</span>" +
         '<span class="chip">' + r.vs.length + (r.vs.length === 1 ? " version" : " versions") + "</span>" + (r.lean ? '<span class="chip con">in Game.lean</span>' : "") +
         (r.m ? '<span class="chip">speaks on ' + r.m[0] + " cells · right " + r.m[1] + " · wrong " + r.m[2] + "</span>" : "") +
-        (r.fate === "retired" ? '<span class="chip bad">retired at step ' + r.rs + "</span>" : "");
+        (r.fate === "retired" ? '<span class="chip bad">withdrawn at step ' + r.rs + "</span>" : "");
       var vs = r.vs.map(function (v) {
         return '<div class="v"><div class="h">v' + v.v + ' · <a href="#' + g + ".replay.s" + v.st + '">step ' + v.st + "</a> · " + esc(v.at || "") + (v.run ? " · " + esc(v.run) : "") + " · " + v.ev + " evidence</div>" +
           '<div class="claim">' + esc(v.doc) + "</div>" + orig(v.doc_zh, v.doc) +
@@ -287,8 +297,8 @@
         "</div></details>";
     }).join("");
     app.innerHTML = crumb(g, "Concept book") + "<h1>" + g + " · concept book</h1>" +
-      '<p class="lede">Every hypothesis the agent wrote while playing. Each is a Python function that judges every recorded transition TRUE, FALSE or stays silent. ' +
-      D.rules.length + " concepts when sealed: " + alive + " alive, " + (D.rules.length - alive) + " retired, " + nv + " versions in all.</p>" +
+      '<p class="lede">Every concept the agent wrote while playing. Each is a Python hypothesis that judges every recorded transition TRUE, FALSE or NA (outside its scope). ' +
+      D.rules.length + " concepts when sealed: " + alive + " alive, " + (D.rules.length - alive) + " withdrawn, " + nv + " versions in all.</p>" +
       gameNav(g, "rules") +
       '<div class="btns"><button class="btn" type="button" id="xall">Expand all</button><button class="btn" type="button" id="call">Collapse all</button></div>' + items +
       (D.lib ? '<details class="item"><summary>Shared vocabulary <code>_lib.py</code> (as written)</summary><div class="body"><pre><code>' + esc(D.lib) + "</code></pre></div></details>" : "") +
@@ -303,7 +313,7 @@
     var g = D.g, P = D.proof;
     var known = {}; D.rules.forEach(function (r) { known[r.name] = 1; });
     app.innerHTML = crumb(g, "Lean proof") + "<h1>" + g + " · Lean proof</h1>" +
-      '<p class="lede">The learned rules are written as definitions in <code>stepRules</code>. The Lean kernel (<code>decide +kernel</code>) checks two theorems: <code>consistent</code>, every rule holds on every recorded transition; and <code>faithful</code>, computing with the rules from level 0 reproduces the whole winning route, each step equal to the recording.</p>' +
+      '<p class="lede">The learned rules are written as definitions in <code>stepRules</code>. The Lean kernel (<code>decide +kernel</code>) checks two theorems. <em>consistent</em>: every rule holds on every recorded transition; <em>faithful</em>: Lean replays the winning run. The replay starts at level 0 and computes each step with the rules, and every step must equal the recording.</p>' +
       gameNav(g, "proof") + "<h2>Check results</h2>" + table(["", ""], P.rows.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
       "<h2>Rules (" + P.names.length + ")</h2><p>" + P.names.map(function (n) {
         return known[n] ? '<a class="chip con" href="#' + g + ".rules." + tok(n) + '">' + esc(n) + "</a>" : '<span class="chip">' + esc(n) + "</span>";
@@ -437,7 +447,7 @@
         if (r.sp && r.sp.length) w += "<p>Based on " + r.sp.map(chip).join("") + "</p>";
         if (r.cl) w += '<ul class="note">' + Object.keys(r.cl).map(function (k) { return "<li><b>" + esc(k) + "</b>: " + esc(r.cl[k]) + orig((r.clz || {})[k], r.cl[k]) + "</li>"; }).join("") + "</ul>";
         if (r.ls) {
-          var lsl = [["revised", r.ls.revised], ["registered", r.ls.registered], ["retired", r.ls.retired]].filter(function (x) { return x[1] && x[1].length; });
+          var lsl = [["revised", r.ls.revised], ["registered", r.ls.registered], ["withdrawn", r.ls.retired]].filter(function (x) { return x[1] && x[1].length; });
           w += '<details class="note"><summary>Last settle (after step ' + esc(r.ls.after_step) + "): " + esc(r.ls.concepts) + " concepts, " + esc(r.ls.counterexamples) + " counterexamples" +
             lsl.map(function (x) { return ", " + x[1].length + " " + x[0]; }).join("") + "</summary>" +
             lsl.map(function (x) { return "<ul>" + x[1].map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>"; }).join("") + "</details>";
