@@ -25,6 +25,22 @@
     if (!zh || zh === en) return "";
     return '<details class="orig"><summary>Original</summary><div>' + esc(zh) + "</div></details>";
   }
+  // English when there is a translation; otherwise the Chinese record stays folded under a label, never shown bare
+  var CJK = /[㐀-鿿]/;
+  var ZH_LABEL = "Agent's notes (original, in Chinese)";
+  function zhFold(html) {
+    return '<details class="orig"><summary>' + ZH_LABEL + '</summary><div>' + html + "</div></details>";
+  }
+  function preBi(en, zh) {
+    if (en && !CJK.test(en)) return "<pre>" + esc(en) + "</pre>" + orig(zh, en);
+    var src = zh || en;
+    return src ? zhFold("<pre>" + esc(src) + "</pre>") : "";
+  }
+  function zhBi(en, zh) {
+    if (en && !CJK.test(en)) return esc(en) + orig(zh, en);
+    var src = zh || en;
+    return src ? zhFold(esc(src)) : "";
+  }
   var loaded = {};
   function load(src) {
     if (loaded[src]) return loaded[src];
@@ -298,7 +314,7 @@
       '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
       "<p>All figures on this site are those reported in the paper and its supplementary material (benchmark commit <code>" + esc((S.data || {}).commit) + "</code>).</p>" +
       table(["What", "From"], [
-        ["Per-game figures", "the supplementary material: Appendix A (<code>tab:formal</code>) and Appendix E (<code>tab:scoresfull</code>, <code>tab:actions</code>)"],
+        ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 11–12 (Appendix E)"],
         ["Frames of every step", "<code>bench/runs/&lt;run&gt;/transitions.jsonl</code>; each frame pair is checked against the sealed <code>formal/abstract.jsonl</code> by tid = sha1(action, frame, next frame)"],
         ["Reasoning at each step", "<code>bench/runs/&lt;run&gt;/reasoning.jsonl</code>, sent with each action"],
         ["Bets and journal lines", "the timeline of <code>bench/archive/&lt;seal&gt;/report/index.html</code>, generated from the journal"],
@@ -327,10 +343,10 @@
     app.innerHTML = '<p class="crumb"><a href="#home">Paper</a> / Autonomous repair</p><h1>Autonomous repair (preliminary)</h1>' +
       '<p class="lede">Preliminary; reported in the supplementary material, not in the six-run evaluation.</p>' +
       "<p>These pilots build the audit into the initial procedure, with no external signal that the bound is wrong. They are separate from both the six main runs and the four-attempt feedback repairs of §4.3. " +
-      "The table is Appendix C.22 of the supplementary material; it separates numerical outcomes, the subject's own proof reports and independent rebuilding.</p>" +
+      "The table is Appendix B.22 of the supplementary material; it separates numerical outcomes, the subject's own proof reports and independent rebuilding.</p>" +
       table(["Record", "Numerical outcome", "Proof verification"], (S.autorepair || []).map(function (r) { return r.map(esc); })) +
       "<p>The two phase2 pilots each restarted the dialogue session once while keeping their workspace files, so they are not uninterrupted-session replications. " +
-      "These versions, interruptions and verification statuses do not define a common sampling protocol or a pooled success rate (Appendix C.22).</p>" +
+      "These versions, interruptions and verification statuses do not define a common sampling protocol or a pooled success rate (Appendix B.22).</p>" +
       (S.supplement ? '<p><a class="btn" href="' + S.supplement + '" target="_blank" rel="noopener">Supplementary material (PDF)</a></p>' : "") +
       '<footer class="site">Source: <code>paper-revision/supplement/sec/92-appendix-c-sc25.tex</code>, §C.22 · ' + provenance() + ".</footer>";
     window.scrollTo(0, 0);
@@ -570,21 +586,23 @@
       '<p class="lede">ARC-AGI-3 public game <code>' + esc(D.game) + "</code>, run <code>" + esc(D.run) + "</code>, sealed as <code>" + esc(D.seal) + "</code>.</p>" +
       gameNav(g, "") +
       (ment.length ? "<p>In the paper: " + ment.map(function (s) { return '<a href="#' + secId(s) + '">' + esc((s.number ? "§" + s.number + " " : "") + s.title) + "</a>"; }).join(", ") + "</p>" : "") +
-      '<div class="rp"><div><h2 style="margin-top:8px">How to play</h2><p class="prose md">' + esc(D.playguide.en) + "</p>" + orig(D.playguide.zh, D.playguide.en) + "</div>" +
+      '<div class="rp"><div><h2 style="margin-top:8px">How to play</h2><div class="prose md">' + zhBi(D.playguide.en, D.playguide.zh) + "</div></div>" +
       '<div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
       '<figure style="margin:0"><figcaption class="note">Before the first recorded step</figcaption><img src="thumbs/' + g + '.png" alt="first frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '<figure style="margin:0"><figcaption class="note">After the last recorded step</figcaption><img src="thumbs/' + g + '-last.png" alt="last frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '</div><p><a class="btn primary" href="#' + g + '.replay">Open the replay</a></p></div></div>' +
-      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Appendix A (<code>tab:formal</code>) and Appendix E (<code>tab:scoresfull</code>, <code>tab:actions</code>).</p>" +
+      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Table 2 (Appendix A) and Tables 11–12 (Appendix E).</p>" +
       table(["", ""], D.stats.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
       "<h3>Official scores on this game (systems of Table 1)</h3>" + table(["System", "Official score"], D.official.map(function (r) { return [esc(r[0]), esc(Number(r[1]).toFixed(1))]; }), [1]) +
       (D.replays.length ? "<h3>Official replays</h3><p>" + D.replays.map(function (r) {
         return '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">arcprize.org replay ' + esc(r.url.split("/").pop().slice(0, 8)) + "… ↗</a>" + (r.cert ? ' <span class="chip ok">certified</span>' : "");
       }).join("<br>") + "</p>" : "") +
       '<h2 id="' + g + '.explain">The agent\'s explanation</h2><p class="note">Written by the agent when it sealed the run (<code>explain.md</code>).</p>' +
-      '<div class="md prose">' + (D.explain.en || "<p>—</p>") + "</div>" +
-      (D.explain.zh ? '<details class="orig"><summary>Original</summary><div class="md" style="white-space:normal">' + D.explain.zh + "</div></details>" : "") +
-      (D.notes.en ? '<h2 id="' + g + '.notes">Notes on the repaired rules (header of Game.lean)</h2><pre>' + esc(D.notes.en) + "</pre>" + orig(D.notes.zh, D.notes.en) : "") +
+      (D.explain.en && !CJK.test(D.explain.en)
+        ? '<div class="md prose">' + D.explain.en + "</div>" +
+          (D.explain.zh ? '<details class="orig"><summary>Original</summary><div class="md" style="white-space:normal">' + D.explain.zh + "</div></details>" : "")
+        : (D.explain.zh ? '<p class="note">No English translation yet.</p>' + zhFold('<div class="md" style="white-space:normal">' + D.explain.zh + "</div>") : "<p>—</p>")) +
+      (D.notes.en ? '<h2 id="' + g + '.notes">Notes on the repaired rules (header of Game.lean)</h2>' + preBi(D.notes.en, D.notes.zh) : "") +
       mergeView(D) + sources(D.src);
     window.scrollTo(0, 0);
   }
@@ -603,12 +621,12 @@
       var vs = r.vs.map(function (v) {
         var at = v.run === D.run ? '<a href="#' + g + ".replay.s" + v.st + '">step ' + v.st + "</a>" : "step " + v.st + " of run <code>" + esc(v.run || "—") + "</code>";
         return '<div class="v"><div class="h">v' + v.v + " · " + at + " · " + esc(v.at || "") + "</div>" +
-          '<div class="claim">' + esc(v.doc) + "</div>" + orig(v.doc_zh, v.doc) +
-          (v.scope ? '<div class="note"><b>Scope:</b> ' + esc(v.scope) + "</div>" + orig(v.scope_zh, v.scope) : "") +
-          (v.note ? '<div class="note"><b>Added in this version:</b> ' + esc(v.note) + "</div>" + orig(v.note_zh, v.note) : "") + "</div>";
+          '<div class="claim">' + zhBi(v.doc, v.doc_zh) + "</div>" +
+          (v.scope ? '<div class="note"><b>Scope:</b> ' + zhBi(v.scope, v.scope_zh) + "</div>" : "") +
+          (v.note ? '<div class="note"><b>Added in this version:</b> ' + zhBi(v.note, v.note_zh) + "</div>" : "") + "</div>";
       }).join("");
       return '<details class="item" id="' + g + ".rules." + tok(r.name) + '"><summary><span class="name">' + esc(r.name) + "</span> " + chips +
-        '<div class="claim">' + esc(last.doc || "") + '</div></summary><div class="body"><div class="vers">' + vs + "</div>" +
+        '<div class="claim">' + (CJK.test(last.doc || "") ? '<span class="muted">(original in Chinese)</span>' : esc(last.doc || "")) + '</div></summary><div class="body"><div class="vers">' + vs + "</div>" +
         (r.src ? '<details class="item"><summary>Source as sealed (Python, as written)</summary><div class="body"><pre><code>' + esc(r.src) + "</code></pre></div></details>" : "") +
         "</div></details>";
     }).join("");
@@ -632,14 +650,14 @@
     app.innerHTML = crumb(g, "Lean proof") + "<h1>" + g + " · Lean proof</h1>" +
       '<p class="lede">The learned rules are written as definitions in <code>stepRules</code>. The Lean kernel (<code>decide +kernel</code>) checks two theorems. <em>consistent</em>: every rule holds on every recorded transition; <em>faithful</em>: Lean replays the winning run. The replay starts at level 0 and computes each step with the rules, and every step must equal the recording.</p>' +
       gameNav(g, "proof") +
-      "<h2>Reported in the paper</h2><p class=\"note\">Appendix A of the supplementary material (<code>tab:formal</code>), counted over the game's Lean project in <code>bench/ledger/games/" + esc(g) + "/lean2/</code> (in this game's Raw files).</p>" +
+      "<h2>Reported in the paper</h2><p class=\"note\">Table 2 of the supplementary material (Appendix A), counted over the game's Lean project in <code>bench/ledger/games/" + esc(g) + "/lean2/</code> (in this game's Raw files).</p>" +
       table(["", ""], (P.paper || []).map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
       "<h2>The sealed run's Game.lean</h2>" + table(["", ""], P.rows.map(function (r) { return [esc(r[0]), r[0].indexOf("sha256") >= 0 ? "<code>" + esc(r[1]) + "</code>" : esc(r[1])]; })) +
       "<h2>Rules (" + P.names.length + ")</h2><p>" + P.names.map(function (n) {
         return known[n] ? '<a class="chip con" href="#' + g + ".rules." + tok(n) + '">' + esc(n) + "</a>" : '<span class="chip">' + esc(n) + "</span>";
       }).join("") + "</p>" +
       "<h2>Theorems</h2><p>" + P.thms.map(function (t) { return "<code>" + esc(t) + "</code> "; }).join("") + "</p>" +
-      (D.notes.en ? "<h2>Notes in the file header</h2><pre>" + esc(D.notes.en) + "</pre>" + orig(D.notes.zh, D.notes.en) : "") +
+      (D.notes.en ? "<h2>Notes in the file header</h2>" + preBi(D.notes.en, D.notes.zh) : "") +
       "<h2>Game.lean (source as written; generated data section omitted)</h2><pre><code>" + esc(P.view) + "</code></pre>" + sources([P.path]);
     window.scrollTo(0, 0);
   }
@@ -699,7 +717,7 @@
     var cur = 0, timer = null, lastB = -2;
     function linesHtml(lines) {
       return lines.map(function (l) {
-        return '<li class="' + esc(l[0]) + '"><span class="tm">' + esc(l[1]) + '</span><span class="tg">' + esc(l[2]) + "</span> " + esc(l[3]) + orig(l[4], l[3]) + "</li>";
+        return '<li class="' + esc(l[0]) + '"><span class="tm">' + esc(l[1]) + '</span><span class="tg">' + esc(l[2]) + "</span> " + zhBi(l[3], l[4]) + "</li>";
       }).join("");
     }
     function show(i) {
@@ -720,15 +738,15 @@
       if (r.i) {
         w += "<p>Step " + r.i[0] + " of " + r.i[1] + " in this batch." + (r.pc !== undefined ? " The model predicted " + r.pc + " cells" + (r.pk ? " (" + r.pk + " conflicting cells not bet)" : "") + "." : "") + "</p>";
         if (r.sp && r.sp.length) w += "<p>Based on " + r.sp.map(chip).join("") + "</p>";
-        if (r.cl) w += '<ul class="note">' + Object.keys(r.cl).map(function (k) { return "<li><b>" + esc(k) + "</b>: " + esc(r.cl[k]) + orig((r.clz || {})[k], r.cl[k]) + "</li>"; }).join("") + "</ul>";
+        if (r.cl) w += '<ul class="note">' + Object.keys(r.cl).map(function (k) { return "<li><b>" + esc(k) + "</b>: " + zhBi(r.cl[k], (r.clz || {})[k]) + "</li>"; }).join("") + "</ul>";
         if (r.ls) {
           var lsl = [["revised", r.ls.revised], ["registered", r.ls.registered], ["withdrawn", r.ls.retired]].filter(function (x) { return x[1] && x[1].length; });
           w += '<details class="note"><summary>Last settle (after step ' + esc(r.ls.after_step) + "): " + esc(r.ls.concepts) + " concepts, " + esc(r.ls.counterexamples) + " counterexamples" +
             lsl.map(function (x) { return ", " + x[1].length + " " + x[0]; }).join("") + "</summary>" +
-            lsl.map(function (x) { return "<ul>" + x[1].map(function (s) { return "<li>" + esc(s) + "</li>"; }).join("") + "</ul>"; }).join("") + "</details>";
+            lsl.map(function (x) { return "<ul>" + x[1].map(function (s) { return "<li>" + zhBi(s) + "</li>"; }).join("") + "</ul>"; }).join("") + "</details>";
         }
       } else {
-        w += (r.pr ? "<p>Model prediction → hits: " + esc(r.pr) + "</p>" : "") + (r.sp && r.sp.length ? "<p>Concepts that spoke: " + r.sp.map(chip).join("") + "</p>" : "");
+        w += (r.pr ? "<p>Model prediction → hits: " + zhBi(r.pr) + "</p>" : "") + (r.sp && r.sp.length ? "<p>Concepts that spoke: " + r.sp.map(chip).join("") + "</p>" : "");
         if (!r.pr && !(r.sp && r.sp.length)) w += "<p>No concept spoke at this step.</p>";
       }
       $("why").innerHTML = w;
@@ -744,7 +762,7 @@
       }
       var b = B[bi], lines = linesHtml(b.lines || []);
       el.innerHTML = "<h4>" + esc(b.t) + " of " + B.length + (b.tm ? " · " + esc(b.tm) : "") + "</h4>" +
-        (b.bet ? '<div class="bet"><b>Bet:</b> ' + esc(b.bet) + "</div>" + orig(b.bet_zh, b.bet) : "") +
+        (b.bet ? '<div class="bet"><b>Bet:</b> ' + zhBi(b.bet, b.bet_zh) + "</div>" : "") +
         (lines ? '<div class="ctrl" style="margin:8px 0 0"><label><input type="checkbox" id="showchk"> show check and map lines</label></div><ul class="lines hidechk" id="lines">' + lines + "</ul>" : "");
       var c = $("showchk"); if (c) c.addEventListener("change", function () { $("lines").classList.toggle("hidechk", !c.checked); });
     }
@@ -840,6 +858,12 @@
         else if (view === "explain" || view === "notes" || view === "merge") { overview(D); scrollTo(head + "." + view); }
         else overview(D);
       }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
+      return;
+    }
+    if (h && HOME_ANCHORS.indexOf(head) < 0) {   // an address no view answers: say so instead of showing the home page
+      current = "notfound"; setNav("");
+      app.innerHTML = '<h1>Page not found</h1><p>No page answers <code>#' + esc(h) + '</code>.</p><p><a href="#home">Back to the home page</a></p>';
+      window.scrollTo(0, 0);
       return;
     }
     var anchor = HOME_ANCHORS.indexOf(head) >= 0 ? head : "home";
