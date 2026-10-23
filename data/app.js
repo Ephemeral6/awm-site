@@ -37,11 +37,7 @@
     return loaded[src];
   }
   function loadGame(g) { return load("data/g-" + g + ".js").then(function () { return window.AWM_G[g]; }); }
-  function typeset(node) {
-    var go = function () { if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([node]).catch(function () {}); };
-    if (window.MathJax && MathJax.typesetPromise) go();
-    else { var n = 0, t = setInterval(function () { n++; if ((window.MathJax && MathJax.typesetPromise) || n > 100) { clearInterval(t); go(); } }, 100); }
-  }
+  function typeset() {}                         // formulas are rendered to SVG by build.py (tools/tex2svg.js); nothing to do at runtime
   function sources(list) {
     var li = list.filter(Boolean).map(function (x) { return "<li><code>" + esc(x) + "</code></li>"; }).join("");
     return '<footer class="site"><b>Files read for this page</b> (paths relative to the workspace root)<ul>' + li + "</ul>Built " + esc(S.built) + ".</footer>";
@@ -124,7 +120,7 @@
   function exploreCard(g) {
     var i = INFO[g]; if (!i) return "";
     return '<div class="explore"><a href="#' + g + '"><img src="thumbs/' + g + '.png" alt="' + g + ', first frame"></a><div>' +
-      "<b>" + g + "</b> · " + i.levels + "/" + i.level_count + " levels · " + i.steps + " actions · " + i.concepts + " concepts · score " + esc(i.score) +
+      "<b>" + g + "</b> · " + i.levels + " levels · " + i.certified_actions.toLocaleString("en-US") + " certified actions · " + i.concepts + " concepts · score " + esc(i.score) +
       '<div class="links"><a href="#' + g + '.replay">Step-by-step replay</a><a href="#' + g + '.rules">Concept book</a><a href="#' + g + '.proof">Lean proof</a><a href="#' + g + '">Overview</a></div></div></div>';
   }
   function addExploreCards(root) {
@@ -235,13 +231,13 @@
   function repro() {
     var rows = S.games.map(function (i) {
       return ['<a href="#' + i.g + '.proof"><code>' + i.g + "</code></a>", i.lean_ok ? '<span class="chip ok">pass</span>' : '<span class="chip bad">—</span>',
-        i.lean_s === null || i.lean_s === undefined ? "—" : esc(i.lean_s) + " s", esc((i.axioms || []).join(", ") || "—"),
-        "<code>" + esc(String(i.lean_sha || "—")) + "</code>"];
+        esc((i.axioms || []).join(", ") || "—"), "<code>" + esc(String(i.lean_sha || "—")) + "</code>",
+        i.raw && i.raw.zip ? '<a href="' + esc(i.raw.zip) + '">' + esc(i.g) + ".zip</a>" : "—"];
     });
     return '<section id="repro"><h2>Reproducibility</h2>' +
       "<p>The paper's statement is in its <a href=\"#paper.Reproducibility-statement\">Reproducibility statement</a>: one command per game regenerates the model, tests and Lean project; the per-game Lean projects are checked with Lean 4.34.0. " +
       "Below, the sealed <code>Game.lean</code> of each game shown on this site, the local kernel check recorded in its <code>VERIFY.json</code>, and its sha256. Check it with <code>python ledger/lean_check.py &lt;formal directory&gt;</code> in the bench repository.</p>" +
-      table(["Game", "Kernel check", "Time", "Axioms", "Game.lean sha256"], rows, [2]) + "</section>";
+      table(["Game", "Kernel check", "Axioms", "Game.lean sha256", "Raw files"], rows) + "</section>";
   }
 
   function faq() {
@@ -266,10 +262,9 @@
       capWidget() + (T["tab:verdicts"] || "") +
       '<p class="note">More: <a href="#faq">questions about the proofs</a>, the <a href="#sc25">sc25 game</a> as played, and how <a href="#lp85.merge">eleven lp85 concepts became one rule</a> (§2.5).</p></section>';
     var cards = S.games.map(function (i) {
-      var start = i.fresh ? "started from an empty book" : ("started with " + (i.init === null ? "—" : i.init) + " concepts");
       return '<a class="gcard" href="#' + i.g + '"><img src="thumbs/' + i.g + '.png" alt="' + i.g + ', first frame" loading="lazy">' +
-        '<div class="t"><b>' + i.g + "</b><span>" + i.levels + "/" + i.level_count + " levels · " + i.steps + " actions</span>" +
-        "<span>" + esc(start) + " · " + i.concepts + " concepts</span></div></a>";
+        '<div class="t"><b>' + i.g + "</b><span>" + i.levels + " levels · " + i.certified_actions.toLocaleString("en-US") + " certified actions</span>" +
+        "<span>" + i.concepts + " concepts · " + i.withdrawn + " withdrawn</span></div></a>";
     }).join("");
     var C = S.compare;
     var crow = C.rows.map(function (r) { return ['<a href="#' + r[0] + '"><code>' + r[0] + "</code></a>"].concat(r.slice(1).map(esc)); });
@@ -291,25 +286,23 @@
       '<figure><figcaption>The loop the paper describes, as run on each game below.</figcaption>' + PIPE + "</figure>" +
       secs.map(function (s) { return '<section id="' + secId(s) + '"><h2>' + esc((s.number ? s.number + " " : "") + s.title) + "</h2>" + s.html + "</section>"; }).join("") +
       (P.bib_html ? '<section id="paper.references"><h2>References</h2><div class="bib">' + P.bib_html + "</div></section>" : "") +
-      '<section id="games"><h2>Appendix: the 25 games</h2><p>Every public ARC-AGI-3 game, as the agent played it. Each game has the same five views: overview with the agent\'s own explanation, step-by-step replay, concept book, Lean proof, and the original workbench.</p>' +
-      '<p class="note">In 22 games the certified clear followed uncertified sessions of the same run (Table 1). In ' + esc(S.inherited) + " games the sealed run started from a concept book written by an earlier run of the same game; those cards say how many concepts it started with, and each game's overview lists the run that wrote them. The other " + esc(GAMES.length - S.inherited) + " started from an empty book.</p>" +
+      '<section id="games"><h2>Appendix: the 25 games</h2><p>Every public ARC-AGI-3 game, as the agent played it. Each game has the same five views: overview with the agent\'s own explanation, step-by-step replay, concept book, Lean proof, and its raw files.</p>' +
+      "<p class=\"note\">AWM's certified clears follow uncertified sessions of the same run in 22 games (Table 1 of the paper).</p>" +
       '<div class="gallery">' + cards + "</div>" +
       '<h3 id="compare">Official results on the same 25 games</h3><p>Table 1 of the paper:</p>' + ((S.tables || {})["tab:scores"] || "") +
-      '<p>Per game: the first column is the scorecard of each sealed run; the other three are the per-game results published by ARC Prize (fetched ' + esc(C.fetched) + ").</p>" +
-      table(C.head.map(esc), crow, [1, 2, 3, 4]) +
-      '<ul class="note">' + C.conditions.map(function (c) { return "<li>" + esc(c) + "</li>"; }).join("") + "</ul>" +
-      '<p class="note">Sources: ' + C.sources.map(function (u) { return '<a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(u) + "</a>"; }).join(", ") + "</p></section>" +
+      "<p>Per game, from the supplementary material (" + esc(C.label) + "):</p>" +
+      table(C.head.map(esc), crow, [1, 2, 3, 4, 5, 6, 7]) + "</section>" +
       '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
-      "<p>Figures and tables on this site are read from commit <code>" + esc((S.data || {}).commit) + "</code>" + ((S.data || {}).date ? " (" + esc(S.data.date) + ")" : "") +
-      ", the build reported in the paper; the game data in <code>archive/</code>, <code>ledger/games/</code> and <code>site/data/</code> is unchanged up to the bench commit <code>" + esc((S.data || {}).head) + "</code> this site was built from.</p>" +
+      "<p>All figures on this site are those reported in the paper and its supplementary material (benchmark commit <code>" + esc((S.data || {}).commit) + "</code>).</p>" +
       table(["What", "From"], [
+        ["Per-game figures", "the supplementary material: Appendix A (<code>tab:formal</code>) and Appendix E (<code>tab:scoresfull</code>, <code>tab:actions</code>)"],
         ["Frames of every step", "<code>bench/runs/&lt;run&gt;/transitions.jsonl</code>; each frame pair is checked against the sealed <code>formal/abstract.jsonl</code> by tid = sha1(action, frame, next frame)"],
         ["Reasoning at each step", "<code>bench/runs/&lt;run&gt;/reasoning.jsonl</code>, sent with each action"],
         ["Bets and journal lines", "the timeline of <code>bench/archive/&lt;seal&gt;/report/index.html</code>, generated from the journal"],
         ["The agent's explanation", "<code>bench/archive/&lt;seal&gt;/formal/…/explain.md</code>; the repaired-rule notes come from the header of <code>Game.lean</code>"],
-        ["Concept book and its history", "<code>registry.json</code>, <code>concepts/*.py</code>, <code>model.json</code>"],
-        ["Lean proof and check results", "<code>formal/Game.lean</code>, <code>formal/VERIFY.json</code>"],
-        ["Scores, per-level actions, official replays", "<code>scorecard.json</code>, <code>MANIFEST.json</code>, <code>bench/ledger/games/&lt;game&gt;/analysis/official.json</code>"],
+        ["Concept book and its history", "<code>bench/ledger/games/&lt;game&gt;/registry.json</code> and <code>concepts/*.py</code>, the books the paper counts"],
+        ["Lean proof shown on each game's page", "the sealed run's <code>formal/Game.lean</code> and <code>formal/VERIFY.json</code>"],
+        ["Official replays", "<code>MANIFEST.json</code>, <code>bench/ledger/games/&lt;game&gt;/analysis/official.json</code>"],
         ["How to play", "<code>bench/site/data/playguide.json</code> and its rule-checked revision"],
         ["Official results", "<code>bench/site/data/official_public_demo.json</code>"],
         ["Paper", "<code>paper-revision/main.tex</code>, the <code>sec/*.tex</code> it inputs, <code>Reference.bib</code>, figures (git " + esc(P.source_commit || "—") + ")"],
@@ -373,7 +366,7 @@
 
   // ---------------------------------------------------------------- one game: shared parts
   function gameNav(g, active) {
-    var items = [["", "Overview"], ["replay", "Replay"], ["rules", "Concept book"], ["proof", "Lean proof"], ["wb", "Workbench (original)"]];
+    var items = [["", "Overview"], ["replay", "Replay"], ["rules", "Concept book"], ["proof", "Lean proof"], ["raw", "Raw files"]];
     return '<div class="btns">' + items.map(function (x) {
       return '<a class="btn' + (x[0] === active ? " primary" : "") + '" href="#' + g + (x[0] ? "." + x[0] : "") + '">' + x[1] + "</a>";
     }).join("") + "</div>";
@@ -388,31 +381,24 @@
 
   // ---------------------------------------------------------------- overview
   function overview(D) {
-    var g = D.g, b = D.booklet;
-    var bk = b.fresh ? "<p>The agent started from an empty concept book.</p>" :
-      "<p>The book already held " + (b.init === null ? "—" : b.init) + " concepts when this run started. Origin of each concept's first version (from <code>registry.json</code>):</p>" +
-      (b.origin.length ? table(["Run that wrote it", "Concepts", "Sealed as"], b.origin.map(function (o) {
-        return ["<code>" + esc(o.run) + "</code>", o.n, o.seals.map(function (x) { return "<code>" + esc(x) + "</code>"; }).join(", ") || "—"];
-      }), [1]) : "<p>—</p>") +
-      b.plan.map(function (p) { return "<p><b>Plan for this run:</b> " + esc(p[0]) + "</p>" + orig(p[1], p[0]); }).join("");
+    var g = D.g;
     var ment = paperMentions(g);
     app.innerHTML = crumb(g) +
       '<h1 style="font-family:var(--mono);font-size:34px">' + g + "</h1>" +
       '<p class="lede">ARC-AGI-3 public game <code>' + esc(D.game) + "</code>, run <code>" + esc(D.run) + "</code>, sealed as <code>" + esc(D.seal) + "</code>.</p>" +
       gameNav(g, "") +
       (ment.length ? "<p>In the paper: " + ment.map(function (s) { return '<a href="#' + secId(s) + '">' + esc((s.number ? "§" + s.number + " " : "") + s.title) + "</a>"; }).join(", ") + "</p>" : "") +
-      '<div class="rp"><div><h2 style="margin-top:8px">How to play</h2><p class="prose md">' + esc(D.playguide.en) + "</p>" + orig(D.playguide.zh, D.playguide.en) +
-      "<h3>The concept book at the start</h3>" + bk + "</div>" +
+      '<div class="rp"><div><h2 style="margin-top:8px">How to play</h2><p class="prose md">' + esc(D.playguide.en) + "</p>" + orig(D.playguide.zh, D.playguide.en) + "</div>" +
       '<div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">' +
       '<figure style="margin:0"><figcaption class="note">Before the first recorded step</figcaption><img src="thumbs/' + g + '.png" alt="first frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '<figure style="margin:0"><figcaption class="note">After the last recorded step</figcaption><img src="thumbs/' + g + '-last.png" alt="last frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '</div><p><a class="btn primary" href="#' + g + '.replay">Open the replay</a></p></div></div>' +
-      "<h2>Run summary</h2>" + table(["", ""], D.stats.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
-      "<h3>Actions per level vs. human baseline (official scorecard)</h3>" + table(["Level", "Actions", "Human baseline", "Level score"], D.levels, [1, 2, 3]) +
-      "<h3>Official replays</h3>" + table(["Part", "Records (seq)", "Count", "arcprize.org replay"], D.replays.map(function (r) {
-        return [r.i, r.from + "–" + r.to, r.n, '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">' + esc(r.url.split("/").pop().slice(0, 8)) + "… ↗</a>" + (r.cert ? ' <span class="chip ok">certified</span>' : "")];
-      })) +
-      "<h3>Published results of other systems on this game</h3>" + table(["System", "Score on this game (%)"], D.official.map(function (r) { return [esc(r[0]), esc(r[1])]; }).concat([["AWM (this run's scorecard)", esc(D.score)]])) +
+      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Appendix A (<code>tab:formal</code>) and Appendix E (<code>tab:scoresfull</code>, <code>tab:actions</code>).</p>" +
+      table(["", ""], D.stats.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
+      "<h3>Official scores on this game (systems of Table 1)</h3>" + table(["System", "Official score"], D.official.map(function (r) { return [esc(r[0]), esc(Number(r[1]).toFixed(1))]; }), [1]) +
+      (D.replays.length ? "<h3>Official replays</h3><p>" + D.replays.map(function (r) {
+        return '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">arcprize.org replay ' + esc(r.url.split("/").pop().slice(0, 8)) + "… ↗</a>" + (r.cert ? ' <span class="chip ok">certified</span>' : "");
+      }).join("<br>") + "</p>" : "") +
       '<h2 id="' + g + '.explain">The agent\'s explanation</h2><p class="note">Written by the agent when it sealed the run (<code>explain.md</code>).</p>' +
       '<div class="md prose">' + (D.explain.en || "<p>—</p>") + "</div>" +
       (D.explain.zh ? '<details class="orig"><summary>Original</summary><div class="md" style="white-space:normal">' + D.explain.zh + "</div></details>" : "") +
@@ -433,7 +419,8 @@
         (r.m ? '<span class="chip">speaks on ' + r.m[0] + " cells · right " + r.m[1] + " · wrong " + r.m[2] + "</span>" : "") +
         (r.fate === "retired" ? '<span class="chip bad">withdrawn at step ' + r.rs + "</span>" : "");
       var vs = r.vs.map(function (v) {
-        return '<div class="v"><div class="h">v' + v.v + ' · <a href="#' + g + ".replay.s" + v.st + '">step ' + v.st + "</a> · " + esc(v.at || "") + (v.run ? " · " + esc(v.run) : "") + " · " + v.ev + " evidence</div>" +
+        var at = v.run === D.run ? '<a href="#' + g + ".replay.s" + v.st + '">step ' + v.st + "</a>" : "step " + v.st + " of run <code>" + esc(v.run || "—") + "</code>";
+        return '<div class="v"><div class="h">v' + v.v + " · " + at + " · " + esc(v.at || "") + "</div>" +
           '<div class="claim">' + esc(v.doc) + "</div>" + orig(v.doc_zh, v.doc) +
           (v.scope ? '<div class="note"><b>Scope:</b> ' + esc(v.scope) + "</div>" + orig(v.scope_zh, v.scope) : "") +
           (v.note ? '<div class="note"><b>Added in this version:</b> ' + esc(v.note) + "</div>" + orig(v.note_zh, v.note) : "") + "</div>";
@@ -445,11 +432,12 @@
     }).join("");
     app.innerHTML = crumb(g, "Concept book") + "<h1>" + g + " · concept book</h1>" +
       '<p class="lede">Every concept the agent wrote while playing. Each is a Python hypothesis that judges every recorded transition TRUE, FALSE or NA (outside its scope). ' +
-      D.rules.length + " concepts when sealed: " + alive + " alive, " + (D.rules.length - alive) + " withdrawn, " + nv + " versions in all.</p>" +
+      D.rules.length + " concepts written, " + (D.rules.length - alive) + " withdrawn (Appendix A of the supplementary material).</p>" +
+      '<p class="note">This is the book in <code>bench/ledger/games/' + esc(g) + "/registry.json</code>, the one the paper counts. A version written in the run shown on the Replay tab links to its step.</p>" +
       gameNav(g, "rules") +
       '<div class="btns"><button class="btn" type="button" id="xall">Expand all</button><button class="btn" type="button" id="call">Collapse all</button></div>' + items +
       (D.lib ? '<details class="item"><summary>Shared vocabulary <code>_lib.py</code> (as written)</summary><div class="body"><pre><code>' + esc(D.lib) + "</code></pre></div></details>" : "") +
-      sources(D.src.slice(2, 6));
+      sources([D.src[0], D.src[2]]);
     document.getElementById("xall").onclick = function () { Array.prototype.forEach.call(app.querySelectorAll("details.item"), function (d) { d.open = true; }); };
     document.getElementById("call").onclick = function () { Array.prototype.forEach.call(app.querySelectorAll("details.item"), function (d) { d.open = false; }); };
     if (arg) scrollTo(g + ".rules." + tok(arg)); else window.scrollTo(0, 0);
@@ -461,7 +449,10 @@
     var known = {}; D.rules.forEach(function (r) { known[r.name] = 1; });
     app.innerHTML = crumb(g, "Lean proof") + "<h1>" + g + " · Lean proof</h1>" +
       '<p class="lede">The learned rules are written as definitions in <code>stepRules</code>. The Lean kernel (<code>decide +kernel</code>) checks two theorems. <em>consistent</em>: every rule holds on every recorded transition; <em>faithful</em>: Lean replays the winning run. The replay starts at level 0 and computes each step with the rules, and every step must equal the recording.</p>' +
-      gameNav(g, "proof") + "<h2>Check results</h2>" + table(["", ""], P.rows.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
+      gameNav(g, "proof") +
+      "<h2>Reported in the paper</h2><p class=\"note\">Appendix A of the supplementary material (<code>tab:formal</code>), counted over the game's Lean project in <code>bench/ledger/games/" + esc(g) + "/lean2/</code> (in this game's Raw files).</p>" +
+      table(["", ""], (P.paper || []).map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
+      "<h2>The sealed run's Game.lean</h2>" + table(["", ""], P.rows.map(function (r) { return [esc(r[0]), r[0].indexOf("sha256") >= 0 ? "<code>" + esc(r[1]) + "</code>" : esc(r[1])]; })) +
       "<h2>Rules (" + P.names.length + ")</h2><p>" + P.names.map(function (n) {
         return known[n] ? '<a class="chip con" href="#' + g + ".rules." + tok(n) + '">' + esc(n) + "</a>" : '<span class="chip">' + esc(n) + "</span>";
       }).join("") + "</p>" +
@@ -471,61 +462,16 @@
     window.scrollTo(0, 0);
   }
 
-  // ---------------------------------------------------------------- workbench (original pages)
-  var wbQuery = "";
-  function wb(D, arg) {
-    var g = D.g;
-    load("data/wbidx-" + g + ".js").then(function () {
-      var X = (window.AWM_WBIDX || {})[g];
-      if (!X || !X.pages) { app.innerHTML = crumb(g, "Workbench") + "<p>—</p>"; return; }
-      var i = Math.max(0, Math.min(X.pages.length - 1, parseInt(arg || "0", 10) || 0));
-      var path = X.pages[i];
-      return load("data/wb-" + g + "-" + X.chunk[i] + ".js").then(function () {
-        var html = (window.AWM_WB || {})[g + ":" + X.chunk[i]][path];
-        var q = wbQuery; wbQuery = "";
-        html = html.replace(/location\.search/g, "(window.__Q||location.search)");
-        var inject = "<script>window.__Q=" + JSON.stringify(q) + ";<\/script>";
-        html = /<head[^>]*>/i.test(html) ? html.replace(/<head[^>]*>/i, function (m) { return m + inject; }) : inject + html;
-        app.innerHTML = crumb(g, "Workbench") + "<h1>" + g + " · workbench</h1>" +
-          '<p class="lede">The typed object layer (World / parse), the shared rules and the per-level Lean theorems, as the bench generated them (original pages, in Chinese). Page <code>' + esc(path) + "</code> (" + (i + 1) + " of " + X.pages.length + ").</p>" +
-          gameNav(g, "wb") +
-          '<details class="item"><summary>All pages (' + X.pages.length + ')</summary><div class="body pv-list">' +
-          X.pages.map(function (p, k) { return '<a class="chip' + (k === i ? " con" : "") + '" href="#' + g + ".wb." + k + '">' + esc(p) + "</a>"; }).join("") + "</div></details>" +
-          '<iframe class="wb-frame" id="wbf" title="Workbench page"></iframe>' + sources(["bench/ledger/games/" + g + "/web/dist/" + path]);
-        var f = document.getElementById("wbf");
-        f.addEventListener("load", function () {
-          var d;
-          try { d = f.contentDocument; } catch (e) { return; }
-          if (!d) return;
-          d.addEventListener("click", function (e) {
-            var a = e.target.closest ? e.target.closest("a") : null;
-            if (!a) return;
-            var href = a.getAttribute("href") || "";
-            if (/^(https?:|mailto:)/.test(href)) { a.setAttribute("target", "_blank"); a.setAttribute("rel", "noopener"); return; }
-            if (!href || href.charAt(0) === "#") return;
-            var parts = href.split("#")[0].split("?");
-            var k = X.pages.indexOf(resolve(path, parts[0]));
-            if (k < 0) k = X.pages.indexOf(parts[0].replace(/^(\.\/)+/, ""));
-            if (k < 0) {
-              var bn = parts[0].split("/").pop(), hits = X.pages.filter(function (p) { return p.split("/").pop() === bn; });
-              if (hits.length === 1) k = X.pages.indexOf(hits[0]);
-            }
-            if (k < 0) return;
-            e.preventDefault();
-            wbQuery = parts[1] ? "?" + parts[1] : "";
-            location.hash = g + ".wb." + k;
-          }, true);
-        });
-        f.srcdoc = html;
-        window.scrollTo(0, 0);
-      });
-    }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
-  }
-  function resolve(cur, href) {
-    var base = cur.split("/"); base.pop();
-    href.split("/").forEach(function (s) { if (s === "..") base.pop(); else if (s && s !== ".") base.push(s); });
-    var p = base.join("/");
-    return p === "" ? "index.html" : p;
+  // ---------------------------------------------------------------- raw files (unedited, for reproduction)
+  function rawFiles(D) {
+    var g = D.g, R = D.raw || {};
+    app.innerHTML = crumb(g, "Raw files") + "<h1>" + g + " · raw files</h1>" +
+      '<p class="lede">Unedited files from the run, provided for reproduction (supplementary material).</p>' + gameNav(g, "raw") +
+      (R.zip ? '<p><a class="btn primary" href="' + esc(R.zip) + '" download>Download ' + esc(g) + ".zip</a></p>" : "") +
+      table(["File (path in the bench repository)"], (R.files || []).map(function (f) { return ["<code>" + esc(f[0]) + "</code>"]; })) +
+      ((R.skipped || []).length ? "<p class=\"note\">Left out because they contain a local path or a name: " +
+        R.skipped.map(function (f) { return "<code>" + esc(f[0]) + "</code>"; }).join(", ") + ".</p>" : "");
+    window.scrollTo(0, 0);
   }
 
   // ---------------------------------------------------------------- replay
@@ -533,7 +479,7 @@
   function replay(D, arg) {
     var g = D.g, R = D.replay, N = R.recs.length, SC = 8;
     app.innerHTML = crumb(g, "Replay") + "<h1>" + g + " · replay</h1>" +
-      '<p class="lede">All ' + N + " recorded transitions of run <code>" + esc(D.run) + "</code>. Left: the frame before the action (a click is circled). Right: the frame after (changed cells are outlined). Beside them: what the agent was thinking at this step, and the bet and journal of its batch.</p>" +
+      '<p class="lede">The recorded transitions of run <code>' + esc(D.run) + "</code>. Left: the frame before the action (a click is circled). Right: the frame after (changed cells are outlined). Beside them: what the agent was thinking at this step, and the bet and journal of its batch.</p>" +
       gameNav(g, "replay") +
       '<div class="rp"><div>' +
       '<div class="boards"><figure><figcaption>Before</figcaption><div class="cv"><canvas id="cv-prev"></canvas></div></figure>' +
@@ -692,6 +638,7 @@
     if (head === "autorepair") { current = "autorepair"; autorepair(); return; }
     if (head === "paper") {                     // a place inside the paper on the home page
       if (current !== "home") { current = "home"; home(""); }
+      setNav("home");
       scrollTo(h === "paper" ? "paper.abstract" : h);
       return;
     }
@@ -704,7 +651,7 @@
         if (view === "replay") replay(D, arg);
         else if (view === "rules") rules(D, arg);
         else if (view === "proof") proof(D);
-        else if (view === "wb") wb(D, arg);
+        else if (view === "raw" || view === "wb") rawFiles(D);
         else if (view === "explain" || view === "notes" || view === "merge") { overview(D); scrollTo(head + "." + view); }
         else overview(D);
       }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
