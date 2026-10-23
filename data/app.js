@@ -465,12 +465,14 @@
         '<div class="btns">' + ["l4", "l5"].filter(function (x) { return P2["repair-" + x]; }).map(function (x) {
           return '<a class="btn' + (x === lv ? " primary" : "") + '" href="#repair.' + x + '">Level ' + x.slice(1) + "</a>"; }).join("") + "</div>" +
         '<div class="pane"><h4>The only feedback the run received</h4><p class="bet">' + esc(D.signal) + "</p></div>" +
-        '<div class="rp"><div><div class="cv"><canvas id="rf"></canvas></div><div class="ctrl"><button id="rp">◀</button><span class="mono" id="ri"></span><button id="rn">▶</button></div></div>' +
+        '<div class="rp"><div><div class="cv"><canvas id="rf"></canvas></div><div class="ctrl"><button id="rp">◀</button><span class="mono" id="ri"></span><button id="rn">▶</button>' +
+        '<input type="range" id="rs" min="0" max="' + (N - 1) + '" value="0" aria-label="Position"></div>' +
+        '<div class="ctrl">' + D.steps.map(function (s, j) { return s.caption ? '<button class="rjump" data-j="' + j + '">' + esc(s.title.split(" · ")[0]) + (/^After/.test(s.caption) ? " end" : " start") + "</button>" : ""; }).join("") + "</div></div>" +
         '<div><div class="pane"><h4 id="rh"></h4><p id="rc" class="claim"></p></div>' +
         '<div class="pane"><h4>Bound</h4>' + D.bounds.map(function (b) {
           return '<div style="margin:6px 0"><div class="note">' + esc(b.label) + (b.note ? " · " + esc(b.note) : "") + '</div><div style="display:flex;align-items:center;gap:8px"><div style="height:14px;background:var(--accent);border-radius:2px;width:' +
             (100 * b.value / maxB).toFixed(1) + '%"></div><b>' + esc(b.value) + "</b></div></div>"; }).join("") + "</div></div></div>" +
-        "<h2>The rule before and after</h2><div class=\"rp\"><div><h4>Before</h4><pre><code>" + esc(D.rule_diff.before) + "</code></pre></div><div><h4>After</h4><pre><code>" + esc(D.rule_diff.after) + "</code></pre></div></div>";
+        "<h2>The rule before and after</h2>" + (D.rule_diff.file ? '<p class="note"><code>' + esc(D.rule_diff.file) + "</code>" + (D.rule_diff.why ? " · " + esc(D.rule_diff.why) : "") + "</p>" : "") + "<div class=\"rp\"><div><h4>Before</h4><pre><code>" + esc(D.rule_diff.before) + "</code></pre></div><div><h4>After</h4><pre><code>" + esc(D.rule_diff.after) + "</code></pre></div></div>";
       function show(k) {
         i = (k + N) % N;
         var s = D.steps[i];
@@ -478,9 +480,12 @@
         document.getElementById("ri").textContent = (i + 1) + " / " + N;
         document.getElementById("rh").textContent = s.title || ("Step " + (i + 1));
         document.getElementById("rc").textContent = s.caption || "";
+        document.getElementById("rs").value = i;
       }
       document.getElementById("rp").onclick = function () { show(i - 1); };
       document.getElementById("rn").onclick = function () { show(i + 1); };
+      document.getElementById("rs").oninput = function () { show(parseInt(this.value, 10)); };
+      Array.prototype.forEach.call(app.querySelectorAll(".rjump"), function (b) { b.onclick = function () { show(parseInt(b.getAttribute("data-j"), 10)); }; });
       show(0);
       window.scrollTo(0, 0);
     }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
