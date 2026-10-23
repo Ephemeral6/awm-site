@@ -259,6 +259,9 @@
       "<p>Two levels of <code>sc25</code> are sealed one unit below their minimum winning cost. The question is whether any legal winning sequence remains (§4 of the paper).</p>" +
       '<figure class="paper-figure"><img src="' + esc((S.figs || {}).l4) + '" alt="GPT-6 Astra claims a minimum cost of 22 on sealed sc25 level 4; AWM proves 19 in Lean." loading="lazy">' +
       '<figcaption class="paper-caption">Figure 4 of the paper. <a href="#paper.fig-l4attempts">Read its caption in the paper</a>.</figcaption></figure>' +
+      ((S.p2 || {})["cert-l4"] ? '<div class="btns"><a class="btn primary" href="#cert">Inspect the certificate</a>' +
+        ((S.p2 || {})["repair-l4"] || (S.p2 || {})["repair-l5"] ? '<a class="btn" href="#repair.' + ((S.p2 || {})["repair-l4"] ? "l4" : "l5") + '">Watch the repair</a>' : "") +
+        '<span class="note">from a new AWM run, not one of the six runs in Table 3</span></div>' : "") +
       capWidget() + (T["tab:verdicts"] || "") +
       '<p class="note">More: <a href="#faq">questions about the proofs</a>, the <a href="#sc25">sc25 game</a> as played, and how <a href="#lp85.merge">eleven lp85 concepts became one rule</a> (§2.5).</p></section>';
     var cards = S.games.map(function (i) {
@@ -312,6 +315,7 @@
       bibtex() +
       '<footer class="site">' + provenance() + ".</footer></article></div>";
     addExploreCards(document.getElementById("paper"));
+    p2Links(document.getElementById("paper"));
     typeset(document.getElementById("paper"));
     heroAnim(); capInit(); bibInit();
     scrollTo(anchor && anchor !== "home" ? anchor : "");
@@ -362,6 +366,179 @@
       "Generalization then replaces all eleven with one shared operation, <code>press_permutes</code>, parameterized by the pressed button. The unified rule preserves all 55 diagnostic rejections of the original concepts and detects 21 additional invalid transitions (§2.5, Figure 3).</p>" +
       '<div class="tbox" style="padding:8px">' + svg + "</div>" +
       '<p class="note">Concept names and merge sources: <code>' + esc(M.src) + "</code> (field <code>rules.press_permutes.from</code>); versions and steps: <code>bench/ledger/games/lp85/registry.json</code>.</p>";
+  }
+
+  // ---------------------------------------------------------------- P2: certificate browser, repair replay, unseen states
+  var P2 = S.p2 || {};
+  function loadP2(name) { return load("data/p2-" + name + ".js").then(function () { return (window.AWM_P2 || {})[name]; }); }
+  function paintGrid(cv, g, pal, scale) {
+    // g: {w, h, x} with x = w*h hex digits (colour indices), or a path to an image under p2/
+    var ctx = cv.getContext("2d");
+    if (typeof g === "string") {
+      var im = new Image(); im.onload = function () { cv.width = im.width; cv.height = im.height; ctx.drawImage(im, 0, 0); }; im.src = "p2/" + g; return;
+    }
+    var P = pal.map(function (h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; });
+    var a = new Uint8Array(g.w * g.h);
+    for (var i = 0; i < a.length; i++) a[i] = parseInt(g.x.charAt(i), 16);
+    drawFrame(cv, { w: g.w, h: g.h, a: a }, P, scale || 4, null, null);
+  }
+  function p2Head(title, sec, src) {
+    return '<p class="crumb"><a href="#home">Paper</a> / <a href="#results">Main result</a> / ' + esc(title) + "</p><h1>" + esc(title) + "</h1>" +
+      '<p class="note">Paper ' + esc(sec) + ". " + src + "</p>";
+  }
+  function newRunNote(D) {
+    return "Data: a new AWM run, <code>" + esc(D.run) + "</code> (" + esc(D.batch || "") + "), not one of the six runs in Table 3 of the paper. Source: <code>" + esc(D.source) + "</code>.";
+  }
+
+  function certView(arg) {
+    setNav("home");
+    app.innerHTML = '<p class="muted">Loading the certificate…</p>';
+    loadP2("cert-l4").then(function (D) {
+      var V = {}, out = {};
+      D.states.forEach(function (s) { V[s.id] = s.V; });
+      D.edges.forEach(function (e) { (out[e.from] = out[e.from] || []).push(e); });
+      var head = ["state"].concat(D.fields).concat(["Φ"]);
+      app.innerHTML = p2Head("Certificate browser: sealed sc25 level 4", "§2.4 and §4.2", newRunNote(D)) +
+        '<p class="lede">A potential Φ on every state of the run\'s model. Lean checks Φ(w) ≤ cost(w, a) + Φ(w′) on every legal transition and Φ(w) ≤ cost on every winning move, so every winning sequence from the start costs at least Φ(start).</p>' +
+        '<div class="pane"><h4>Main theorem (as written by the run)</h4><pre><code>' + esc(D.theorem) + "</code></pre>" +
+        "<h4>#print axioms, re-checked on this machine</h4><pre><code>" + esc(D.axioms) + "</code></pre>" +
+        '<p><a class="btn" href="p2/' + esc(D.lean_url) + '" download>Download Level4Cert.lean</a></p>' +
+        '<p class="note">Φ(start) = <b>' + esc(D.bound) + "</b> in the run's units, which charge the winning move (budget " + esc(D.budget) +
+        "). Under the engine's accounting this is 19, the engine optimum; the paper counts such a bound as correct (§4.2). " +
+        "States from which the model cannot win carry Φ ≥ 200. The states are those of the run's macro abstraction of its own level-4 model; that this abstraction is looser than the run's model is the agent's argument, not a Lean theorem.</p></div>" +
+        '<div class="ctrl"><input type="search" id="cq" placeholder="Filter: a state number, or a field value such as row=25" style="flex:1;min-width:200px;padding:5px 8px;border:1px solid var(--line);border-radius:4px;background:var(--panel);color:var(--ink)">' +
+        '<span class="note" id="cn"></span></div><div class="tbox"><table class="t" id="ct"></table></div><div class="btns"><button class="btn" type="button" id="cmore">Show more</button></div>';
+      var limit = 60, rows = D.states;
+      function match(s, q) {
+        if (!q) return true;
+        return q.split(/\s+/).every(function (t) {
+          var m = /^([a-z ]+?)\s*=\s*(\S+)$/i.exec(t.replace(/_/g, " "));
+          if (m) { var v = s.w[m[1].trim()]; return v !== undefined && String(v) === m[2]; }
+          return String(s.id) === t || String(s.V) === t;
+        });
+      }
+      function render() {
+        var q = document.getElementById("cq").value.trim();
+        var hits = rows.filter(function (s) { return match(s, q); });
+        hits.sort(function (a, b) { return (b.id === D.start) - (a.id === D.start); });
+        document.getElementById("cn").textContent = hits.length + " of " + rows.length + " states";
+        document.getElementById("ct").innerHTML = "<thead><tr>" + head.map(function (h) { return "<th>" + esc(h) + "</th>"; }).join("") + "</tr></thead><tbody>" +
+          hits.slice(0, limit).map(function (s) {
+            return '<tr class="crow' + (s.id === D.start ? " start" : "") + '" data-id="' + s.id + '"><td class="n">' + s.id + (s.id === D.start ? ' <span class="chip con">start</span>' : "") + "</td>" +
+              D.fields.map(function (f) { return "<td>" + esc(s.w[f]) + "</td>"; }).join("") + '<td class="n"><b>' + s.V + "</b></td></tr>";
+          }).join("") + "</tbody>";
+        document.getElementById("cmore").style.display = hits.length > limit ? "" : "none";
+      }
+      function expand(tr) {
+        var nx = tr.nextElementSibling;
+        if (nx && nx.classList.contains("cdet")) { nx.remove(); return; }
+        var id = parseInt(tr.getAttribute("data-id"), 10);
+        var lines = (out[id] || []).map(function (e) {
+          var rhs = e.cost + (e.to === "WIN" ? 0 : V[e.to]);
+          var ok = V[id] <= rhs;
+          return "<tr><td>" + esc(e.a) + "</td><td>" + (e.to === "WIN" ? "win" : '<a href="#cert.' + e.to + '">' + e.to + "</a>") + '</td><td class="n">' + e.cost +
+            '</td><td class="n">' + (e.to === "WIN" ? "—" : V[e.to]) + '</td><td class="mono">' + V[id] + " ≤ " + e.cost + (e.to === "WIN" ? "" : " + " + V[e.to]) + " = " + rhs +
+            '</td><td><span class="chip ' + (ok ? "ok" : "bad") + '">' + (ok ? "✓" : "✗") + "</span></td></tr>";
+        }).join("");
+        var row = document.createElement("tr"); row.className = "cdet";
+        row.innerHTML = '<td colspan="' + head.length + '"><table class="t"><thead><tr><th>Action</th><th>To</th><th>Cost</th><th>Φ(w′)</th><th>Φ(w) ≤ cost + Φ(w′)</th><th></th></tr></thead><tbody>' + lines + "</tbody></table></td>";
+        tr.parentNode.insertBefore(row, tr.nextSibling);
+      }
+      document.getElementById("cq").oninput = function () { limit = 60; render(); };
+      document.getElementById("cmore").onclick = function () { limit += 120; render(); };
+      document.getElementById("ct").onclick = function (e) { var tr = e.target.closest("tr.crow"); if (tr && !e.target.closest("a")) expand(tr); };
+      if (arg) document.getElementById("cq").value = arg;
+      render();
+      var first = document.querySelector("#ct tr.crow"); if (first) expand(first);
+      window.scrollTo(0, 0);
+    }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
+  }
+
+  function repairView(lv) {
+    setNav("home");
+    var name = "repair-" + lv;
+    if (!P2[name]) { app.innerHTML = p2Head("Repair replay, level " + lv.slice(1), "§4.3", "") + "<p>This replay is not available yet.</p>"; return; }
+    loadP2(name).then(function (D) {
+      var i = 0, N = D.steps.length;
+      var maxB = Math.max.apply(null, D.bounds.map(function (b) { return b.value; }));
+      app.innerHTML = p2Head("Repair replay: sealed sc25 level " + lv.slice(1), "§4.3", newRunNote(D)) +
+        '<div class="btns">' + ["l4", "l5"].filter(function (x) { return P2["repair-" + x]; }).map(function (x) {
+          return '<a class="btn' + (x === lv ? " primary" : "") + '" href="#repair.' + x + '">Level ' + x.slice(1) + "</a>"; }).join("") + "</div>" +
+        '<div class="pane"><h4>The only feedback the run received</h4><p class="bet">' + esc(D.signal) + "</p></div>" +
+        '<div class="rp"><div><div class="cv"><canvas id="rf"></canvas></div><div class="ctrl"><button id="rp">◀</button><span class="mono" id="ri"></span><button id="rn">▶</button></div></div>' +
+        '<div><div class="pane"><h4 id="rh"></h4><p id="rc" class="claim"></p></div>' +
+        '<div class="pane"><h4>Bound</h4>' + D.bounds.map(function (b) {
+          return '<div style="margin:6px 0"><div class="note">' + esc(b.label) + (b.note ? " · " + esc(b.note) : "") + '</div><div style="display:flex;align-items:center;gap:8px"><div style="height:14px;background:var(--accent);border-radius:2px;width:' +
+            (100 * b.value / maxB).toFixed(1) + '%"></div><b>' + esc(b.value) + "</b></div></div>"; }).join("") + "</div></div></div>" +
+        "<h2>The rule before and after</h2><div class=\"rp\"><div><h4>Before</h4><pre><code>" + esc(D.rule_diff.before) + "</code></pre></div><div><h4>After</h4><pre><code>" + esc(D.rule_diff.after) + "</code></pre></div></div>";
+      function show(k) {
+        i = (k + N) % N;
+        var s = D.steps[i];
+        paintGrid(document.getElementById("rf"), s.frame, D.palette, 8);
+        document.getElementById("ri").textContent = (i + 1) + " / " + N;
+        document.getElementById("rh").textContent = s.title || ("Step " + (i + 1));
+        document.getElementById("rc").textContent = s.caption || "";
+      }
+      document.getElementById("rp").onclick = function () { show(i - 1); };
+      document.getElementById("rn").onclick = function () { show(i + 1); };
+      show(0);
+      window.scrollTo(0, 0);
+    }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
+  }
+
+  function unseenView(game) {
+    setNav("home");
+    var name = "unseen-" + game;
+    app.innerHTML = '<p class="muted">Loading…</p>';
+    loadP2(name).then(function (D) {
+      var sets = Object.keys(D.sets), cur = sets[0], idx = 0, rnd = 1;
+      var labels = { trajectories: "New trajectories", layouts: "New layouts", changed_mechanic: "Changed hidden mechanic" };
+      app.innerHTML = p2Head("Unseen states: " + game, "§3, “Generalization beyond observed transitions”",
+          "Data: transitions from random play (local engine, seeds 0–9) whose previous screen never occurs in the recorded runs, drawn " + D.sets[cur].length + " per set from the test sets behind the paper's readings (<code>" + esc(D.source) + "</code>). The rules are frozen at the end of play.") +
+        '<div class="btns">' + ["lp85", "ft09"].filter(function (g) { return P2["unseen-" + g]; }).map(function (g) {
+          return '<a class="btn' + (g === game ? " primary" : "") + '" href="#unseen.' + g + '">' + g + "</a>"; }).join("") + "</div>" +
+        '<div class="ctrl">' + sets.map(function (s) { return '<label><input type="radio" name="uset" value="' + s + '"' + (s === cur ? " checked" : "") + "> " + esc(labels[s] || s) + "</label>"; }).join(" ") +
+        ' <button class="btn" type="button" id="udraw">Draw another transition</button></div>' +
+        '<p class="note" id="unote"></p>' +
+        '<div class="boards" style="display:grid;grid-template-columns:repeat(' + (game === "lp85" ? 3 : 2) + ',minmax(0,1fr));gap:10px">' +
+        '<figure style="margin:0"><figcaption class="note">Before (action circled)</figcaption><div class="cv"><canvas id="ub"></canvas></div></figure>' +
+        (game === "lp85" ? '<figure style="margin:0"><figcaption class="note">Predicted by the frozen rule (tiles only)</figcaption><div class="cv"><canvas id="up"></canvas></div></figure>' : "") +
+        '<figure style="margin:0"><figcaption class="note">Actual next frame</figcaption><div class="cv"><canvas id="ua"></canvas></div></figure></div>' +
+        '<div class="pane" style="margin-top:12px"><dl class="kv" id="ukv"></dl></div>';
+      function grid2(g) { var a = new Uint8Array(g.w * g.h); for (var i = 0; i < a.length; i++) a[i] = parseInt(g.x.charAt(i), 16); return { w: g.w, h: g.h, a: a }; }
+      var PAL = D.palette.map(function (h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; });
+      function show() {
+        var r = D.sets[cur][idx];
+        var m = /^ACTION6:(\d+),(\d+)/.exec(r.action || "");
+        drawFrame(document.getElementById("ub"), grid2(r.before), PAL, 6, null, m ? [parseInt(m[1], 10), parseInt(m[2], 10)] : null);
+        drawFrame(document.getElementById("ua"), grid2(r.after), PAL, 6, null, null);
+        if (game === "lp85") { var pc = document.getElementById("up"); if (r.predicted) drawFrame(pc, grid2(r.predicted), PAL, 6, null, null); else { pc.width = pc.height = 0; } }
+        document.getElementById("ukv").innerHTML = "<dt>Transition</dt><dd><code>" + esc(r.tid) + "</code> · seed " + esc(r.seed) + " · level " + esc(r.level) + "</dd>" +
+          "<dt>Action</dt><dd><code>" + esc(r.action) + "</code></dd><dt>Cells changed</dt><dd>" + esc(r.changed_cells) + "</dd>" +
+          '<dt>Frozen rules</dt><dd><span class="chip ' + (r.verdict === "TRUE" ? "ok" : r.verdict === "FALSE" ? "bad" : "") + '">' + esc(r.verdict) + "</span> " +
+          (r.verdict === "TRUE" ? "accept the transition" : r.verdict === "FALSE" ? "report a contradiction" : "stay silent") + "</dd>" +
+          (r.prediction ? '<dt>Prediction</dt><dd><span class="chip ' + (r.prediction === "right" ? "ok" : "bad") + '">' + esc(r.prediction) + "</span> tile layout " + (r.prediction === "right" ? "equals" : "differs from") + " the actual one</dd>" : "");
+        document.getElementById("unote").textContent = cur === "changed_mechanic" ?
+          "The hidden click pattern of ft09 is changed: each click now changes 110 or 146 cells instead of 38 (§3). The frozen rules report a contradiction on every such transition." : "";
+      }
+      Array.prototype.forEach.call(document.querySelectorAll('input[name="uset"]'), function (el) { el.onchange = function () { cur = el.value; idx = 0; show(); }; });
+      document.getElementById("udraw").onclick = function () { rnd = (rnd * 1103515245 + 12345) % 2147483648; idx = rnd % D.sets[cur].length; show(); };
+      show();
+      window.scrollTo(0, 0);
+    }).catch(function (e) { app.innerHTML = "<p>" + esc(e.message) + "</p>"; });
+  }
+  function p2Links(root) {
+    // entry points, only for the parts whose data exist
+    function after(test, html) {
+      var ps = root.querySelectorAll("p");
+      for (var i = 0; i < ps.length; i++) if (test(ps[i].textContent)) { var d = document.createElement("p"); d.className = "note"; d.innerHTML = html; ps[i].parentNode.insertBefore(d, ps[i].nextSibling); return; }
+    }
+    if (P2["repair-l4"] || P2["repair-l5"])
+      after(function (t) { return /Both repairs succeed within four additional attempts/.test(t); },
+        '<a href="#repair.' + (P2["repair-l4"] ? "l4" : "l5") + '">Watch the repair</a> (a new run, not one of Table 3).');
+    if (P2["unseen-lp85"] || P2["unseen-ft09"])
+      after(function (t) { return /frozen rules reject every resulting transition/.test(t); },
+        '<a href="#unseen.' + (P2["unseen-lp85"] ? "lp85" : "ft09") + '">Try it</a>: draw transitions from the test sets.');
   }
 
   // ---------------------------------------------------------------- one game: shared parts
@@ -636,6 +813,9 @@
     }
     if (RP) { RP.stop(); RP = null; }
     if (head === "autorepair") { current = "autorepair"; autorepair(); return; }
+    if (head === "cert" && P2["cert-l4"]) { current = "cert"; certView(parts.slice(1).join(".")); return; }
+    if (head === "repair") { current = "repair"; repairView(parts[1] || (P2["repair-l4"] ? "l4" : "l5")); return; }
+    if (head === "unseen" && (P2["unseen-lp85"] || P2["unseen-ft09"])) { current = "unseen"; unseenView(parts[1] || (P2["unseen-lp85"] ? "lp85" : "ft09")); return; }
     if (head === "paper") {                     // a place inside the paper on the home page
       if (current !== "home") { current = "home"; home(""); }
       setNav("home");

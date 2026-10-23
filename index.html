@@ -258,6 +258,10 @@ svg.merge .rule { fill: var(--ink); font-size: 13px; font-weight: 600; }
 .paper mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
 .paper mjx-container:not([display="true"]) { display: inline-block; vertical-align: middle; }
 .nobr { white-space: nowrap; }
+#ct tr.crow { cursor: pointer; }
+#ct tr.crow:hover td { background: var(--panel2); }
+#ct tr.start td { background: var(--mark); }
+#ct tr.cdet > td { background: var(--panel2); padding: 4px 10px 10px; }
 .paper mjx-container[display="true"] { display: block !important; min-width: 0 !important; overflow-x: auto !important; }
 .paper a.game, .paper a[href^="#"]:not([href^="#paper"]) { font-family: var(--mono); font-size: .88em; }
 .bib { font-size: 15px; } .bib p { margin: 6px 0; }
