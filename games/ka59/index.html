@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ka59 · Algebraic World Model</title>
+<meta name="description" content="ka59: Select shelled blocks and push blocks around until every block fits exactly into a frame.">
+<meta property="og:title" content="ka59 · Algebraic World Model">
+<meta property="og:description" content="ka59: Select shelled blocks and push blocks around until every block fits exactly into a frame.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/ka59/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ka59 · Algebraic World Model">
+<meta name="twitter:description" content="ka59: Select shelled blocks and push blocks around until every block fits exactly into a frame.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../g50t/" aria-label="Previous game">‹ g50t</a><a href="../lf52/" aria-label="Next game">lf52 ›</a></span></div><h1>ka59</h1><p class="one">Select shelled blocks and push blocks around until every block fits exactly into a frame.</p><p class="stat">7 levels · 11 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>On the field there are shelled blocks, yellow cross blocks without a shell, frames, walls, purple bands and door bands. Click a shelled block and control switches to it. A direction key makes it walk that way: if the cell ahead is empty it moves one cell, and if ahead is a wall or a purple band it does not move; when ahead it is adjacent to another block or door band, it does not move itself but pushes the adjacent thing out a fixed distance, stopping on hitting a wall, and continuing to slide if it stops on a band, until it leaves the band. Cross blocks cannot be clicked and can only be pushed. A door band grows one layer with each direction-key press, and when it reaches one layer short of full it resets to zero, and on the beat of the reset it sweeps the block directly in front of it out in the direction it grows. When every block fits exactly into one frame, the level is cleared. The budget bar at the bottom shortens bit by bit with the number of actions, and running it empty is judged a loss.</p></div><div class="frames"><figure><img src="../../img/thumbs/ka59.png" alt="ka59, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/ka59-last.png" alt="ka59, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 9 object types and 11 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Grid alignment</b> <code>phase</code><span>How pixels map to cells, used to find which cell a click hits.</span></li><li><b>Walls</b> <code>walls</code><span>Cells that block everything.</span></li><li><b>Purple bands</b> <code>bands</code><span>Bands that stop the controlled block; pushed or swept things slide off them.</span></li><li><b>Frames</b> <code>slots</code><span>The cells inside each frame.</span></li><li><b>Blocks</b> <code>pieces</code><span>Each block&#x27;s cells and whether it has a shell; shell-less ones are yellow cross blocks.</span></li><li><b>Controlled block</b> <code>selected</code><span>The block the direction keys control right now.</span></li><li><b>Retired blocks</b> <code>retired</code><span>Blocks that were controlled and then switched away from.</span></li><li><b>Door bands</b> <code>gates</code><span>Each door band&#x27;s cells, growing direction, and current layer count.</span></li><li><b>Budget bar</b> <code>bar</code><span>How many cells remain in the budget bar at the bottom.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-click_selects"><code class="rn">click_selects</code><span>Clicking a shelled block switches control to it; the previous block retires.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> after, clicked_piece
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_click, layout, same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_click(action):
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, o = world(prev), world(nxt)
+    want = after(w, action)
+    <span class="tk-k">return</span> verdict(layout(o) == layout(w) <span class="tk-k">and</span> o.selected == want.selected
+                   <span class="tk-k">and</span> o.retired == want.retired)
+
+<span class="tk-k">def</span> hit_kind(prev, action) -&gt; str:
+    w = world(prev)
+    p = clicked_piece(w, action)
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> p.shelled:
+        …
+    …</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> clickCell (b : Board) (x y : Nat) : Cell := ⟨(y + <span class="tk-n">6</span> - b.pr) / <span class="tk-n">3</span>, (x + <span class="tk-n">6</span> - b.pc) / <span class="tk-n">3</span>⟩
+
+<span class="tk-k">def</span> pieceAt (s : St) (x : Cell) : Option Nat :=
+  (List.range s.pieces.length).find? (<span class="tk-k">fun</span> i =&gt; (s.pieces.getD i ⟨[], false, false⟩).cells.contains x)
+
+<span class="tk-k">def</span> clickSelect (b : Board) (s : St) (x y : Nat) : St :=
+  <span class="tk-k">match</span> pieceAt s (clickCell b x y) <span class="tk-k">with</span>
+  | some i =&gt;
+      <span class="tk-k">if</span> (s.pieces.getD i ⟨[], false, false⟩).shelled &amp;&amp; i != s.sel <span class="tk-k">then</span>
+        { s <span class="tk-k">with</span>
+          sel := i
+          pieces := ((List.range s.pieces.length).zip s.pieces).map (<span class="tk-k">fun</span> (jp : Nat × Piece) =&gt;
+            <span class="tk-k">if</span> jp.1 == s.sel <span class="tk-k">then</span> { jp.2 <span class="tk-k">with</span> retired := true }
+            <span class="tk-k">else</span> <span class="tk-k">if</span> jp.1 == i <span class="tk-k">then</span> { jp.2 <span class="tk-k">with</span> retired := false }
+            <span class="tk-k">else</span> jp.2) }
+      <span class="tk-k">else</span> s
+  | none =&gt; s</code></pre></details></li><li id="rule-mover_steps"><code class="rn">mover_steps</code><span>A direction key moves the controlled block one empty cell; walls and bands stop it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> moves
+<span class="tk-k">from</span> derive.gate_clock <span class="tk-k">import</span> wraps
+<span class="tk-k">from</span> derive.space <span class="tk-k">import</span> dir_of, front
+<span class="tk-k">from</span> derive.things <span class="tk-k">import</span> me_key, table
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_dir, layout, norm, same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_dir(action):
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    w = world(prev)
+    me = me_key(w)
+    <span class="tk-k">if</span> me <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> any(wraps(g) <span class="tk-k">for</span> g <span class="tk-k">in</span> w.gates):
+        …
+    tab = table(w)
+    strip = front(tab[me], dir_of(norm(action)))
+    <span class="tk-k">if</span> any(k != me <span class="tk-k">and</span> tab[k] &amp; strip <span class="tk-k">for</span> k <span class="tk-k">in</span> tab):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, o = world(prev), world(nxt)
+    pos, _, _ = moves(w, dir_of(norm(action)))
+    want = sorted([(k[<span class="tk-n">0</span>], tuple(sorted(v))) <span class="tk-k">for</span> k, v <span class="tk-k">in</span> pos.items()])
+    <span class="tk-k">return</span> verdict(want == layout(o))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Things
+<span class="tk-k">import</span> Obj.Derive.Space
+
+<span class="tk-k">def</span> St.mine (s : St) : List Cell := (s.pieces.getD s.sel ⟨[], false, false⟩).cells
+
+<span class="tk-k">def</span> moverStep (b : Board) (s : St) (d : Dir) : List (List Cell) :=
+  <span class="tk-k">if</span> (front s.mine d).any (<span class="tk-k">fun</span> y =&gt; b.isWall y || b.isBand y) <span class="tk-k">then</span> s.bodies
+  <span class="tk-k">else</span> s.bodies.set s.sel (shiftAll s.mine d)</code></pre></details></li><li id="rule-push_shoves"><code class="rn">push_shoves</code><span>If something is adjacent ahead, the block stays and pushes it out a fixed distance.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> KICK, moves
+<span class="tk-k">from</span> derive.gate_clock <span class="tk-k">import</span> wraps
+<span class="tk-k">from</span> derive.space <span class="tk-k">import</span> dir_of, front
+<span class="tk-k">from</span> derive.things <span class="tk-k">import</span> me_key, table
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_dir, layout, norm, same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_dir(action):
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    w = world(prev)
+    me = me_key(w)
+    <span class="tk-k">if</span> me <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> any(wraps(g) <span class="tk-k">for</span> g <span class="tk-k">in</span> w.gates):
+        …
+    tab = table(w)
+    strip = front(tab[me], dir_of(norm(action)))
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(k != me <span class="tk-k">and</span> tab[k] &amp; strip <span class="tk-k">for</span> k <span class="tk-k">in</span> tab):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, o = world(prev), world(nxt)
+    pos, _, _ = moves(w, dir_of(norm(action)))
+    want = sorted([(k[<span class="tk-n">0</span>], tuple(sorted(v))) <span class="tk-k">for</span> k, v <span class="tk-k">in</span> pos.items()])
+    <span class="tk-k">return</span> verdict(want == layout(o))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Move.MoverSteps
+<span class="tk-k">import</span> Obj.Derive.Slide
+
+<span class="tk-k">def</span> KICK : Nat := <span class="tk-n">5</span>
+
+<span class="tk-k">def</span> touched (s : St) (d : Dir) : List Nat :=
+  <span class="tk-k">let</span> strip := front s.mine d
+  (List.range s.bodies.length).filter (<span class="tk-k">fun</span> i =&gt; i != s.sel &amp;&amp; overlaps (s.bodies.getD i []) strip)
+
+<span class="tk-k">def</span> pushShove (b : Board) (s : St) (d : Dir) : List (List Cell) :=
+  <span class="tk-k">let</span> t := touched s d
+  <span class="tk-k">let</span> pos := t.foldl (<span class="tk-k">fun</span> p i =&gt; p.set i (slide b d KICK (p.getD i []))) s.bodies
+  cascade b d s.sel pos t</code></pre></details></li><li id="rule-gate_ticks"><code class="rn">gate_ticks</code><span>Each direction-key press grows a door band one layer; one short of full, it resets.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> after
+<span class="tk-k">from</span> derive.gate_clock <span class="tk-k">import</span> layers
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_click, is_dir, same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> (is_dir(action) <span class="tk-k">or</span> is_click(action)):
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    w = world(prev)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> w.gates:
+        …
+    <span class="tk-k">if</span> any(layers(g) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">for</span> g <span class="tk-k">in</span> w.gates):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, o = world(prev), world(nxt)
+    <span class="tk-k">if</span> is_click(action):
+        <span class="tk-k">return</span> verdict([(tuple(sorted(g.cells)), g.count) <span class="tk-k">for</span> g <span class="tk-k">in</span> o.gates]
+                       == [(tuple(sorted(g.cells)), g.count) <span class="tk-k">for</span> g <span class="tk-k">in</span> w.gates])
+    want = after(w, action)
+    <span class="tk-k">return</span> verdict(sorted((tuple(sorted(g.cells)), g.count) <span class="tk-k">for</span> g <span class="tk-k">in</span> want.gates)
+                   == sorted((tuple(sorted(g.cells)), g.count) <span class="tk-k">for</span> g <span class="tk-k">in</span> o.gates))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.GateClock
+
+<span class="tk-k">def</span> Gate.tick (g : Gate) : Gate := { g <span class="tk-k">with</span> count := (g.count + <span class="tk-n">1</span>) % g.layers }
+
+<span class="tk-k">def</span> tickGates (gs : List Gate) : List Gate := gs.map Gate.tick</code></pre></details></li><li id="rule-gate_strikes"><code class="rn">gate_strikes</code><span>On its reset beat, a door band sweeps out the block directly in front.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> REACH, STRIKE, moves
+<span class="tk-k">from</span> derive.gate_clock <span class="tk-k">import</span> wraps
+<span class="tk-k">from</span> derive.space <span class="tk-k">import</span> dir_of
+<span class="tk-k">from</span> derive.things <span class="tk-k">import</span> me_key
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_dir, layout, norm, same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_dir(action):
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    w = world(prev)
+    <span class="tk-k">if</span> me_key(w) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(wraps(g) <span class="tk-k">for</span> g <span class="tk-k">in</span> w.gates):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, o = world(prev), world(nxt)
+    pos, _, _ = moves(w, dir_of(norm(action)))
+    want = sorted([(k[<span class="tk-n">0</span>], tuple(sorted(v))) <span class="tk-k">for</span> k, v <span class="tk-k">in</span> pos.items()])
+    <span class="tk-k">return</span> verdict(want == layout(o))
+
+<span class="tk-k">def</span> hit_count(prev, action) -&gt; int:
+    w = world(prev)
+    _, _, struck = moves(w, dir_of(norm(action)))
+    <span class="tk-k">return</span> sum(len(h) <span class="tk-k">for</span> _, _, h <span class="tk-k">in</span> struck)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Slide
+<span class="tk-k">import</span> Obj.Derive.Strike
+<span class="tk-k">import</span> Obj.Derive.GateClock
+
+<span class="tk-k">def</span> STRIKE : Nat := <span class="tk-n">3</span>
+<span class="tk-k">def</span> REACH : Nat := <span class="tk-n">3</span>
+
+<span class="tk-k">def</span> strikeOne (b : Board) (np j : Nat) (g : Gate) (pos : List (List Cell)) : List (List Cell) :=
+  <span class="tk-k">if</span> g.wraps <span class="tk-k">then</span>
+    <span class="tk-k">match</span> g.growth, pos.getD (np + j) [] <span class="tk-k">with</span>
+    | some D, top :: _ =&gt;
+        <span class="tk-k">let</span> hit := (List.range np).filter (<span class="tk-k">fun</span> i =&gt; inFront b top g.h g.w D (pos.getD i []) REACH)
+        <span class="tk-k">if</span> hit.isEmpty <span class="tk-k">then</span> pos
+        <span class="tk-k">else</span> cascade b D (np + j) (hit.foldl (<span class="tk-k">fun</span> p i =&gt; p.set i (slide b D STRIKE (p.getD i []))) pos) hit
+    | _, _ =&gt; pos
+  <span class="tk-k">else</span> pos
+
+<span class="tk-k">def</span> strikeAll (b : Board) (np : Nat) (gates : List Gate) (pos : List (List Cell)) : List (List Cell) :=
+  ((List.range gates.length).zip gates).foldl (<span class="tk-k">fun</span> p jg =&gt; strikeOne b np jg.1 jg.2 p) pos</code></pre></details></li><li id="rule-gate_keeps_heading"><code class="rn">gate_keeps_heading</code><span>A door band&#x27;s growing direction never changes, even when pushed.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> after
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_click, is_dir, same_level, verdict, world
+
+<span class="tk-k">def</span> _pairs(prev, action, nxt):
+    w, o = world(prev), world(nxt)
+    want = after(w, action) <span class="tk-k">if</span> is_dir(action) <span class="tk-k">else</span> w
+    got = {tuple(sorted(g.cells)): g <span class="tk-k">for</span> g <span class="tk-k">in</span> o.gates}
+    out = []
+    <span class="tk-k">for</span> g <span class="tk-k">in</span> want.gates:
+        k = tuple(sorted(g.cells))
+        <span class="tk-k">if</span> g.axis <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> k <span class="tk-k">in</span> got <span class="tk-k">and</span> got[k].axis <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+            out.append((g, got[k]))
+    <span class="tk-k">return</span> out
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> (is_dir(action) <span class="tk-k">or</span> is_click(action)):
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> <span class="tk-k">not</span> world(prev).gates:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> _pairs(prev, action, nxt):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">return</span> verdict(all((a.axis, a.sign) == (b.axis, b.sign) <span class="tk-k">for</span> a, b <span class="tk-k">in</span> _pairs(prev, action, nxt)))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+
+<span class="tk-k">theorem</span> gate_keeps_heading (b : Board) (s s&#x27; : St) (a : Act) (h : step b s a = .ok s&#x27;) :
+    s&#x27;.gates.map (·.dir) = s.gates.map (·.dir) := <span class="tk-k">by</span>
+  <span class="tk-k">have</span> hclick : ∀ x y, (clickSelect b s x y).gates = s.gates := <span class="tk-k">by</span>
+    <span class="tk-k">intro</span> x y
+    unfold clickSelect
+    split
+    · split &lt;;&gt; <span class="tk-k">rfl</span>
+    · <span class="tk-k">rfl</span>
+  <span class="tk-k">have</span> hzip : ∀ {α β : Type} (l : List α) (f : α → β),
+      ((List.range l.length).zip l).map (<span class="tk-k">fun</span> p =&gt; f p.2) = l.map f := <span class="tk-k">by</span>
+    <span class="tk-k">intro</span> α β l f
+    <span class="tk-k">have</span> h2 : ((List.range l.length).zip l).map Prod.snd = l := List.map_snd_zip (<span class="tk-k">by</span> <span class="tk-k">simp</span>)
+    <span class="tk-k">calc</span> ((List.range l.length).zip l).map (<span class="tk-k">fun</span> p =&gt; f p.2)
+        = (((List.range l.length).zip l).map Prod.snd).map f := <span class="tk-k">by</span> rw [List.map_map]; <span class="tk-k">rfl</span>
+      _ = l.map f := <span class="tk-k">by</span> rw [h2]
+  <span class="tk-k">have</span> hmove : ∀ (g : Gate) (l : List Cell), (g.moveTo l).dir = g.dir := <span class="tk-k">by</span>
+    <span class="tk-k">intro</span> g l; <span class="tk-k">cases</span> l &lt;;&gt; <span class="tk-k">rfl</span>
+  <span class="tk-k">have</span> hadv : (advance b s a).gates.map (·.dir) = s.gates.map (·.dir) := <span class="tk-k">by</span>
+    <span class="tk-k">cases</span> a <span class="tk-k">with</span>
+    | click x y =&gt; <span class="tk-k">simp</span> only [advance, St.tock, hclick]
+    | dir d =&gt;
+      <span class="tk-k">simp</span> only [advance, St.tock, tickGates, List.map_map]
+      <span class="tk-k">have</span> : ∀ (jg : Nat × Gate) (pos : List (List Cell)) (n : Nat),
+          ((Gate.tick (jg.2.moveTo (pos.getD (n + jg.1) []))).dir) = jg.2.dir := <span class="tk-k">by</span>
+        <span class="tk-k">intro</span> jg pos n; <span class="tk-k">exact</span> hmove _ _
+      <span class="tk-k">simp</span> only [Function.comp_def, this]
+      <span class="tk-k">exact</span> hzip s.gates (·.dir)
+  unfold step finish at h
+  split at h
+  · <span class="tk-k">cases</span> h
+  · split at h
+    · <span class="tk-k">cases</span> h
+    · <span class="tk-k">cases</span> h
+      <span class="tk-k">exact</span> hadv</code></pre></details></li><li id="rule-board_static"><code class="rn">board_static</code><span>Within a level, walls, bands and frames never change.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET → reset_restores&quot;</span>
+    <span class="tk-k">return</span> same_level(ctx)
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, o = world(prev), world(nxt)
+    <span class="tk-k">return</span> verdict((w.walls, w.bands, w.slots, w.phase) == (o.walls, o.bands, o.slots, o.phase))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+
+<span class="tk-k">def</span> stepWorld (w : World) (a : Act) : Option World :=
+  <span class="tk-k">match</span> step w.1 w.2 a <span class="tk-k">with</span>
+  | .ok s&#x27; =&gt; some (w.1, s&#x27;)
+  | _ =&gt; none
+
+<span class="tk-k">theorem</span> board_static (w w&#x27; : World) (a : Act) (h : stepWorld w a = some w&#x27;) : w&#x27;.1 = w.1 := <span class="tk-k">by</span>
+  unfold stepWorld at h
+  split at h
+  · <span class="tk-k">cases</span> h; <span class="tk-k">rfl</span>
+  · <span class="tk-k">cases</span> h</code></pre></details></li><li id="rule-level_solved"><code class="rn">level_solved</code><span>The level is cleared on the step every block fits exactly into one frame.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.advance <span class="tk-k">import</span> after
+<span class="tk-k">from</span> derive.seated <span class="tk-k">import</span> all_seated
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> is_click, is_dir, norm, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> (is_dir(action) <span class="tk-k">or</span> is_click(action)):
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET → reset_restores&quot;</span>
+    <span class="tk-k">if</span> <span class="tk-k">not</span> ctx <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;level_prev&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w = world(prev)
+    won = all_seated(after(w, norm(action)))
+    <span class="tk-k">return</span> verdict(won == (ctx[<span class="tk-s">&quot;level_next&quot;</span>] != ctx[<span class="tk-s">&quot;level_prev&quot;</span>]))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Seated
+
+<span class="tk-k">def</span> solved (b : Board) (s : St) : Bool := allSeated b s</code></pre></details></li><li id="rule-bar_ticks"><code class="rn">bar_ticks</code><span>Every step, including clicks and blocked moves, shortens the budget bar a little.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> same_level, verdict, world
+
+BUDGET = {<span class="tk-n">0</span>: <span class="tk-n">100</span>, <span class="tk-n">1</span>: <span class="tk-n">128</span>, <span class="tk-n">2</span>: <span class="tk-n">100</span>, <span class="tk-n">3</span>: <span class="tk-n">128</span>, <span class="tk-n">4</span>: <span class="tk-n">100</span>, <span class="tk-n">5</span>: <span class="tk-n">150</span>, <span class="tk-n">6</span>: <span class="tk-n">200</span>}
+FULL = <span class="tk-n">64</span>
+
+<span class="tk-k">def</span> bar_of(B: int, u: int) -&gt; int:
+    x = FULL * (B - u)
+    <span class="tk-k">return</span> (<span class="tk-n">2</span> * x + B - <span class="tk-n">1</span>) // (<span class="tk-n">2</span> * B)
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        …
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> ctx[<span class="tk-s">&quot;level_prev&quot;</span>] <span class="tk-k">not</span> <span class="tk-k">in</span> BUDGET:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    B = BUDGET[ctx[<span class="tk-s">&quot;level_prev&quot;</span>]]
+    a, b = world(prev).bar, world(nxt).bar
+    <span class="tk-k">return</span> verdict(any(bar_of(B, u) == a <span class="tk-k">and</span> bar_of(B, u + <span class="tk-n">1</span>) == b <span class="tk-k">for</span> u <span class="tk-k">in</span> range(B + <span class="tk-n">1</span>)))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> barOf (B u : Nat) : Nat := (<span class="tk-n">2</span> * (<span class="tk-n">64</span> * (B - u)) + B - <span class="tk-n">1</span>) / (<span class="tk-n">2</span> * B)
+
+<span class="tk-k">def</span> St.tock (s : St) : St := { s <span class="tk-k">with</span> used := s.used + <span class="tk-n">1</span> }</code></pre></details></li><li id="rule-bar_empty_ends"><code class="rn">bar_empty_ends</code><span>The step that empties the budget bar loses the game.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> same_level, verdict, world
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET → reset_restores&quot;</span>
+    r = same_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">return</span> verdict((world(nxt).bar == <span class="tk-n">0</span>) == (ctx[<span class="tk-s">&quot;state_next&quot;</span>] == <span class="tk-s">&quot;GAME_OVER&quot;</span>))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Rule.Outcome.BarTicks
+
+<span class="tk-k">def</span> barEmpty (b : Board) (s : St) : Bool := barOf b.budget s.used == <span class="tk-n">0</span></code></pre></details></li><li id="rule-reset_restores"><code class="rn">reset_restores</code><span>Reset returns the level to its opening state.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> verdict, world
+
+…
+                    …
+                    …
+                    …
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> action != <span class="tk-s">&quot;RESET&quot;</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> ctx <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;level_start&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">return</span> verdict(world(nxt) == world(ctx[<span class="tk-s">&quot;level_start&quot;</span>]))</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> real_winnable : Winnable L0_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable L0_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable L1_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable L2_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable L3_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable L4_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable L5_startWorld := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable L6_startWorld := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> key_no_win (b : Board) : ∀ s a, Key b s → step b s a ≠ .won := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> unsolvable_by_count (b : Board) (s : St) (h : Key b s) : Unsolvable ((b, s) : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> drop_unsolvable : Unsolvable dropWorld := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/ka59.zip" download>Download ka59.zip</a> <span class="note">1.2 MB · 75 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="ka59";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

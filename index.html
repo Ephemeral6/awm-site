@@ -1,384 +1,43 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Algebraic World Model</title>
 <meta charset="utf-8">
-<meta name="description" content="AWM learns a formal model of a game from play and proves in Lean which levels can and cannot be won; on sealed levels it proves impossibility where frontier coding agents cannot.">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Algebraic World Model: From Exploration to Proofs</title>
+<meta name="description" content="AWM learns a mathematical model of an unknown game from play, and proves in Lean what can and cannot be won.">
 <meta property="og:title" content="Algebraic World Model: From Exploration to Proofs">
-<meta property="og:description" content="AWM learns a formal model of a game from play and proves in Lean which levels can and cannot be won; on sealed levels it proves impossibility where frontier coding agents cannot.">
-<meta property="og:type" content="article">
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="Algebraic World Model: From Exploration to Proofs">
-<meta name="twitter:description" content="AWM learns a formal model of a game from play and proves in Lean which levels can and cannot be won; on sealed levels it proves impossibility where frontier coding agents cannot.">
+<meta property="og:description" content="AWM learns a mathematical model of an unknown game from play, and proves in Lean what can and cannot be won.">
+<meta property="og:type" content="website">
 <meta property="og:url" content="https://ephemeral6.github.io/awm-site/">
 <meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Algebraic World Model: From Exploration to Proofs">
+<meta name="twitter:description" content="AWM learns a mathematical model of an unknown game from play, and proves in Lean what can and cannot be won.">
 <meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "ScholarlyArticle", "headline": "Algebraic World Model: From Exploration to Proofs", "abstract": "AI has made remarkable progress in mathematics, solving challenging problems with machine-checkable proofs in Lean, yet typically relying on predefined mathematical definitions and formal specifications. This raises a natural question: can it reason rigorously about an unknown world? We introduce the Algebraic World Model (AWM), a framework that turns interaction with unfamiliar environments into explicit mathematical models supporting formal reasoning. AWM explores the environment and develops executable Python hypotheses, continually testing and revising them against observations. It then structures these hypotheses into typed objects and shared rules, simplifies their structure through category-theory-inspired transformations, and formalizes the resulting model in Lean 4 to prove reachability and impossibility. AWM enables formal proofs of impossibility beyond explored trajectories. On two impossible game levels, it constructs closed, kernel-checked Lean proofs excluding every legal winning sequence under its learned models in all six runs, while Claude Opus 5.5 and GPT-6 Astra produce none in twelve baseline runs. Four of AWM’s six initial bounds match the engine optima, compared with one for Opus 5.5 and none for GPT-6 Astra; feedback-guided refinement brings AWM to six of six. Its models make individual state transitions explicit and checkable. Across all 25 public ARC-AGI-3 games, Lean replays the winning trajectories of all 183 levels against AWM’s models, and AWM raises Opus 5 to a score of 99.9 with solutions that use 43% of the human baseline’s actions.", "author": {"@type": "Person", "name": "Anonymous"}, "url": "https://ephemeral6.github.io/awm-site/", "image": "https://ephemeral6.github.io/awm-site/og.png", "encoding": {"@type": "MediaObject", "contentUrl": "https://ephemeral6.github.io/awm-site/paper.pdf", "encodingFormat": "application/pdf"}}</script>
-<style>
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/JetBrainsMono-normal-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/JetBrainsMono-normal-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(fonts/JetBrainsMono-normal-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'JetBrains Mono';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(fonts/JetBrainsMono-normal-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Source Sans 3';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/SourceSans3-normal-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Source Sans 3';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/SourceSans3-normal-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Source Sans 3';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(fonts/SourceSans3-normal-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Source Sans 3';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(fonts/SourceSans3-normal-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Source Serif 4';
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/SourceSerif4-italic-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Source Serif 4';
-  font-style: italic;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/SourceSerif4-italic-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Source Serif 4';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/SourceSerif4-normal-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Source Serif 4';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url(fonts/SourceSerif4-normal-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-@font-face {
-  font-family: 'Source Serif 4';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(fonts/SourceSerif4-normal-latin-ext.woff2) format('woff2');
-  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F, U+A720-A7FF;
-}
-@font-face {
-  font-family: 'Source Serif 4';
-  font-style: normal;
-  font-weight: 600;
-  font-display: swap;
-  src: url(fonts/SourceSerif4-normal-latin.woff2) format('woff2');
-  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
-}
-
-/* AWM site. Every colour is a token on :root; dark values are defined twice below (system preference and explicit choice). */
-:root {
-  --bg: #f6f4ee; --panel: #fffdf8; --panel2: #efece3; --line: #dcd6c8;
-  --ink: #1c1d21; --dim: #575c66; --faint: #8a8d94;
-  --accent: #1d4c9c; --accent-ink: #ffffff; --warm: #c45a12;
-  --ok: #2b7a46; --bad: #b1322a; --warn: #a8670f; --con: #1d4c9c; --ms: #2b7a46;
-  --chip: #ebe7dc; --code-bg: #f1eee6; --changed: #f0a500; --mark: #fff1c2;
-  --serif: "Source Serif 4", "Source Serif Pro", Georgia, "Times New Roman", serif;
-  --sans: "Source Sans 3", "Source Sans Pro", "Segoe UI", system-ui, -apple-system, sans-serif;
-  --mono: "JetBrains Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #131519; --panel: #1a1d22; --panel2: #20242a; --line: #30353d;
-    --ink: #e7e5df; --dim: #a7abb3; --faint: #727780;
-    --accent: #8fb0f2; --accent-ink: #0e1220; --warm: #f0a05a;
-    --ok: #63c48a; --bad: #f07a70; --warn: #e3ab55; --con: #8fb0f2; --ms: #63c48a;
-    --chip: #262a31; --code-bg: #181b20; --changed: #ffd34d; --mark: #3a3420;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #131519; --panel: #1a1d22; --panel2: #20242a; --line: #30353d;
-  --ink: #e7e5df; --dim: #a7abb3; --faint: #727780;
-  --accent: #8fb0f2; --accent-ink: #0e1220; --warm: #f0a05a;
-  --ok: #63c48a; --bad: #f07a70; --warn: #e3ab55; --con: #8fb0f2; --ms: #63c48a;
-  --chip: #262a31; --code-bg: #181b20; --changed: #ffd34d; --mark: #3a3420;
-  color-scheme: dark;
-}
-
-* { box-sizing: border-box; }
-html { -webkit-text-size-adjust: 100%; }
-body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.65 var(--sans); }
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; text-underline-offset: 2px; }
-code, pre, .mono { font-family: var(--mono); font-size: 13px; }
-code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; overflow-wrap: anywhere; }
-pre { background: var(--code-bg); border: 1px solid var(--line); border-radius: 6px; padding: 12px 14px;
-      overflow: auto; max-height: 620px; line-height: 1.5; margin: 8px 0; }
-pre code { background: none; padding: 0; }
-img, canvas, svg { max-width: 100%; }
-summary, .note, .lede, td, th { overflow-wrap: anywhere; }
-
-/* top bar */
-.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
-.topbar .in { max-width: 1240px; margin: 0 auto; display: flex; gap: 18px; align-items: center; flex-wrap: wrap;
-  padding: 8px max(16px, env(safe-area-inset-right, 0px)) 8px max(16px, env(safe-area-inset-left, 0px)); }
-.topbar .brand { font: 600 15px var(--serif); color: var(--ink); letter-spacing: .2px; }
-.topbar nav { display: flex; gap: 16px; flex-wrap: wrap; font-size: 14px; }
-.topbar nav a { color: var(--dim); }
-.topbar nav a.on { color: var(--ink); font-weight: 600; }
-.topbar .sp { flex: 1; }
-.topbar button { background: none; border: 1px solid var(--line); color: var(--dim); border-radius: 4px; padding: 2px 8px; cursor: pointer; font: 13px var(--sans); }
-
-.wrap { max-width: 1240px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 72px max(16px, env(safe-area-inset-left, 0px)); }
-h1 { font: 600 38px/1.18 var(--serif); margin: 14px 0 10px; letter-spacing: -.2px; }
-h2 { font: 600 25px/1.3 var(--serif); margin: 40px 0 10px; }
-h3 { font: 600 18px/1.35 var(--serif); margin: 24px 0 8px; }
-h4 { font: 600 13px var(--sans); color: var(--dim); text-transform: uppercase; letter-spacing: .6px; margin: 0 0 6px; }
-p { margin: 8px 0 12px; }
-.lede { font: 19px/1.55 var(--serif); color: var(--dim); max-width: 760px; }
-.muted, .note { color: var(--dim); font-size: 14px; }
-.crumb { font-size: 13px; color: var(--dim); }
-.kicker { font: 600 12px var(--sans); letter-spacing: 1.4px; text-transform: uppercase; color: var(--warm); }
-
-.btns { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0; }
-.btn { display: inline-block; padding: 6px 13px; border-radius: 4px; border: 1px solid var(--line); background: var(--panel);
-       color: var(--ink); font: 14px var(--sans); cursor: pointer; }
-.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
-.btn:hover { text-decoration: none; border-color: var(--accent); }
-
-/* hero: text | Figure 1 on wide screens, the tiles below both; on phones text, tiles, figure */
-.hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-areas: "text fig" "stats stats";
-        gap: 8px 32px; align-items: center; padding: 12px 0 8px; }
-.hero .h-text { grid-area: text; } .hero .h-fig { grid-area: fig; } .hero .h-stats { grid-area: stats; }
-.authors { color: var(--dim); font-size: 15px; margin: 0 0 8px; }
-.tldr { font: 16px/1.55 var(--sans); background: var(--panel); border-left: 3px solid var(--accent); padding: 8px 12px; margin: 10px 0; max-width: 760px; }
-.teaser { margin: 0; }
-.teaser svg { display: block; width: 100%; height: auto; background: #fff; border: 1px solid var(--line); border-radius: 4px; }
-.teaser .t-dim { fill: #f6f4ee; opacity: .78; }
-.teaser .t-ring { fill: none; stroke: var(--warm); stroke-width: 1.6; }
-.teaser figcaption { min-height: 4.6em; }
-.teaser figcaption .note { display: block; margin-top: 4px; }
-.t-ctrl { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
-.t-ctrl .btn { padding: 2px 10px; font-size: 13px; }
-.t-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid var(--faint); background: none; padding: 0; margin-right: 4px; cursor: pointer; }
-.t-dot.on { background: var(--warm); border-color: var(--warm); }
-.capw { margin: 16px 0; font-family: var(--sans); }
-.capw table.t td, .capw table.t th { font-size: 14px; }
-svg.merge { width: 100%; height: auto; display: block; font-family: var(--mono); }
-svg.merge .nm, svg.merge .lb { fill: var(--dim); font-size: 11px; }
-svg.merge .ax { stroke: var(--line); }
-svg.merge .life { stroke: var(--line); stroke-width: 2; }
-svg.merge .v { fill: var(--accent); }
-svg.merge a .v:hover { fill: var(--warm); }
-svg.merge .x { fill: var(--bad); font-size: 14px; font-weight: 600; }
-svg.merge .to { fill: none; stroke: var(--faint); stroke-width: 1; }
-svg.merge .rule { fill: var(--ink); font-size: 13px; font-weight: 600; }
-.hero figure { margin: 0; }
-.hero .cvwrap { position: relative; aspect-ratio: 1; background: #000; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; }
-.hero canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
-.hero figcaption { font-size: 13px; color: var(--dim); margin-top: 6px; }
-.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0; margin: 24px 0 8px;
-         border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
-.stat { padding: 12px 14px 12px 0; }
-.stat .v { font: 600 28px/1.1 var(--serif); font-variant-numeric: tabular-nums; }
-.stat .k { font-weight: 600; font-size: 14px; }
-.stat p { color: var(--dim); font-size: 13px; margin: 4px 0 0; }
-
-/* paper */
-.paperwrap { display: grid; grid-template-columns: 220px minmax(0, 760px); gap: 40px; justify-content: center; }
-.toc { position: sticky; top: 64px; align-self: start; font-size: 13.5px; max-height: calc(100vh - 80px); overflow: auto; padding-top: 44px; }
-.toc a { display: block; padding: 3px 0; color: var(--dim); }
-.toc a:hover { color: var(--accent); }
-.paper { font: 17.5px/1.72 var(--serif); overflow-wrap: anywhere; min-width: 0; }
-.paper h2 { font-size: 26px; border-top: 1px solid var(--line); padding-top: 22px; }
-.paper h3 { font-size: 19px; }
-.paper figure { margin: 22px 0; text-align: center; }
-.paper figure img { max-width: 100%; background: #fff; border-radius: 3px; }
-.paper figcaption { font: 15px/1.5 var(--serif); color: var(--dim); text-align: left; margin-top: 8px; }
-.paper table { border-collapse: collapse; margin: 14px auto; font: 14px var(--sans); display: block; overflow-x: auto; max-width: 100%; width: max-content; }
-.paper td, .paper th { border-bottom: 1px solid var(--line); padding: 4px 9px; }
-.paper mjx-container { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
-.paper mjx-container:not([display="true"]) { display: inline-block; vertical-align: middle; }
-.nobr { white-space: nowrap; }
-#ct tr.crow { cursor: pointer; }
-#ct tr.crow:hover td { background: var(--panel2); }
-#ct tr.start td { background: var(--mark); }
-#ct tr.cdet > td { background: var(--panel2); padding: 4px 10px 10px; }
-.paper mjx-container[display="true"] { display: block !important; min-width: 0 !important; overflow-x: auto !important; }
-.paper a.game, .paper a[href^="#"]:not([href^="#paper"]) { font-family: var(--mono); font-size: .88em; }
-.bib { font-size: 15px; } .bib p { margin: 6px 0; }
-
-/* explore card inserted into the paper */
-.explore { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 14px; align-items: center; margin: 14px 0 22px;
-           padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--warm);
-           border-radius: 4px; font: 14px/1.5 var(--sans); }
-.explore img { width: 96px; height: 96px; image-rendering: pixelated; display: block; border-radius: 2px; background: #000; }
-.explore b { font-family: var(--mono); }
-.paper .explore a { font-family: var(--sans); font-size: 14px; }
-.explore .links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 4px; }
-
-/* gallery and tables */
-.gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-.gcard { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; color: var(--ink); display: block; }
-.gcard:hover { border-color: var(--accent); text-decoration: none; }
-.gcard img { display: block; width: 100%; aspect-ratio: 1; image-rendering: pixelated; background: #000; }
-.gcard .t { padding: 7px 9px; }
-.gcard .t b { font-family: var(--mono); font-size: 15px; }
-.gcard .t span { display: block; color: var(--dim); font-size: 12px; }
-.chip { display: inline-block; background: var(--chip); color: var(--dim); border-radius: 3px; padding: 0 7px; font-size: 12px;
-        margin: 2px 4px 2px 0; white-space: nowrap; font-family: var(--sans); }
-.chip.ok { color: var(--ok); } .chip.bad { color: var(--bad); } .chip.con { color: var(--con); }
-a.chip:hover { text-decoration: none; border: 0; filter: brightness(.96); }
-.tbox { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); margin: 10px 0; }
-table.t { border-collapse: collapse; width: 100%; font-size: 14px; }
-table.t th, table.t td { padding: 6px 10px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-table.t th { background: var(--panel2); font-weight: 600; }
-table.t td.n { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); }
-table.t tr:last-child td { border-bottom: none; }
-
-/* expandable */
-details.item { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; margin: 8px 0; }
-details.item > summary { cursor: pointer; padding: 9px 13px; list-style: none; }
-details.item > summary::-webkit-details-marker { display: none; }
-details.item > summary::before { content: "\25B8"; color: var(--faint); margin-right: 8px; }
-details.item[open] > summary::before { content: "\25BE"; }
-details.item .body { padding: 0 13px 12px; }
-details.item .name { font-family: var(--mono); font-weight: 600; }
-details.orig { margin: 4px 0 8px; font-size: 13px; color: var(--dim); }
-details.orig > summary { cursor: pointer; color: var(--faint); font-size: 12px; }
-details.orig > div { white-space: pre-wrap; padding: 6px 0 0; }
-.claim { font: 16px/1.55 var(--serif); }
-.vers { border-left: 2px solid var(--line); margin: 8px 0 8px 4px; padding-left: 12px; }
-.vers .v { margin: 10px 0; }
-.vers .v .h { font-size: 12px; color: var(--dim); }
-.prose { max-width: 780px; }
-.md { font: 16.5px/1.65 var(--serif); }
-.md h1 { font-size: 24px; } .md h2 { font-size: 20px; margin-top: 26px; } .md h3 { font-size: 17px; }
-.md ul { padding-left: 22px; }
-.pipeline { width: 100%; max-width: 980px; display: block; margin: 8px 0; }
-.pipeline .box { fill: var(--panel); stroke: var(--line); }
-.pipeline .hd { fill: var(--ink); font: 600 15px var(--sans); }
-.pipeline .sb { fill: var(--dim); font: 12.5px var(--sans); }
-.pipeline .ar { stroke: var(--faint); stroke-width: 1.6; fill: none; }
-.pipeline .ah { fill: var(--faint); }
-footer.site { border-top: 1px solid var(--line); margin-top: 52px; padding-top: 12px; color: var(--dim); font-size: 13px; }
-footer.site ul { padding-left: 18px; margin: 6px 0; }
-.wb-frame { width: 100%; height: 80vh; border: 1px solid var(--line); border-radius: 4px; background: #fff; }
-.pv-list { display: flex; flex-wrap: wrap; gap: 4px; }
-
-/* replay */
-.rp { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 18px; align-items: start; }
-.rp .boards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.rp figure { margin: 0; }
-.rp figcaption { color: var(--dim); font-size: 12px; margin-bottom: 4px; }
-.cv { position: relative; width: 100%; aspect-ratio: 1; background: #000; border-radius: 3px; overflow: hidden; border: 1px solid var(--line); }
-.cv canvas { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; }
-.ctrl { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
-.ctrl button, .ctrl select { background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-radius: 4px;
-                             padding: 4px 10px; font: 13px var(--sans); cursor: pointer; }
-.ctrl button:hover { border-color: var(--accent); }
-.ctrl input[type=range] { flex: 1; min-width: 140px; accent-color: var(--accent); }
-.ctrl label { font-size: 13px; color: var(--dim); }
-.strip { width: 100%; height: 34px; display: block; border: 1px solid var(--line); border-radius: 3px; cursor: pointer; background: var(--panel2); }
-.legend { font-size: 12px; color: var(--dim); display: flex; gap: 12px; flex-wrap: wrap; margin: 4px 0 0; }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 4px; vertical-align: -1px; }
-.pane { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 11px 13px; margin-bottom: 12px; }
-.kv { display: grid; grid-template-columns: max-content 1fr; gap: 2px 12px; font-size: 14px; }
-.kv dt { color: var(--dim); } .kv dd { margin: 0; overflow-wrap: anywhere; }
-.bet { white-space: pre-wrap; font: 15px/1.55 var(--serif); }
-.lines { list-style: none; margin: 8px 0 0; padding: 0; max-height: 420px; overflow: auto; font-size: 13px; }
-.lines li { padding: 4px 0; border-top: 1px dashed var(--line); }
-.lines li .tg { display: inline-block; min-width: 5.5em; font-weight: 600; color: var(--dim); }
-.lines li.con .tg { color: var(--con); } .lines li.cex .tg { color: var(--bad); } .lines li.ms .tg { color: var(--ms); }
-.lines li .tm { color: var(--faint); font-family: var(--mono); font-size: 12px; margin-right: 6px; }
-.lines.hidechk li.chk, .lines.hidechk li.map, .lines.hidechk li.frames { display: none; }
-.evt { color: var(--ms); font-weight: 600; }
-.kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; color: var(--dim); }
-
-@media (max-width: 1100px) {
-  .paperwrap { grid-template-columns: minmax(0, 1fr); }
-  .toc { display: none; }
-}
-@media (max-width: 860px) {
-  .hero, .rp { grid-template-columns: 1fr; }
-  .hero { grid-template-areas: "text" "stats" "fig"; }
-  .hero .h-fig { width: 100%; }
-  h1 { font-size: 29px; }
-  .paper { font-size: 16.5px; }
-}
-
-</style>
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+<link rel="preload" as="image" href="img/figure4.webp">
 </head>
 <body>
-<div class="topbar"><div class="in">
-<a class="brand" href="#home">Algebraic World Model</a>
-<nav id="nav">
-<a href="#home" data-k="home">Paper</a>
-<a href="#games" data-k="games">The 25 games</a>
-<a href="#data" data-k="data">Data</a>
-</nav>
-<span class="sp"></span><button id="theme" type="button" title="Switch light / dark">Light / dark</button>
-</div></div>
-<main class="wrap" id="app"><p class="muted">Loading…</p></main>
-<script src="data/site.js" charset="utf-8"></script>
-<script src="data/app.js" charset="utf-8"></script>
-
+<header class="top"><div class="in"><a class="brand" href="./">AWM</a><nav><a href="games/">Games</a><a href="paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="home"><section class="first"><h1>Algebraic World Model:<br>From Exploration to Proofs</h1><div class="authors"><div class="author"><span class="ini" aria-hidden="true">GP</span><div class="nm">Guancheng Pan</div><div class="af">Zhejiang University</div></div><div class="author"><span class="ini" aria-hidden="true">QT</span><div class="nm">Qixin Tan</div><div class="af">Tsinghua University</div></div><div class="author"><span class="ini" aria-hidden="true">YY</span><div class="nm">Yang Yuan<sup title="Corresponding author">*</sup></div><div class="af">Tsinghua University</div></div><div class="author"><span class="ini" aria-hidden="true">AC</span><div class="nm">Andrew C. Yao</div><div class="af">Tsinghua University</div></div></div><div class="btns"><a class="btn primary" href="paper.pdf">Paper</a><span class="btn off" title="The code repository is not public yet">Code · soon</span><a class="btn" href="games/">Games</a><button class="btn" type="button" data-bibtex>BibTeX</button></div><figure class="hero"><img class="" src="img/figure4.webp" alt="Sealed sc25 level 4. AWM proves in Lean that the minimum winning cost is 19, one unit above the budget of 18, and finds a route at that cost; GPT-6 Astra claims 22 without a proof." width="2360" height="974" fetchpriority="high"></figure><p class="tldr">AWM learns a mathematical model of an unknown game from play, and proves in Lean what can and cannot be won.</p></section><section class="claims"><article class="claim"><h2>It knows when a task is impossible</h2><p>On levels sealed one step short of a win, AWM proves in Lean that no route can win; frontier agents without it can only guess.</p><a class="fig" href="games/sc25/#sealed"><img class="" src="img/figure4-numberline.webp" alt="Number line of winning costs on sealed sc25 level 4: budget 18, AWM&#x27;s proved minimum 19, GPT-6 Astra&#x27;s claim 22." width="1468" height="974" loading="lazy" decoding="async"></a><p class="more"><a href="games/sc25/#sealed">See the sealed level →</a></p></article><article class="claim"><h2>Its models can be read and checked</h2><p>Every game becomes a handful of typed objects and named rules, and Lean replays every winning run against them.</p><a class="fig" href="games/lp85/#model"><img class="" src="img/figure3.webp" alt="lp85: eleven concepts written during play become one shared rule, press_permutes; Lean proves the original level winnable and a recolored level unsolvable." width="2388" height="1509" loading="lazy" decoding="async"></a><p class="more"><a href="games/lp85/#model">See the lp85 model →</a></p></article></section><section class="method"><h2>How AWM works</h2><img class="" src="img/figure1.webp" alt="AWM in three stages: Explore &amp; Prototype, Structure &amp; Simplify, Formalize &amp; Prove." width="2400" height="860" loading="lazy" decoding="async"><ol class="steps"><li><b><span class="k">01</span> Explore &amp; Prototype</b><p>AWM explores the game and writes each guess about its rules as an executable Python hypothesis, tested and revised against every observed transition.</p></li><li><b><span class="k">02</span> Structure &amp; Simplify</b><p>It structures the hypotheses into typed objects and shared rules, and simplifies them with transformations inspired by category theory.</p></li><li><b><span class="k">03</span> Formalize &amp; Prove</b><p>It encodes the model in Lean 4 and proves, with kernel-checked theorems, which levels can and cannot be won.</p></li></ol></section><footer class="foot"><div><h2>Citation</h2><pre id="bib-inline">@misc{pan2026awm,
+  title         = {Algebraic World Model: From Exploration to Proofs},
+  author        = {Pan, Guancheng and Tan, Qixin and Yuan, Yang and Yao, Andrew C.},
+  year          = {2026},
+  eprint        = {XXXX.XXXXX},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI}
+}</pre><button class="btn" type="button" data-copy-inline>Copy BibTeX</button></div><div><h2>Contact</h2><p>Yang Yuan* (corresponding author) · <a href="mailto:yuanyang@tsinghua.edu.cn">yuanyang@tsinghua.edu.cn</a></p></div></footer></main><dialog id="bib"><div class="dlg"><div class="dlg-h"><b>BibTeX</b><button type="button" class="x" data-close aria-label="Close">×</button></div><pre id="bib-text">@misc{pan2026awm,
+  title         = {Algebraic World Model: From Exploration to Proofs},
+  author        = {Pan, Guancheng and Tan, Qixin and Yuan, Yang and Yao, Andrew C.},
+  year          = {2026},
+  eprint        = {XXXX.XXXXX},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.AI}
+}</pre><div class="btns"><button class="btn primary" type="button" data-copy>Copy</button><span class="note" id="bib-ok"></span></div></div></dialog>
+<script src="assets/site.js"></script>
 </body>
 </html>

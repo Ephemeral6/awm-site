@@ -1,0 +1,329 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>r11l · Algebraic World Model</title>
+<meta name="description" content="r11l: Click diamonds to move them; the level is cleared when each group&#x27;s jar presses on a locked target ring.">
+<meta property="og:title" content="r11l · Algebraic World Model">
+<meta property="og:description" content="r11l: Click diamonds to move them; the level is cleared when each group&#x27;s jar presses on a locked target ring.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/r11l/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="r11l · Algebraic World Model">
+<meta name="twitter:description" content="r11l: Click diamonds to move them; the level is cleared when each group&#x27;s jar presses on a locked target ring.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../m0r0/" aria-label="Previous game">‹ m0r0</a><a href="../re86/" aria-label="Next game">re86 ›</a></span></div><h1>r11l</h1><p class="one">Click diamonds to move them; the level is cleared when each group&#x27;s jar presses on a locked target ring.</p><p class="stat">6 levels · 9 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>There are several groups of diamonds on the board, each group leading a jar, and the jar always stays at the centre of this group of diamonds. The jar cannot be clicked, only the diamonds can be moved: first click a diamond to select it, then click a piece of empty ground, it jumps over, and the jar immediately moves to the new centre. When a jar lands on a paint block, it covers itself with the colour of that block, and the paint block disappears with it. When the colour on the jar matches the colour a target ring wants and it presses on that ring&#x27;s target centre, the target ring locks. The level is cleared when each group&#x27;s jar presses on a locked target ring. Grey hard walls cannot be stepped on by anyone, and light-blue soft-ground diamonds can be stood on but a jar cannot press onto them; a move that would step on these places is voided. The vertical bar on the left records how many clicks have been made.</p></div><div class="frames"><figure><img src="../../img/thumbs/r11l.png" alt="r11l, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/r11l-last.png" alt="r11l, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 6 object types and 9 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Click counter</b> <code>spent</code><span>Clicks made this level; the vertical bar at far left, shorter with more clicks.</span></li><li><b>Selected diamond</b> <code>selected</code><span>The diamond selected now, drawn white; clicking empty ground moves it.</span></li><li><b>Groups</b> <code>groups</code><span>Each group&#x27;s diamond positions plus the colour on the jar they lead.</span></li><li><b>Paint blocks</b> <code>blobs</code><span>Paint blocks still on the board, jar-sized but tied to no diamond.</span></li><li><b>Target rings</b> <code>reticles</code><span>Where jars must go: the colours each target ring wants, and whether it is locked.</span></li><li><b>Terrain</b> <code>terrain</code><span>Black ground: anyone stands; grey hard walls: no one; light-blue soft ground: diamonds only.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-click_selects"><code class="rn">click_selects</code><span>Clicking a diamond selects it; no diamond or jar moves.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.hit <span class="tk-k">import</span> hit
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_cell
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> anchor_sets
+
+…
+BOOK = [<span class="tk-s">&quot;click_on_diamond_selects&quot;</span>]
+…
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">return</span> _scope.on_diamond(w, action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> tuple(nw.selected) == tuple(hit(w, click_cell(action))) <span class="tk-k">and</span> anchor_sets(w) == anchor_sets(nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> hitAnchor (w : World) (p : Cell) : Option Cell :=
+  w.anchors.find? (<span class="tk-k">fun</span> a =&gt; manhattan a p ≤ <span class="tk-n">2</span>)
+
+<span class="tk-k">def</span> clickSelect (w : World) (a : Cell) : World := { w <span class="tk-k">with</span> selected := a }</code></pre></details></li><li id="rule-click_moves"><code class="rn">click_moves</code><span>Clicking empty ground jumps the selected diamond there; covering other things does not block it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.place <span class="tk-k">import</span> placed
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_cell
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> anchor_sets
+
+…
+BOOK = [<span class="tk-s">&quot;click_places_a&quot;</span>, <span class="tk-s">&quot;other_stays_otherwise&quot;</span>, <span class="tk-s">&quot;object_overlap_does_not_reject_move&quot;</span>, <span class="tk-s">&quot;m_is_centroid&quot;</span>]
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why, b = _scope.legality(w, action, nw, ctx)
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    p = click_cell(action)
+    i, new, _ = placed(w, p)
+    want = sorted([tuple(sorted(tuple(a) <span class="tk-k">for</span> a <span class="tk-k">in</span> g.anchors)) <span class="tk-k">for</span> j, g <span class="tk-k">in</span> enumerate(w.groups) <span class="tk-k">if</span> j != i]
+                  + [tuple(new)])
+    <span class="tk-k">return</span> tuple(nw.selected) == tuple(p) <span class="tk-k">and</span> anchor_sets(nw) == want</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> groupOf (w : World) (s : Cell) : Option Nat :=
+  w.groups.findIdx? (<span class="tk-k">fun</span> g =&gt; g.anchors.contains s)
+
+<span class="tk-k">def</span> movedAnchors (g : Group) (s p : Cell) : List Cell :=
+  g.anchors.map (<span class="tk-k">fun</span> a =&gt; <span class="tk-k">if</span> a = s <span class="tk-k">then</span> p <span class="tk-k">else</span> a)
+
+<span class="tk-k">def</span> landing (w : World) (i : Nat) (p : Cell) : Cell :=
+  centroid (movedAnchors (w.groups.getD i ⟨[], []⟩) w.selected p)
+
+<span class="tk-k">def</span> clickMove (w : World) (i : Nat) (p : Cell) : World :=
+  { w <span class="tk-k">with</span>
+    selected := p
+    groups := mapAt (<span class="tk-k">fun</span> g =&gt; { g <span class="tk-k">with</span> anchors := movedAnchors g w.selected p }) i w.groups }</code></pre></details></li><li id="rule-click_rejected"><code class="rn">click_rejected</code><span>Diamonds hitting hard walls, or jars hitting hard walls or soft ground, void the click.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> anchor_sets
+
+…
+BOOK = [<span class="tk-s">&quot;move_rejected_on_blocked_terrain&quot;</span>]
+…
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why, b = _scope.legality(w, action, nw, ctx)
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> tuple(nw.selected) == tuple(w.selected) <span class="tk-k">and</span> anchor_sets(w) == anchor_sets(nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> Board.wallAt (b : Board) (q : Cell) : Bool := Board.bit b.wall q.r q.c
+<span class="tk-k">def</span> Board.softAt (b : Board) (q : Cell) : Bool := Board.bit b.soft q.r q.c
+
+<span class="tk-k">def</span> blocked (b : Board) (p c : Cell) : Bool :=
+  (footprint diamondOffs p).any (<span class="tk-k">fun</span> q =&gt; b.wallAt q) ||
+  (footprint discOffs c).any (<span class="tk-k">fun</span> q =&gt; b.wallAt q || b.softAt q)
+
+<span class="tk-k">def</span> clickReject (w : World) : World := w</code></pre></details></li><li id="rule-absorb"><code class="rn">absorb</code><span>A jar landing on a paint block takes its colour, and the paint block disappears.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.outcome <span class="tk-k">import</span> blob_at, overwrite
+<span class="tk-k">from</span> derive.place <span class="tk-k">import</span> placed
+<span class="tk-k">from</span> derive.seen <span class="tk-k">import</span> ink_agrees
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_cell
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> same_blobs
+
+…
+BOOK = [<span class="tk-s">&quot;circle_absorbs_blob_ink&quot;</span>, <span class="tk-s">&quot;decoy_silhouettes_are_fixed&quot;</span>, <span class="tk-s">&quot;circle_ring_translates&quot;</span>,
+        <span class="tk-s">&quot;road_covers_fresh_ink&quot;</span>]
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> _landing(w, action, nw, ctx):
+    <span class="tk-k">if</span> _scope.on_diamond(w, action, ctx) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    _, b = _scope.legality(w, action, nw, ctx)
+    <span class="tk-k">return</span> <span class="tk-k">None</span> <span class="tk-k">if</span> b <span class="tk-k">else</span> placed(w, click_cell(action))
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">return</span> _scope.in_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    got = {tuple(sorted(tuple(a) <span class="tk-k">for</span> a <span class="tk-k">in</span> g.anchors)): g.ink <span class="tk-k">for</span> g <span class="tk-k">in</span> nw.groups}
+    moved = _landing(w, action, nw, ctx)
+    k = blob_at(w, moved[<span class="tk-n">2</span>]) <span class="tk-k">if</span> moved <span class="tk-k">else</span> <span class="tk-k">None</span>
+    <span class="tk-k">for</span> i, g <span class="tk-k">in</span> enumerate(w.groups):
+        key = (tuple(tuple(x) <span class="tk-k">for</span> x <span class="tk-k">in</span> moved[<span class="tk-n">1</span>]) <span class="tk-k">if</span> moved <span class="tk-k">and</span> moved[<span class="tk-n">0</span>] == i
+               <span class="tk-k">else</span> tuple(sorted(tuple(a) <span class="tk-k">for</span> a <span class="tk-k">in</span> g.anchors)))
+        want = overwrite(g.ink, w.blobs[k].ink) <span class="tk-k">if</span> (k <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> moved[<span class="tk-n">0</span>] == i) <span class="tk-k">else</span> g.ink
+        <span class="tk-k">if</span> key <span class="tk-k">not</span> <span class="tk-k">in</span> got <span class="tk-k">or</span> <span class="tk-k">not</span> ink_agrees(want, got[key]):
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">if</span> k <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> same_blobs(w, nw)
+    rest = [b <span class="tk-k">for</span> j, b <span class="tk-k">in</span> enumerate(w.blobs) <span class="tk-k">if</span> j != k]
+    <span class="tk-k">return</span> ([tuple(b.center) <span class="tk-k">for</span> b <span class="tk-k">in</span> rest] == [tuple(b.center) <span class="tk-k">for</span> b <span class="tk-k">in</span> nw.blobs]
+            <span class="tk-k">and</span> all(ink_agrees(a.ink, b.ink) <span class="tk-k">for</span> a, b <span class="tk-k">in</span> zip(rest, nw.blobs)))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> overwrite (ink blob : List Nat) : List Nat :=
+  List.zipWith (<span class="tk-k">fun</span> a b =&gt; <span class="tk-k">if</span> b = <span class="tk-n">0</span> <span class="tk-k">then</span> a <span class="tk-k">else</span> b) ink blob
+
+<span class="tk-k">def</span> absorb (w : World) (i : Nat) (c : Cell) : World :=
+  <span class="tk-k">match</span> w.blobs.find? (<span class="tk-k">fun</span> x =&gt; x.center = c) <span class="tk-k">with</span>
+  | none =&gt; w
+  | some x =&gt;
+    { w <span class="tk-k">with</span>
+      groups := mapAt (<span class="tk-k">fun</span> g =&gt; { g <span class="tk-k">with</span> ink := overwrite g.ink x.ink }) i w.groups
+      blobs := w.blobs.filter (<span class="tk-k">fun</span> y =&gt; y.center ≠ c) }</code></pre></details></li><li id="rule-bar"><code class="rn">bar</code><span>Every click, including voided ones, counts one; the counter resets on a new level.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+
+…
+BOOK = [<span class="tk-s">&quot;bar_drains_one&quot;</span>, <span class="tk-s">&quot;bar_refills_on_levelup&quot;</span>]
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">return</span> _scope.click(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.spent == (<span class="tk-n">0</span> <span class="tk-k">if</span> ctx[<span class="tk-s">&quot;kind&quot;</span>] == <span class="tk-s">&quot;levelup&quot;</span> <span class="tk-k">else</span> w.spent + <span class="tk-n">1</span>)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> tick (w : World) : World := { w <span class="tk-k">with</span> spent := w.spent + <span class="tk-n">1</span> }</code></pre></details></li><li id="rule-terrain_static"><code class="rn">terrain_static</code><span>Within a level, every cell visible in both frames keeps its colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+
+…
+BOOK = [<span class="tk-s">&quot;terrain_is_static&quot;</span>, <span class="tk-s">&quot;vacated_reverts_to_ground&quot;</span>]
+…
+           …
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">return</span> _scope.in_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">for</span> a, b <span class="tk-k">in</span> zip(w.terrain.rows, nw.terrain.rows):
+        <span class="tk-k">for</span> x, y <span class="tk-k">in</span> zip(a, b):
+            <span class="tk-k">if</span> x <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> y <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> x != y:
+                <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+<span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">theorem</span> terrain_static (b₁ b₂ : Board)
+    (h : ∀ q, b₁.wallAt q = b₂.wallAt q ∧ b₁.softAt q = b₂.softAt q) (w : World) (p : Cell) :
+    step b₁ w p = step b₂ w p := <span class="tk-k">by</span>
+  <span class="tk-k">have</span> hb : ∀ c, blocked b₁ p c = blocked b₂ p c := <span class="tk-k">by</span>
+    <span class="tk-k">intro</span> c
+    <span class="tk-k">have</span> hw : (<span class="tk-k">fun</span> q =&gt; b₁.wallAt q) = (<span class="tk-k">fun</span> q =&gt; b₂.wallAt q) := funext <span class="tk-k">fun</span> q =&gt; (h q).<span class="tk-n">1</span>
+    <span class="tk-k">have</span> hs : (<span class="tk-k">fun</span> q =&gt; b₁.wallAt q || b₁.softAt q) = (<span class="tk-k">fun</span> q =&gt; b₂.wallAt q || b₂.softAt q) :=
+      funext <span class="tk-k">fun</span> q =&gt; <span class="tk-k">by</span> rw [(h q).<span class="tk-n">1</span>, (h q).<span class="tk-n">2</span>]
+    unfold blocked
+    rw [hw, hs]
+  unfold step
+  <span class="tk-k">simp</span> only [hb]</code></pre></details></li><li id="rule-lock"><code class="rn">lock</code><span>A jar on a target centre whose colours match the ring&#x27;s locks that ring.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.outcome <span class="tk-k">import</span> blob_at, overwrite, reticle_for
+<span class="tk-k">from</span> derive.place <span class="tk-k">import</span> placed
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_cell
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+
+…
+BOOK = [<span class="tk-s">&quot;lock_turns_reticle_zero&quot;</span>, <span class="tk-s">&quot;target_pairs_by_sector_colors&quot;</span>]
+…
+           …
+
+<span class="tk-k">def</span> expected(w, action, nw, ctx):
+    rets = [(tuple(t.center), t.locked) <span class="tk-k">for</span> t <span class="tk-k">in</span> w.reticles]
+    <span class="tk-k">if</span> _scope.on_diamond(w, action, ctx) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> sorted(rets)
+    _, b = _scope.legality(w, action, nw, ctx)
+    <span class="tk-k">if</span> b:
+        <span class="tk-k">return</span> sorted(rets)
+    i, _, c = placed(w, click_cell(action))
+    ink = w.groups[i].ink
+    k = blob_at(w, c)
+    <span class="tk-k">if</span> k <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        ink = overwrite(ink, w.blobs[k].ink)
+    j = reticle_for(w, c, ink)
+    <span class="tk-k">if</span> j <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        rets[j] = (rets[j][<span class="tk-n">0</span>], <span class="tk-k">True</span>)
+    <span class="tk-k">return</span> sorted(rets)
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = _scope.in_level(action, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> _scope.on_diamond(w, action, ctx) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    why, _ = _scope.legality(w, action, nw, ctx)
+    <span class="tk-k">return</span> why
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> expected(w, action, nw, ctx) == sorted((tuple(t.center), t.locked) <span class="tk-k">for</span> t <span class="tk-k">in</span> nw.reticles)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> sameSet (xs ys : List Nat) : Bool := xs.all (ys.contains ·) &amp;&amp; ys.all (xs.contains ·)
+
+<span class="tk-k">def</span> pairs (ink : List Nat) : Option (List Nat) → Bool
+  | none =&gt; false
+  | some cs =&gt; sameSet ink cs
+
+<span class="tk-k">def</span> lock (w : World) (i : Nat) (c : Cell) : World :=
+  <span class="tk-k">let</span> ink := (w.groups.getD i ⟨[], []⟩).ink
+  { w <span class="tk-k">with</span> reticles := w.reticles.map (<span class="tk-k">fun</span> t =&gt;
+      <span class="tk-k">if</span> t.center = c &amp;&amp; pairs ink t.colors <span class="tk-k">then</span> { t <span class="tk-k">with</span> colors := none } <span class="tk-k">else</span> t) }</code></pre></details></li><li id="rule-level_clear"><code class="rn">level_clear</code><span>The level is cleared exactly when every group&#x27;s jar presses on a locked target ring.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.center <span class="tk-k">import</span> center
+<span class="tk-k">from</span> derive.outcome <span class="tk-k">import</span> blob_at, overwrite, reticle_for
+<span class="tk-k">from</span> derive.place <span class="tk-k">import</span> placed
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_cell
+
+<span class="tk-k">from</span> .. <span class="tk-k">import</span> _scope
+
+…
+BOOK = [<span class="tk-s">&quot;levelup_iff_mids_on_targets&quot;</span>]
+…
+           …
+
+<span class="tk-k">def</span> all_home(w, action, nw, ctx) -&gt; bool:
+    locked = {tuple(t.center) <span class="tk-k">for</span> t <span class="tk-k">in</span> w.reticles <span class="tk-k">if</span> t.locked}
+    centers = [tuple(center(g)) <span class="tk-k">for</span> g <span class="tk-k">in</span> w.groups]
+    why, b = _scope.legality_any(w, action, nw, ctx)
+    <span class="tk-k">if</span> why <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">and</span> <span class="tk-k">not</span> b:
+        i, _, c = placed(w, click_cell(action))
+        ink = w.groups[i].ink
+        k = blob_at(w, c)
+        <span class="tk-k">if</span> k <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+            ink = overwrite(ink, w.blobs[k].ink)
+        <span class="tk-k">if</span> reticle_for(w, c, ink) <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+            locked.add(tuple(c))
+        centers[i] = tuple(c)
+    <span class="tk-k">return</span> all(c <span class="tk-k">in</span> locked <span class="tk-k">for</span> c <span class="tk-k">in</span> centers)
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why, _ = _scope.legality_any(w, action, nw, ctx)
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> all_home(w, action, nw, ctx) == (ctx[<span class="tk-s">&quot;kind&quot;</span>] <span class="tk-k">in</span> (<span class="tk-s">&quot;levelup&quot;</span>, <span class="tk-s">&quot;win&quot;</span>))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">def</span> isGoal (w : World) : Bool :=
+  w.groups.all (<span class="tk-k">fun</span> g =&gt; w.reticles.any (<span class="tk-k">fun</span> t =&gt; t.center = g.center &amp;&amp; t.locked))</code></pre></details></li><li id="rule-reset"><code class="rn">reset</code><span>Reset returns to the opening of level 1, with the bar full.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> anchor_sets, same_blobs
+
+…
+BOOK = []
+…
+IN_MODEL = <span class="tk-k">False</span>
+…
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    o = ctx.get(<span class="tk-s">&quot;opening&quot;</span>)
+    <span class="tk-k">if</span> o <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> (tuple(nw.selected) == tuple(o.selected) <span class="tk-k">and</span> anchor_sets(nw) == anchor_sets(o)
+            <span class="tk-k">and</span> same_blobs(nw, o) <span class="tk-k">and</span> nw.spent == o.spent
+            <span class="tk-k">and</span> sorted((tuple(t.center), t.colors) <span class="tk-k">for</span> t <span class="tk-k">in</span> nw.reticles)
+            == sorted((tuple(t.center), t.colors) <span class="tk-k">for</span> t <span class="tk-k">in</span> o.reticles))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (levelBoard <span class="tk-n">0</span>) (L0_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (levelBoard <span class="tk-n">1</span>) (L1_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (levelBoard <span class="tk-n">2</span>) (L2_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (levelBoard <span class="tk-n">3</span>) (L3_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (levelBoard <span class="tk-n">4</span>) (L4_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (levelBoard <span class="tk-n">5</span>) (L5_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> twin_winnable : Winnable blankBoard (twin : World) := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> unsolvable_by_noInk (b : Board) (w : World) (h : NoInk w) :
+    ∀ as : List Cell, everGoal b w as = false := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> stuck_unsolvable : ∀ as : List Cell, everGoal blankBoard (stuck : World) as = false := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/r11l.zip" download>Download r11l.zip</a> <span class="note">0.3 MB · 55 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="r11l";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

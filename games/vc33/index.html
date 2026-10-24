@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>vc33 · Algebraic World Model</title>
+<meta name="description" content="vc33: Click buttons to move liquid between tanks; the level is won when every cursor&#x27;s liquid is level with its mark.">
+<meta property="og:title" content="vc33 · Algebraic World Model">
+<meta property="og:description" content="vc33: Click buttons to move liquid between tanks; the level is won when every cursor&#x27;s liquid is level with its mark.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/vc33/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="vc33 · Algebraic World Model">
+<meta name="twitter:description" content="vc33: Click buttons to move liquid between tanks; the level is won when every cursor&#x27;s liquid is level with its mark.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../tu93/" aria-label="Previous game">‹ tu93</a><a href="../wa30/" aria-label="Next game">wa30 ›</a></span></div><h1>vc33</h1><p class="one">Click buttons to move liquid between tanks; the level is won when every cursor&#x27;s liquid is level with its mark.</p><p class="stat">7 levels · 10 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>Black dividers cut the screen into several tanks, and the white is liquid. Blue buttons sit on either side of a divider, each belonging to the tank on its side; a coloured cursor sits at the front of the liquid surface in its tank; coloured marks set into a divider show the depth the cursor of the same colour has to reach. Clicking a button moves one portion of liquid from the tank across the divider into this one; a portion equals the thickness of that divider. If the far tank holds less than a portion, or this tank would overflow, the click does nothing. The light grey segments in a divider are gauges: a gauge lights up when the liquid on both sides is at its starting depth, and clicking a lit gauge sends each of the two cursors to the other side. The level is won when the liquid in each cursor&#x27;s tank is level with the mark of the same colour and that tank touches the divider that carries the mark. The total amount of liquid never changes, and the height of the walls limits how much a tank holds.</p></div><div class="frames"><figure><img src="../../img/thumbs/vc33.png" alt="vc33, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/vc33-last.png" alt="vc33, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 9 object types and 10 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Dividers</b> <code>bands</code><span>Black walls: which lanes they occupy, how thick, and how high they are drawn.</span></li><li><b>Tanks</b> <code>zones</code><span>The spaces cut out by dividers that hold liquid.</span></li><li><b>Buttons</b> <code>buttons</code><span>Blue blocks beside a divider, each belonging to the tank on its side.</span></li><li><b>Target marks</b> <code>targets</code><span>Coloured marks in a divider showing the depth the same-colour cursor must reach.</span></li><li><b>Gauges</b> <code>gauges</code><span>Light grey segments in a divider with no cursor of the same colour.</span></li><li><b>Liquid levels</b> <code>levels</code><span>How deep each tank is filled right now.</span></li><li><b>Cursors</b> <code>cursors</code><span>Small coloured handles at the front of the liquid surface in their tank.</span></li><li><b>Gauge display</b> <code>gauge_look</code><span>Whether each gauge is lit or dark right now.</span></li><li><b>Top bar</b> <code>used</code><span>The top row of the screen, counting cells spent this level.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-press_button"><code class="rn">press_button</code><span>Clicking a button moves one divider-thickness of liquid across the divider into its tank.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.hit <span class="tk-k">import</span> hit
+<span class="tk-k">from</span> derive.move <span class="tk-k">import</span> press
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_of, parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> LEVEL_CHANGED, level_changed, same_but
+
+…
+              …
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> level_changed(ctx):
+        <span class="tk-k">return</span> LEVEL_CHANGED
+    w = parse(prev)
+    kind, i = hit(w, click_of(prev, action))
+    <span class="tk-k">if</span> kind != <span class="tk-s">&quot;button&quot;</span>:
+        …
+    <span class="tk-k">if</span> press(w, i)[<span class="tk-n">0</span>] <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, nw = parse(prev), parse(nxt)
+    _kind, i = hit(w, click_of(prev, action))
+    _why, lv = press(w, i)
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw.levels == lv <span class="tk-k">and</span> same_but(w, nw, <span class="tk-s">&quot;used&quot;</span>, <span class="tk-s">&quot;levels&quot;</span>, <span class="tk-s">&quot;gauge_look&quot;</span>) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Obj.Derive.Layout
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> pressWith (b : Board) (s : State) (gain lose st : Nat) : Option State :=
+  <span class="tk-k">if</span> gain = lose <span class="tk-k">then</span> none
+  <span class="tk-k">else</span> <span class="tk-k">if</span> s.levels.length ≤ gain <span class="tk-k">then</span> none
+  <span class="tk-k">else</span> <span class="tk-k">if</span> s.levels.length ≤ lose <span class="tk-k">then</span> none
+  <span class="tk-k">else</span> <span class="tk-k">if</span> getN s.levels lose - zoneLo b lose &lt; st <span class="tk-k">then</span> some s
+  <span class="tk-k">else</span> <span class="tk-k">if</span> capacity b gain &lt; getN s.levels gain + st <span class="tk-k">then</span> some s
+  <span class="tk-k">else</span> some { s <span class="tk-k">with</span> levels := bump (bump s.levels gain (· + st)) lose (· - st) }
+
+<span class="tk-k">def</span> pressButton (b : Board) (s : State) (i : Nat) : Option State :=
+  <span class="tk-k">match</span> buttonPair b i <span class="tk-k">with</span>
+  | none =&gt; none
+  | some (gain, lose, bi) =&gt; pressWith b s gain lose (thick b bi)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_gauge"><code class="rn">click_gauge</code><span>Clicking a lit gauge sends the cursors on each side to the other side.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.hit <span class="tk-k">import</span> hit
+<span class="tk-k">from</span> derive.move <span class="tk-k">import</span> gauge_move
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_of, parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> LEVEL_CHANGED, level_changed, same_but
+
+…
+              …
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> level_changed(ctx):
+        <span class="tk-k">return</span> LEVEL_CHANGED
+    w = parse(prev)
+    kind, i = hit(w, click_of(prev, action))
+    <span class="tk-k">if</span> kind != <span class="tk-s">&quot;gauge&quot;</span>:
+        …
+    <span class="tk-k">if</span> gauge_move(w, i)[<span class="tk-n">0</span>] <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, nw = parse(prev), parse(nxt)
+    _kind, i = hit(w, click_of(prev, action))
+    _why, cs = gauge_move(w, i)
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw.cursors == cs <span class="tk-k">and</span> same_but(w, nw, <span class="tk-s">&quot;used&quot;</span>, <span class="tk-s">&quot;cursors&quot;</span>) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Obj.Derive.Layout
+<span class="tk-k">import</span> Obj.Derive.Gauge
+<span class="tk-k">import</span> Obj.Derive.Move
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> sendOver (b : Board) (z0 z1 : Nat) (c : Cursor) : Option Cursor :=
+  <span class="tk-k">if</span> Nat.beq c.zone z0 || Nat.beq c.zone z1 <span class="tk-k">then</span>
+    <span class="tk-k">let</span> dst := <span class="tk-k">if</span> Nat.beq c.zone z0 <span class="tk-k">then</span> z1 <span class="tk-k">else</span> z0
+    <span class="tk-k">match</span> nth b.zones dst <span class="tk-k">with</span>
+    | none =&gt; none
+    | some z =&gt;
+      <span class="tk-k">if</span> Nat.blt z.lanes.size c.width <span class="tk-k">then</span> none
+      <span class="tk-k">else</span> some { c <span class="tk-k">with</span> zone := dst, lane := landLane b dst c.width }
+  <span class="tk-k">else</span> some c
+
+<span class="tk-k">def</span> sendAll (b : Board) (z0 z1 : Nat) : List Cursor → Option (List Cursor)
+  | [] =&gt; some []
+  | c :: cs =&gt;
+    <span class="tk-k">match</span> sendOver b z0 z1 c, sendAll b z0 z1 cs <span class="tk-k">with</span>
+    | some c&#x27;, some cs&#x27; =&gt; some (c&#x27; :: cs&#x27;)
+    | _, _ =&gt; none
+
+<span class="tk-k">def</span> clickGauge (b : Board) (s : State) (i : Nat) : Option State :=
+  <span class="tk-k">match</span> nth b.gauges i <span class="tk-k">with</span>
+  | none =&gt; none
+  | some g =&gt;
+    <span class="tk-k">match</span> sides b g.band (some g.depths) <span class="tk-k">with</span>
+    | [z0, z1] =&gt;
+      <span class="tk-k">if</span> aligned b s i <span class="tk-k">then</span>
+        <span class="tk-k">match</span> sendAll b z0 z1 s.cursors <span class="tk-k">with</span>
+        | none =&gt; none
+        | some cs =&gt; some { s <span class="tk-k">with</span> cursors := sortC cs }
+      <span class="tk-k">else</span> some s
+    | _ =&gt; none
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_noop"><code class="rn">click_noop</code><span>Clicking outside buttons and gauges changes nothing except the top bar.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.hit <span class="tk-k">import</span> hit
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_of, parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> LEVEL_CHANGED, NOT_CLICK, is_click, level_changed, same_but
+
+…
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_click(action):
+        <span class="tk-k">return</span> NOT_CLICK
+    <span class="tk-k">if</span> level_changed(ctx):
+        <span class="tk-k">return</span> LEVEL_CHANGED
+    kind, _i = hit(parse(prev), click_of(prev, action))
+    <span class="tk-k">if</span> kind <span class="tk-k">in</span> (<span class="tk-s">&quot;button&quot;</span>, <span class="tk-s">&quot;gauge&quot;</span>):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> same_but(parse(prev), parse(nxt), <span class="tk-s">&quot;used&quot;</span>) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> clickNoop (s : State) : State := s
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-win_align"><code class="rn">win_align</code><span>The level is won when every cursor&#x27;s liquid is level with its adjacent mark.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">import</span> dataclasses
+
+<span class="tk-k">from</span> derive.goal <span class="tk-k">import</span> solved
+<span class="tk-k">from</span> derive.hit <span class="tk-k">import</span> hit
+<span class="tk-k">from</span> derive.move <span class="tk-k">import</span> gauge_move, press
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> click_of, parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> NOT_CLICK, is_click, level_changed
+
+…
+
+<span class="tk-k">def</span> after(w, prev, action):
+    kind, i = hit(w, click_of(prev, action))
+    <span class="tk-k">if</span> kind == <span class="tk-s">&quot;button&quot;</span>:
+        why, lv = press(w, i)
+        <span class="tk-k">return</span> <span class="tk-k">None</span> <span class="tk-k">if</span> why <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">else</span> dataclasses.replace(w, levels=lv)
+    <span class="tk-k">if</span> kind == <span class="tk-s">&quot;gauge&quot;</span>:
+        why, cs = gauge_move(w, i)
+        <span class="tk-k">return</span> <span class="tk-k">None</span> <span class="tk-k">if</span> why <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">else</span> dataclasses.replace(w, cursors=cs)
+    <span class="tk-k">return</span> w
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_click(action):
+        <span class="tk-k">return</span> NOT_CLICK
+    a = after(parse(prev), prev, action)
+    <span class="tk-k">if</span> a <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> solved(a) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    a = after(parse(prev), prev, action)
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> bool(solved(a)) == level_changed(ctx) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Obj.Derive.Layout
+<span class="tk-k">import</span> Obj.Derive.Goal
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> pairOK (b : Board) (s : State) (p : Cursor × Target) : Bool :=
+  Nat.beq (getN s.levels p.1.zone) p.2.depths.lo &amp;&amp; memN p.1.zone (sides b p.2.band none)
+
+<span class="tk-k">def</span> isGoal (b : Board) (s : State) : Bool :=
+  !(pairs b s.cursors).isEmpty &amp;&amp; (pairs b s.cursors).all (pairOK b s)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-board_static"><code class="rn">board_static</code><span>Within a level, the layout never changes.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> LEVEL_CHANGED, level_changed
+
+…
+
+BOARD = (<span class="tk-s">&quot;bands&quot;</span>, <span class="tk-s">&quot;zones&quot;</span>, <span class="tk-s">&quot;buttons&quot;</span>, <span class="tk-s">&quot;targets&quot;</span>, <span class="tk-s">&quot;gauges&quot;</span>)
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> level_changed(ctx):
+        <span class="tk-k">return</span> LEVEL_CHANGED
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, nw = parse(prev), parse(nxt)
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> all(getattr(w, f) == getattr(nw, f) <span class="tk-k">for</span> f <span class="tk-k">in</span> BOARD) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> board_static (b : Board) (s : State) (a : Act) (as : List Act) :
+    everWon b s (a :: as) =
+      (<span class="tk-k">match</span> step b s a <span class="tk-k">with</span>
+       | .won =&gt; true
+       | .ok s&#x27; =&gt; everWon b s&#x27; as
+       | .na =&gt; false) := <span class="tk-k">rfl</span>
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-flow_conserved"><code class="rn">flow_conserved</code><span>A click leaves the total liquid in all tanks unchanged.</span><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+<span class="tk-k">import</span> Derived.Idx
+<span class="tk-k">import</span> Derived.StepFacts
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> pressWith_sum (b : Board) (s s&#x27; : State) (gain lose st : Nat)
+    (h : pressWith b s gain lose st = some s&#x27;) : sumL s&#x27;.levels = sumL s.levels := <span class="tk-k">by</span>
+  unfold pressWith at h
+  split at h
+  · <span class="tk-k">cases</span> h
+  rename_i h1
+  split at h
+  · <span class="tk-k">cases</span> h
+  rename_i h2
+  split at h
+  · <span class="tk-k">cases</span> h
+  rename_i h3
+  split at h
+  · <span class="tk-k">cases</span> h; <span class="tk-k">rfl</span>
+  rename_i h4
+  split at h
+  · <span class="tk-k">cases</span> h; <span class="tk-k">rfl</span>
+  rename_i h5
+  <span class="tk-k">cases</span> h
+  <span class="tk-k">show</span> sumL (bump (bump s.levels gain (· + st)) lose (· - st)) = sumL s.levels
+  <span class="tk-k">have</span> hl1 : lose &lt; (bump s.levels gain (· + st)).length := <span class="tk-k">by</span> rw [bump_length]; omega
+  <span class="tk-k">have</span> e2 := sumL_bump (bump s.levels gain (· + st)) lose (· - st) hl1
+  <span class="tk-k">have</span> e1 := sumL_bump s.levels gain (· + st) (<span class="tk-k">by</span> omega)
+  <span class="tk-k">have</span> g2 : getN (bump s.levels gain (· + st)) lose = getN s.levels lose :=
+    getN_bump_ne s.levels gain lose (· + st) (<span class="tk-k">fun</span> e =&gt; h1 e.symm)
+  rw [g2] at e2
+  try <span class="tk-k">simp</span> only at e1 e2
+  omega
+
+<span class="tk-k">theorem</span> pressButton_sum (b : Board) (s s&#x27; : State) (i : Nat)
+    (h : pressButton b s i = some s&#x27;) : sumL s&#x27;.levels = sumL s.levels := <span class="tk-k">by</span>
+  unfold pressButton at h
+  split at h
+  · <span class="tk-k">cases</span> h
+  · <span class="tk-k">exact</span> pressWith_sum b s s&#x27; _ _ _ h
+
+<span class="tk-k">theorem</span> clickGauge_levels (b : Board) (s s&#x27; : State) (i : Nat)
+    (h : clickGauge b s i = some s&#x27;) : s&#x27;.levels = s.levels := <span class="tk-k">by</span>
+  unfold clickGauge at h
+  split at h
+  · <span class="tk-k">cases</span> h
+  · split at h
+    · split at h
+      · split at h
+        · <span class="tk-k">cases</span> h
+        · <span class="tk-k">cases</span> h; <span class="tk-k">rfl</span>
+      · <span class="tk-k">cases</span> h; <span class="tk-k">rfl</span>
+    · <span class="tk-k">cases</span> h
+
+<span class="tk-k">theorem</span> pre_sum (b : Board) (s s&#x27; : State) (a : Act) (h : pre b s a = some s&#x27;) :
+    sumL s&#x27;.levels = sumL s.levels := <span class="tk-k">by</span>
+  rcases pre_cases b s s&#x27; a h <span class="tk-k">with</span> e | ⟨i, hp⟩ | ⟨i, hg⟩
+  · rw [e]
+  · <span class="tk-k">exact</span> pressButton_sum b s s&#x27; i hp
+  · rw [clickGauge_levels b s s&#x27; i hg]
+
+<span class="tk-k">theorem</span> flow_conserved (b : Board) (s s&#x27; : State) (a : Act) (h : step b s a = .ok s&#x27;) :
+    sumL s&#x27;.levels = sumL s.levels :=
+  pre_sum b s s&#x27; a (step_ok_pre b s s&#x27; a h)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-tank_cap"><code class="rn">tank_cap</code><span>The liquid level never exceeds a tank&#x27;s capacity.</span><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+<span class="tk-k">import</span> Derived.Idx
+<span class="tk-k">import</span> Derived.StepFacts
+<span class="tk-k">import</span> Derived.FlowConserved
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> CapOK (b : Board) (s : State) : Prop := ∀ k, k &lt; s.levels.length → getN s.levels k ≤ capacity b k
+
+<span class="tk-k">theorem</span> pressWith_cap (b : Board) (s s&#x27; : State) (gain lose st : Nat)
+    (hc : CapOK b s) (h : pressWith b s gain lose st = some s&#x27;) : CapOK b s&#x27; := <span class="tk-k">by</span>
+  unfold pressWith at h
+  split at h
+  · <span class="tk-k">cases</span> h
+  rename_i h1
+  split at h
+  · <span class="tk-k">cases</span> h
+  rename_i h2
+  split at h
+  · <span class="tk-k">cases</span> h
+  rename_i h3
+  split at h
+  · <span class="tk-k">cases</span> h; <span class="tk-k">exact</span> hc
+  rename_i h4
+  split at h
+  · <span class="tk-k">cases</span> h; <span class="tk-k">exact</span> hc
+  rename_i h5
+  <span class="tk-k">cases</span> h
+  <span class="tk-k">intro</span> k hk
+  <span class="tk-k">show</span> getN (bump (bump s.levels gain (· + st)) lose (· - st)) k ≤ capacity b k
+  <span class="tk-k">have</span> len1 : (bump s.levels gain (· + st)).length = s.levels.length := bump_length _ _ _
+  <span class="tk-k">have</span> hk&#x27; : k &lt; s.levels.length := <span class="tk-k">by</span>
+    <span class="tk-k">have</span> : (bump (bump s.levels gain (· + st)) lose (· - st)).length = s.levels.length := <span class="tk-k">by</span>
+      rw [bump_length, len1]
+    <span class="tk-k">simp</span> only at hk
+    omega
+  by_cases hkl : k = lose
+  · subst hkl
+    rw [getN_bump_eq _ _ _ (<span class="tk-k">by</span> rw [len1]; omega),
+        getN_bump_ne s.levels gain k (· + st) (<span class="tk-k">fun</span> e =&gt; h1 e.symm)]
+    <span class="tk-k">have</span> := hc k hk&#x27;
+    try <span class="tk-k">simp</span> only
+    omega
+  · rw [getN_bump_ne _ lose k _ hkl]
+    by_cases hkg : k = gain
+    · subst hkg
+      rw [getN_bump_eq _ _ _ hk&#x27;]
+      try <span class="tk-k">simp</span> only
+      omega
+    · rw [getN_bump_ne _ gain k _ hkg]
+      <span class="tk-k">exact</span> hc k hk&#x27;
+
+<span class="tk-k">theorem</span> pressButton_cap (b : Board) (s s&#x27; : State) (i : Nat)
+    (hc : CapOK b s) (h : pressButton b s i = some s&#x27;) : CapOK b s&#x27; := <span class="tk-k">by</span>
+  unfold pressButton at h
+  split at h
+  · <span class="tk-k">cases</span> h
+  · <span class="tk-k">exact</span> pressWith_cap b s s&#x27; _ _ _ hc h
+
+<span class="tk-k">theorem</span> pre_cap (b : Board) (s s&#x27; : State) (a : Act) (hc : CapOK b s) (h : pre b s a = some s&#x27;) :
+    CapOK b s&#x27; := <span class="tk-k">by</span>
+  rcases pre_cases b s s&#x27; a h <span class="tk-k">with</span> e | ⟨i, hp⟩ | ⟨i, hg⟩
+  · rw [e]; <span class="tk-k">exact</span> hc
+  · <span class="tk-k">exact</span> pressButton_cap b s s&#x27; i hc hp
+  · <span class="tk-k">have</span> e := clickGauge_levels b s s&#x27; i hg
+    <span class="tk-k">intro</span> k hk
+    rw [e] at hk ⊢
+    <span class="tk-k">exact</span> hc k hk
+
+<span class="tk-k">theorem</span> tank_cap (b : Board) (s s&#x27; : State) (a : Act) (hc : CapOK b s) (h : step b s a = .ok s&#x27;) :
+    CapOK b s&#x27; :=
+  pre_cap b s s&#x27; a hc (step_ok_pre b s s&#x27; a h)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-hud_cost"><code class="rn">hud_cost</code><span>Each click raises the top bar by zero to two cells, never lowering it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> NOT_CLICK, is_click, level_changed
+
+…
+MAX_JUMP = <span class="tk-n">2</span>
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_click(action):
+        <span class="tk-k">return</span> NOT_CLICK
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    a, b = parse(prev).used, parse(nxt).used
+    <span class="tk-k">if</span> level_changed(ctx) <span class="tk-k">and</span> (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;state_next&quot;</span>) != <span class="tk-s">&quot;WIN&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> b == <span class="tk-n">0</span> <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> a &lt;= b &lt;= a + MAX_JUMP <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details></li><li id="rule-gauge_signal"><code class="rn">gauge_signal</code><span>A gauge changes colour only on the step it flips between lit and dark.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.gauge <span class="tk-k">import</span> aligned
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> LEVEL_CHANGED, NOT_CLICK, is_click, level_changed
+
+…
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_click(action):
+        <span class="tk-k">return</span> NOT_CLICK
+    <span class="tk-k">if</span> level_changed(ctx):
+        <span class="tk-k">return</span> LEVEL_CHANGED
+    <span class="tk-k">if</span> <span class="tk-k">not</span> parse(prev).gauges:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    w, nw = parse(prev), parse(nxt)
+    <span class="tk-k">if</span> len(w.gauges) != len(nw.gauges):
+        <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
+    <span class="tk-k">for</span> i <span class="tk-k">in</span> range(len(w.gauges)):
+        flipped = aligned(w, i) != aligned(nw, i)
+        changed = w.gauge_look[i] != nw.gauge_look[i]
+        <span class="tk-k">if</span> flipped != changed:
+            <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details></li><li id="rule-restart_is_level_start"><code class="rn">restart_is_level_start</code><span>Restarting returns to this level&#x27;s opening screen.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> parse
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> level_changed
+
+…
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    ctx = ctx <span class="tk-k">or</span> {}
+    is_reset = action == <span class="tk-s">&quot;RESET&quot;</span>
+    <span class="tk-k">if</span> <span class="tk-k">not</span> is_reset <span class="tk-k">and</span> <span class="tk-k">not</span> level_changed(ctx):
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;WIN&quot;</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;level_start&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx=<span class="tk-k">None</span>):
+    nw, st = parse(nxt), parse(ctx[<span class="tk-s">&quot;level_start&quot;</span>])
+    <span class="tk-k">import</span> dataclasses
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> dataclasses.replace(nw, used=st.used) == st <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+<span class="tk-k">import</span> Obs.Check
+<span class="tk-k">import</span> Obs.Replay
+<span class="tk-k">import</span> Proof.Reachable
+
+<span class="tk-k">namespace</span> Game
+<span class="tk-k">namespace</span> Levels
+
+set_option maxRecDepth <span class="tk-n">100000</span>
+
+<span class="tk-k">def</span> L0_board : Board := Replay.boardOf <span class="tk-n">372</span>
+<span class="tk-k">def</span> L0_start : State := Replay.preOf <span class="tk-n">372</span>
+<span class="tk-k">def</span> L0_play : List (Act × State) := Replay.playFrom <span class="tk-n">372</span> <span class="tk-n">2</span>
+<span class="tk-k">def</span> L0_acts : List Act := L0_play.map Prod.fst ++ [Replay.actOf <span class="tk-n">374</span>]
+
+  …
+  …
+
+<span class="tk-k">theorem</span> L0_trace : traceOk step L0_board L0_start L0_play = true := <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel
+
+<span class="tk-k">theorem</span> L0_walked : walked step L0_board L0_start L0_play = <span class="tk-n">2</span> := <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel
+
+<span class="tk-k">theorem</span> L0_winnable : Winnable (World.mk L0_board L0_start) :=
+  ⟨L0_acts, <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel, <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel⟩
+
+<span class="tk-k">def</span> L0_after_reset_203 : List (Act × State) := Replay.playFrom <span class="tk-n">204</span> <span class="tk-n">2</span>
+
+<span class="tk-k">theorem</span> L0_after_reset_203_trace : traceOk step L0_board L0_start L0_after_reset_203 = true := <span class="tk-k">by</span>
+  <span class="tk-k">decide</span> +kernel
+
+<span class="tk-k">theorem</span> L0_after_reset_203_walked : walked step L0_board L0_start L0_after_reset_203 = <span class="tk-n">2</span> := <span class="tk-k">by</span>
+  <span class="tk-k">decide</span> +kernel
+
+<span class="tk-k">end</span> Levels
+<span class="tk-k">end</span> Game</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (World.mk L0_board L0_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (World.mk L1_board L1_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (World.mk L2_board L2_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (World.mk L3_board L3_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (World.mk L4_board L4_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (World.mk L5_board L5_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable (World.mk L6_board L6_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> residue_ctrl_winnable : Winnable (World.mk L0_board L0_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> capacity_ctrl_winnable : Winnable (World.mk L0_board L0_start) := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> cap_no_win (b : Board) (s0 : State) (hk : capKey b s0 = true) :
+    ∀ s a, CapOK b s → step b s a ≠ Res.won := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> unsolvable_by_capacity (b : Board) (s0 : State) (hk : capKey b s0 = true) :
+    Unsolvable (World.mk b s0) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> res_no_win (b : Board) (T : Nat) (s0 : State) (hk : resKey b T s0 = true) :
+    ∀ s a, ResP T s0 s → step b s a ≠ Res.won := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> unsolvable_by_residue (b : Board) (T : Nat) (s0 : State) (hk : resKey b T s0 = true) :
+    Unsolvable (World.mk b s0) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> residue_scene_unsolvable : Unsolvable (World.mk residueBoard L0_start) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> capacity_scene_unsolvable : Unsolvable (World.mk capacityBoard L0_start) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/vc33.zip" download>Download vc33.zip</a> <span class="note">0.3 MB · 63 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="vc33";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

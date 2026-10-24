@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>cn04 · Algebraic World Model</title>
+<meta name="description" content="cn04: Move and rotate pieces until every red plug shares a cell with another plug to clear the level.">
+<meta property="og:title" content="cn04 · Algebraic World Model">
+<meta property="og:description" content="cn04: Move and rotate pieces until every red plug shares a cell with another plug to clear the level.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/cn04/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="cn04 · Algebraic World Model">
+<meta name="twitter:description" content="cn04: Move and rotate pieces until every red plug shares a cell with another plug to clear the level.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../cd82/" aria-label="Previous game">‹ cd82</a><a href="../dc22/" aria-label="Next game">dc22 ›</a></span></div><h1>cn04</h1><p class="one">Move and rotate pieces until every red plug shares a cell with another plug to clear the level.</p><p class="stat">6 levels · 9 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>There are several pieces of different shapes on the field, each with a red plug. Only the selected piece can be operated at a time: a direction key translates it by one cell, and the function key rotates it clockwise by a right angle; if it is a pen, the function key lengthens it by one segment or shortens it by one segment. Click another piece and the selection switches to it; click the already selected piece again and the selection is cancelled. Pieces can walk over each other and are not blocked. When two plugs land on the same cell, that cell turns grey to indicate it is welded; after they move apart each is restored. After a step, if every plug on the field overlaps another plug in the same cell, the level is cleared. Some levels paint the whole unselected piece dark and hide its plug, visible only when selected. The top bar at the very top is spent down with the steps.</p></div><div class="frames"><figure><img src="../../img/thumbs/cn04.png" alt="cn04, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/cn04-last.png" alt="cn04, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 4 object types and 9 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Ground colour</b> <code>ground</code><span>The background colour of this level, different in each level.</span></li><li><b>Top bar</b> <code>spent</code><span>The progress bar at the very top; how many cells are already spent.</span></li><li><b>Selected piece</b> <code>lit</code><span>Its solid cells, plug cells, pen tip and colour; the keys operate this piece.</span></li><li><b>Other pieces</b> <code>rest</code><span>Every non-ground cell outside the selected piece, with its shown colour.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-move"><code class="rn">move</code><span>A direction key shifts the selected piece one cell, never blocked; overlapping plugs show grey.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> variants
+<span class="tk-k">from</span> derive.redraw <span class="tk-k">import</span> predict, compare
+<span class="tk-k">from</span> derive.relocate <span class="tk-k">import</span> shift, inside
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> in_level, wrap
+
+…
+              …
+              …
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    r = in_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> a <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>):
+        …
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    g = shift(w.lit, a)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> inside(g[<span class="tk-n">0</span>] | g[<span class="tk-n">1</span>] | ({g[<span class="tk-n">2</span>]} <span class="tk-k">if</span> g[<span class="tk-n">2</span>] <span class="tk-k">else</span> set())):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    <span class="tk-k">if</span> nw.ground != w.ground <span class="tk-k">or</span> look_of(nw) != look_of(w):
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">for</span> v <span class="tk-k">in</span> variants(w):
+        judged, ok, _ = compare(predict(v, shift(v.lit, a)), nw)
+        <span class="tk-k">if</span> judged == ok:
+            <span class="tk-k">return</span> <span class="tk-k">True</span>
+    <span class="tk-k">return</span> <span class="tk-k">False</span>
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> shiftCell (d : Int × Int) (p : Cell) : Cell := (p.1 + d.1, p.2 + d.2)
+
+<span class="tk-k">def</span> Shape.shift (d : Int × Int) (sh : Shape) : Shape :=
+  ⟨sh.solid.map (shiftCell d), sh.plugs.map (shiftCell d), sh.head.map (shiftCell d)⟩
+
+<span class="tk-k">def</span> Piece.shift (d : Int × Int) (p : Piece) : Piece := { p <span class="tk-k">with</span> stages := p.stages.map (Shape.shift d) }
+
+<span class="tk-k">def</span> mapAt {α : Type} (f : α → α) : Nat → List α → List α
+  | _, [] =&gt; []
+  | <span class="tk-n">0</span>, x :: xs =&gt; f x :: xs
+  | n + <span class="tk-n">1</span>, x :: xs =&gt; x :: mapAt f n xs
+
+<span class="tk-k">def</span> move (d : Int × Int) (s : World) : World :=
+  <span class="tk-k">match</span> s.sel <span class="tk-k">with</span>
+  | none =&gt; s
+  | some i =&gt; { s <span class="tk-k">with</span> pieces := mapAt (Piece.shift d) i s.pieces }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-turn"><code class="rn">turn</code><span>The function key rotates a selected ordinary piece clockwise by a right angle.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> variants
+<span class="tk-k">from</span> derive.redraw <span class="tk-k">import</span> predict, compare
+<span class="tk-k">from</span> derive.relocate <span class="tk-k">import</span> turn_cw, inside
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> in_level, wrap
+
+…
+              …
+              …
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    r = in_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> a != <span class="tk-s">&quot;ACTION5&quot;</span>:
+        …
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> w.lit.head <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> inside(turn_cw(w.lit)[<span class="tk-n">0</span>] | turn_cw(w.lit)[<span class="tk-n">1</span>]):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    <span class="tk-k">if</span> nw.ground != w.ground <span class="tk-k">or</span> look_of(nw) != look_of(w):
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">for</span> v <span class="tk-k">in</span> variants(w):
+        judged, ok, _ = compare(predict(v, turn_cw(v.lit)), nw)
+        <span class="tk-k">if</span> judged == ok:
+            <span class="tk-k">return</span> <span class="tk-k">True</span>
+    <span class="tk-k">return</span> <span class="tk-k">False</span>
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+<span class="tk-k">import</span> Rule.Step.Move
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> minOf (xs : List Int) : Int := xs.foldl min (xs.headD <span class="tk-n">0</span>)
+<span class="tk-k">def</span> maxOf (xs : List Int) : Int := xs.foldl max (xs.headD <span class="tk-n">0</span>)
+
+<span class="tk-k">def</span> Shape.turn (sh : Shape) : Shape :=
+  <span class="tk-k">let</span> all := sh.solid ++ sh.plugs
+  <span class="tk-k">let</span> r0 := minOf (all.map Prod.fst)
+  <span class="tk-k">let</span> c0 := minOf (all.map Prod.snd)
+  <span class="tk-k">let</span> h := maxOf (all.map Prod.fst) - r0 + <span class="tk-n">1</span>
+  <span class="tk-k">let</span> f : Cell → Cell := <span class="tk-k">fun</span> p =&gt; (r0 + (p.2 - c0), c0 + (h - <span class="tk-n">1</span> - (p.1 - r0)))
+  ⟨sh.solid.map f, sh.plugs.map f, sh.head.map f⟩
+
+<span class="tk-k">def</span> Piece.turn (p : Piece) : Piece := { p <span class="tk-k">with</span> stages := p.stages.map Shape.turn }
+
+<span class="tk-k">def</span> turn (s : World) (i : Nat) : World := { s <span class="tk-k">with</span> pieces := mapAt Piece.turn i s.pieces }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-grow"><code class="rn">grow</code><span>The function key lengthens or shortens a selected pen by one segment, following its script.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> in_level, wrap
+
+…
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    r = in_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> a != <span class="tk-s">&quot;ACTION5&quot;</span>:
+        …
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> w.lit.head <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    <span class="tk-k">if</span> nw.lit <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> nw.lit.color != w.lit.color:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    before, after = w.lit.cells(), nw.lit.cells()
+    <span class="tk-k">if</span> before == after:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    both = before | after
+    old = {(r, c): v <span class="tk-k">for</span> (r, c, v) <span class="tk-k">in</span> w.rest <span class="tk-k">if</span> (r, c) <span class="tk-k">not</span> <span class="tk-k">in</span> both}
+    new = {(r, c): v <span class="tk-k">for</span> (r, c, v) <span class="tk-k">in</span> nw.rest <span class="tk-k">if</span> (r, c) <span class="tk-k">not</span> <span class="tk-k">in</span> both}
+    <span class="tk-k">return</span> old == new <span class="tk-k">and</span> nw.ground == w.ground <span class="tk-k">and</span> look_of(nw) == look_of(w)
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+<span class="tk-k">import</span> Rule.Step.Move
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> Piece.grow (p : Piece) : Piece :=
+  <span class="tk-k">if</span> p.up <span class="tk-k">then</span>
+    (<span class="tk-k">if</span> p.k + <span class="tk-n">1</span> &lt; p.stages.length <span class="tk-k">then</span> { p <span class="tk-k">with</span> k := p.k + <span class="tk-n">1</span> } <span class="tk-k">else</span> { p <span class="tk-k">with</span> k := p.k - <span class="tk-n">1</span>, up := false })
+  <span class="tk-k">else</span>
+    (<span class="tk-k">if</span> p.k &gt; <span class="tk-n">0</span> <span class="tk-k">then</span> { p <span class="tk-k">with</span> k := p.k - <span class="tk-n">1</span> } <span class="tk-k">else</span> { p <span class="tk-k">with</span> k := p.k + <span class="tk-n">1</span>, up := true })
+
+<span class="tk-k">def</span> grow (s : World) (i : Nat) : World := { s <span class="tk-k">with</span> pieces := mapAt Piece.grow i s.pieces }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-pick"><code class="rn">pick</code><span>Clicking another piece selects it; clicking the selected piece deselects it; clicking ground does nothing.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> cell_of, what, component
+<span class="tk-k">from</span> objects.piece.lit <span class="tk-k">import</span> MARK, WELD, MASK
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> in_level, wrap
+
+SLEEP = <span class="tk-n">4</span>
+…
+              …
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    r = in_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> <span class="tk-k">not</span> a.startswith(<span class="tk-s">&quot;ACTION6&quot;</span>):
+        …
+    p = cell_of(a)
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    k = what(w, p)
+    <span class="tk-k">if</span> k == <span class="tk-s">&quot;unsure&quot;</span>:
+        …
+    <span class="tk-k">if</span> look_of(w) == <span class="tk-s">&quot;paint&quot;</span>:
+        <span class="tk-k">if</span> k == <span class="tk-s">&quot;rest&quot;</span> <span class="tk-k">and</span> dict(((r_, c_), v) <span class="tk-k">for</span> (r_, c_, v) <span class="tk-k">in</span> w.rest)[p] <span class="tk-k">in</span> (MARK, WELD):
+            …
+        <span class="tk-k">if</span> k == <span class="tk-s">&quot;lit&quot;</span>:
+            …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> _same_outside(w, nw, cells):
+    a = {(r, c): v <span class="tk-k">for</span> (r, c, v) <span class="tk-k">in</span> w.rest <span class="tk-k">if</span> (r, c) <span class="tk-k">not</span> <span class="tk-k">in</span> cells}
+    b = {(r, c): v <span class="tk-k">for</span> (r, c, v) <span class="tk-k">in</span> nw.rest <span class="tk-k">if</span> (r, c) <span class="tk-k">not</span> <span class="tk-k">in</span> cells}
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        <span class="tk-k">for</span> p <span class="tk-k">in</span> w.lit.cells() - cells:
+            a[p] = w.lit.shown(*p)
+    <span class="tk-k">if</span> nw.lit <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        <span class="tk-k">for</span> p <span class="tk-k">in</span> nw.lit.cells() - cells:
+            b[p] = nw.lit.shown(*p)
+    <span class="tk-k">return</span> a == b
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    <span class="tk-k">if</span> nw.ground != w.ground <span class="tk-k">or</span> look_of(nw) != look_of(w):
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    p = cell_of(a)
+    k = what(w, p)
+    <span class="tk-k">if</span> k == <span class="tk-s">&quot;ground&quot;</span>:
+        <span class="tk-k">return</span> _same_outside(w, nw, frozenset())
+    old = w.lit.cells() <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">else</span> frozenset()
+    <span class="tk-k">if</span> k == <span class="tk-s">&quot;lit&quot;</span>:
+        <span class="tk-k">return</span> (nw.lit <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">and</span> all(nw.color_at(*q) == SLEEP <span class="tk-k">for</span> q <span class="tk-k">in</span> old)
+                <span class="tk-k">and</span> _same_outside(w, nw, old))
+    comp = component(w, p, through=old <span class="tk-k">if</span> look_of(w) == <span class="tk-s">&quot;sleep&quot;</span> <span class="tk-k">else</span> frozenset())
+    <span class="tk-k">if</span> nw.lit <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> p <span class="tk-k">not</span> <span class="tk-k">in</span> nw.lit.cells():
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">if</span> look_of(w) == <span class="tk-s">&quot;sleep&quot;</span>:
+        <span class="tk-k">if</span> <span class="tk-k">not</span> nw.lit.cells() &lt;= comp | old:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+        <span class="tk-k">for</span> q <span class="tk-k">in</span> old - nw.lit.cells():
+            <span class="tk-k">if</span> nw.color_at(*q) != SLEEP:
+                <span class="tk-k">return</span> <span class="tk-k">False</span>
+        <span class="tk-k">return</span> _same_outside(w, nw, comp | old)
+    <span class="tk-k">if</span> nw.lit.solid != comp:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    was = w.lit.solid <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">else</span> frozenset()
+    shown = {nw.color_at(*q) <span class="tk-k">for</span> q <span class="tk-k">in</span> was}
+    <span class="tk-k">if</span> len(shown) != <span class="tk-n">1</span> <span class="tk-k">or</span> shown &amp; {MASK, MARK, WELD, SLEEP, w.ground}:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> _same_outside(w, nw, comp | was)
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+<span class="tk-k">import</span> Rule.Step.Move
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> clickCell (x y : Nat) : Option Cell :=
+  <span class="tk-k">if</span> x &lt; <span class="tk-n">2</span> || y &lt; <span class="tk-n">2</span> <span class="tk-k">then</span> none <span class="tk-k">else</span> some (((y - <span class="tk-n">2</span>) / <span class="tk-n">3</span> : Nat), ((x - <span class="tk-n">2</span>) / <span class="tk-n">3</span> : Nat))
+
+<span class="tk-k">def</span> Shape.covers (sh : Shape) (p : Cell) : Bool :=
+  sh.solid.contains p || sh.plugs.contains p || sh.head == some p
+
+<span class="tk-k">def</span> hits (s : World) (p : Cell) : List Nat :=
+  (List.range s.pieces.length).filter (<span class="tk-k">fun</span> i =&gt; (s.piece i).cur.covers p)
+
+<span class="tk-k">def</span> pick (s : World) (x y : Nat) : World :=
+  <span class="tk-k">match</span> clickCell x y <span class="tk-k">with</span>
+  | none =&gt; s
+  | some p =&gt;
+    <span class="tk-k">match</span> s.sel <span class="tk-k">with</span>
+    | some i =&gt;
+      <span class="tk-k">if</span> (hits s p).contains i <span class="tk-k">then</span> { s <span class="tk-k">with</span> sel := none }
+      <span class="tk-k">else</span> (<span class="tk-k">match</span> hits s p <span class="tk-k">with</span>
+            | [] =&gt; s
+            | j :: _ =&gt; { s <span class="tk-k">with</span> sel := some j })
+    | none =&gt;
+      (<span class="tk-k">match</span> hits s p <span class="tk-k">with</span>
+       | [] =&gt; s
+       | j :: _ =&gt; { s <span class="tk-k">with</span> sel := some j })
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-win"><code class="rn">win</code><span>The level advances when every plug shares its cell with at least one other plug.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> variants
+<span class="tk-k">from</span> derive.redraw <span class="tk-k">import</span> predict
+<span class="tk-k">from</span> derive.relocate <span class="tk-k">import</span> shift, turn_cw, inside
+<span class="tk-k">from</span> objects.piece.lit <span class="tk-k">import</span> MARK
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> wrap
+
+…
+              …
+              …
+              …
+              …
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> _geo(v, a):
+    <span class="tk-k">if</span> a <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>):
+        <span class="tk-k">return</span> shift(v.lit, a)
+    <span class="tk-k">return</span> turn_cw(v.lit)
+
+<span class="tk-k">def</span> _outcomes(w, a):
+    out = []
+    <span class="tk-k">for</span> v <span class="tk-k">in</span> variants(w):
+        g = _geo(v, a)
+        pred = predict(v, g)
+        unknown = any(pred.get(p, <span class="tk-s">&quot;off&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">for</span> p <span class="tk-k">in</span> g[<span class="tk-n">1</span>])
+        free = any(val == MARK <span class="tk-k">for</span> val <span class="tk-k">in</span> pred.values())
+        out.append((unknown, free))
+    <span class="tk-k">return</span> out
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    m = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>)
+    <span class="tk-k">if</span> m == <span class="tk-s">&quot;reset&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET&quot;</span>
+    <span class="tk-k">if</span> a <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>, <span class="tk-s">&quot;ACTION5&quot;</span>):
+        …
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> w.lit.head <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        …
+    g = _geo(w, a)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> inside(g[<span class="tk-n">0</span>] | g[<span class="tk-n">1</span>]):
+        …
+    outs = _outcomes(w, a)
+    <span class="tk-k">if</span> any(u <span class="tk-k">for</span> u, _ <span class="tk-k">in</span> outs):
+        …
+    <span class="tk-k">if</span> len({f <span class="tk-k">for</span> _, f <span class="tk-k">in</span> outs}) &gt; <span class="tk-n">1</span>:
+        …
+    <span class="tk-k">if</span> look_of(w) == <span class="tk-s">&quot;sleep&quot;</span> <span class="tk-k">and</span> <span class="tk-k">not</span> outs[<span class="tk-n">0</span>][<span class="tk-n">1</span>]:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    won = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>) <span class="tk-k">in</span> (<span class="tk-s">&quot;level_up&quot;</span>, <span class="tk-s">&quot;game_won&quot;</span>)
+    free = _outcomes(w, a)[<span class="tk-n">0</span>][<span class="tk-n">1</span>]
+    <span class="tk-k">return</span> won == (<span class="tk-k">not</span> free)
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> plugCount (s : World) (p : Cell) : Nat :=
+  s.pieces.foldl (<span class="tk-k">fun</span> n q =&gt; n + q.cur.plugs.count p) <span class="tk-n">0</span>
+
+<span class="tk-k">def</span> allPlugs (s : World) : List Cell := s.pieces.flatMap (<span class="tk-k">fun</span> q =&gt; q.cur.plugs)
+
+<span class="tk-k">def</span> isGoal (s : World) : Bool := (allPlugs s).all (<span class="tk-k">fun</span> p =&gt; <span class="tk-k">decide</span> (plugCount s p ≥ <span class="tk-n">2</span>))
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-hud"><code class="rn">hud</code><span>The top bar is spent in proportion to steps taken in this level, clicks included.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> wrap
+
+…
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    m = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>)
+    <span class="tk-k">if</span> m <span class="tk-k">in</span> (<span class="tk-s">&quot;reset&quot;</span>, <span class="tk-s">&quot;level_up&quot;</span>):
+        <span class="tk-k">return</span> nw.spent == <span class="tk-n">0</span>
+    <span class="tk-k">return</span> nw.spent - w.spent <span class="tk-k">in</span> (<span class="tk-n">0</span>, <span class="tk-n">1</span>)
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> spentOf (b : Board) (t : Nat) : Nat := (<span class="tk-n">64</span> * t + b.budget) / (<span class="tk-n">2</span> * b.budget)
+
+<span class="tk-k">def</span> tick (s : World) : World := { s <span class="tk-k">with</span> ticks := s.ticks + <span class="tk-n">1</span> }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-idle"><code class="rn">idle</code><span>With no piece selected, direction and function keys move nothing; only a step is counted.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> in_level, wrap
+
+…
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    r = in_level(ctx)
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    <span class="tk-k">if</span> a <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>, <span class="tk-s">&quot;ACTION5&quot;</span>):
+        …
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    <span class="tk-k">return</span> nw.lit <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">and</span> nw.rest == w.rest <span class="tk-k">and</span> nw.ground == w.ground <span class="tk-k">and</span> look_of(nw) == look_of(w)
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+<span class="tk-k">import</span> Step
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> idle (w : World) (h : w.sel = none) :
+    step w .up = settle w ∧ step w .down = settle w ∧ step w .left = settle w ∧
+    step w .right = settle w ∧ step w .five = settle w := <span class="tk-k">by</span>
+  <span class="tk-k">simp</span> [step, move, five, h]
+
+<span class="tk-k">theorem</span> settle_keeps (w : World) :
+    (settle w = .ok (tick w) ∨ settle w = .won (tick w)) ∧
+    (tick w).pieces = w.pieces ∧ (tick w).sel = w.sel := <span class="tk-k">by</span>
+  refine ⟨?_, <span class="tk-k">rfl</span>, <span class="tk-k">rfl</span>⟩
+  unfold settle
+  split
+  · <span class="tk-k">exact</span> Or.inr <span class="tk-k">rfl</span>
+  · <span class="tk-k">exact</span> Or.inl <span class="tk-k">rfl</span>
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-board_keeps"><code class="rn">board_keeps</code><span>Within a level, the ground colour and drawing style never change.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> in_level, wrap
+
+…
+HISTORY = [
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    <span class="tk-k">return</span> in_level(ctx)
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    <span class="tk-k">return</span> nw.ground == w.ground <span class="tk-k">and</span> look_of(nw) == look_of(w)
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+<span class="tk-k">import</span> Obs.Seen
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> board_keeps (b₁ b₂ : Board) (w : World) (a : Act) :
+    (<span class="tk-k">fun</span> (_ : Board) =&gt; step w a) b₁ = (<span class="tk-k">fun</span> (_ : Board) =&gt; step w a) b₂ := <span class="tk-k">rfl</span>
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-plug_at_end"><code class="rn">plug_at_end</code><span>Plugs sit at piece ends: each touches exactly one of its piece&#x27;s solid cells.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.look <span class="tk-k">import</span> look_of
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> wrap
+
+…
+HISTORY = [
+    …
+]
+
+<span class="tk-k">def</span> scope_w(w, a, nw, ctx):
+    <span class="tk-k">if</span> look_of(w) != <span class="tk-s">&quot;sleep&quot;</span>:
+        …
+    <span class="tk-k">if</span> w.lit <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> <span class="tk-k">not</span> w.lit.plugs:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> judge_w(w, a, nw, ctx):
+    body = w.lit.solid | ({w.lit.head} <span class="tk-k">if</span> w.lit.head <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">else</span> set())
+    <span class="tk-k">for</span> (r, c) <span class="tk-k">in</span> w.lit.plugs:
+        n = sum(q <span class="tk-k">in</span> body <span class="tk-k">for</span> q <span class="tk-k">in</span> ((r + <span class="tk-n">1</span>, c), (r - <span class="tk-n">1</span>, c), (r, c + <span class="tk-n">1</span>), (r, c - <span class="tk-n">1</span>)))
+        <span class="tk-k">if</span> n != <span class="tk-n">1</span>:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span>
+
+scope_, assert_ = wrap(scope_w, judge_w)</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : L0_acts.length = <span class="tk-n">14</span> ∧ Winnable (Witness.start0 : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : L1_acts.length = <span class="tk-n">31</span> ∧ Winnable (Witness.start1 : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : L2_acts.length = <span class="tk-n">34</span> ∧ Winnable (Witness.start2 : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : L3_acts.length = <span class="tk-n">95</span> ∧ Winnable (Witness.start3 : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : L4_acts.length = <span class="tk-n">46</span> ∧ Winnable (Witness.start4 : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : L5_acts.length = <span class="tk-n">41</span> ∧ Winnable (Witness.start5 : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> keyA_nowin : ∀ w a w&#x27;, KeyA w → step w a ≠ .won w&#x27; := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> A_ctrl_winnable : Winnable (A_ctrl : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> keyB_nowin : ∀ w a w&#x27;, KeyB w → step w a ≠ .won w&#x27; := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> B_ctrl_winnable : Winnable (B_ctrl : World) := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> keyA_unsolvable (w : World) (h : KeyA w) : Unsolvable w := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> A_scene_unsolvable : Unsolvable (A_scene : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> keyB_unsolvable (w : World) (h : KeyB w) : Unsolvable w := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> B_scene_unsolvable : Unsolvable (B_scene : World) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/cn04.zip" download>Download cn04.zip</a> <span class="note">0.6 MB · 53 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="cn04";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

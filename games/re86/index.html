@@ -1,0 +1,594 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>re86 · Algebraic World Model</title>
+<meta name="description" content="re86: Push coloured objects around; the level is cleared when each ring centre is covered by a same-colour object.">
+<meta property="og:title" content="re86 · Algebraic World Model">
+<meta property="og:description" content="re86: Push coloured objects around; the level is cleared when each ring centre is covered by a same-colour object.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/re86/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="re86 · Algebraic World Model">
+<meta name="twitter:description" content="re86: Push coloured objects around; the level is cleared when each ring centre is covered by a same-colour object.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../r11l/" aria-label="Previous game">‹ r11l</a><a href="../s5i5/" aria-label="Next game">s5i5 ›</a></span></div><h1>re86</h1><p class="one">Push coloured objects around; the level is cleared when each ring centre is covered by a same-colour object.</p><p class="stat">8 levels · 12 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>There are several coloured objects on the board (cross, diagonal cross, diamond, hollow square frame, horizontal line), and the white cursor sits at the centre of the one currently being controlled. The up, down, left and right keys push this whole object by 3 cells, and the switch key moves the cursor to another object. The dark small square frames are rings, and the colour at a ring&#x27;s centre says which colour of object it is to be covered by. The solid-colour blocks in the grey frame are colour blocks, and an object that touches one turns entirely into this colour. The light-grey solid blocks are blockers and do not move: when a cross hits one, its two bars each go their own way; a hollow square frame that hits one changes shape, with the perimeter unchanged. The level is cleared when every ring centre is covered by an object of the same colour. The bottom row is the counter bar.</p></div><div class="frames"><figure><img src="../../img/thumbs/re86.png" alt="re86, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/re86-last.png" alt="re86, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 7 object types and 12 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Objects</b> <code>pieces</code><span>Pushable coloured shapes: cross, diagonal cross, diamond, hollow square frame, horizontal line.</span></li><li><b>Cursor</b> <code>cursor</code><span>A white dot at the centre of the object being controlled.</span></li><li><b>Rings</b> <code>rings</code><span>Dark small square frames; the centre colour says which object colour must cover it.</span></li><li><b>Colour blocks</b> <code>swatches</code><span>A solid colour in a grey frame; an object touching it turns this colour.</span></li><li><b>Blockers</b> <code>blockers</code><span>Light-grey solid blocks; never move or get covered; objects hitting them deform.</span></li><li><b>Counter bar</b> <code>spent</code><span>The bottom row, recording how many cells this level has spent.</span></li><li><b>Stacking order</b> <code>over</code><span>Which of two overlapping objects is drawn on top.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-translate"><code class="rn">translate</code><span>Without hitting a blocker, the controlled object shifts 3 cells, keeping its shape and size.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.contact <span class="tk-k">import</span> blocked, maybe_blocked
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> agree
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> DELTA, first, not_in_level, not_push
+
+…
+              …
+              …
+BOOK = [<span class="tk-s">&quot;a1_up&quot;</span>, <span class="tk-s">&quot;a2_down&quot;</span>, <span class="tk-s">&quot;a3_left&quot;</span>, <span class="tk-s">&quot;a4_right&quot;</span>, <span class="tk-s">&quot;edge_clips_arm&quot;</span>, <span class="tk-s">&quot;arm_len_fixed&quot;</span>, <span class="tk-s">&quot;bar_len_conserved&quot;</span>]
+
+<span class="tk-k">def</span> predict(p, a):
+    dr, dc = DELTA[a]
+    <span class="tk-k">return</span> p.moved(dr, dc)
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    r = first(not_push(a), not_in_level(ctx))
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    dr, dc = DELTA[a]
+    <span class="tk-k">if</span> blocked(p, dr, dc, w.blockers):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    dr, dc = DELTA[a]
+    <span class="tk-k">if</span> maybe_blocked(p, dr, dc, w.blockers):
+        …
+    q = predict(p, a)
+    <span class="tk-k">for</span> o <span class="tk-k">in</span> nw.pieces:
+        q2 = type(q)(q.kind, o.color, q.top, q.left, q.bottom, q.right, q.hub, q.hollow, q.known)
+        <span class="tk-k">if</span> agree(q2, o) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+            <span class="tk-k">return</span> <span class="tk-k">True</span>
+    <span class="tk-k">return</span> <span class="tk-k">False</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> hitsBlock (b : Board) (p : Piece) (dr dc : Int) : Bool :=
+  b.blockers.any (<span class="tk-k">fun</span> rc =&gt; p.mem (rc.1 - dr) (rc.2 - dc))
+
+<span class="tk-k">def</span> translate (p : Piece) (a : Act) : Piece :=
+  p.shift a.delta.1 a.delta.2
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-blocked_cross"><code class="rn">blocked_cross</code><span>A cross&#x27;s bar that would hit a blocker stays; the other bar moves 3 cells.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.contact <span class="tk-k">import</span> bars, blocked, reach
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> agree
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> DELTA, first, not_in_level, not_push
+
+…
+              …
+BOOK = [<span class="tk-s">&quot;blocked_deforms&quot;</span>]
+
+<span class="tk-k">def</span> predict(p, a, blockers):
+    dr, dc = DELTA[a]
+    R, C = p.hub
+    h, v = bars(p)
+    hb = any((r + dr, c + dc) <span class="tk-k">in</span> blockers <span class="tk-k">for</span> r, c <span class="tk-k">in</span> h)
+    vb = any((r + dr, c + dc) <span class="tk-k">in</span> blockers <span class="tk-k">for</span> r, c <span class="tk-k">in</span> v)
+    Rh, l, r_ = (R, p.left, p.right) <span class="tk-k">if</span> hb <span class="tk-k">else</span> (R + dr, p.left + dc, p.right + dc)
+    Cv, t, b = (C, p.top, p.bottom) <span class="tk-k">if</span> vb <span class="tk-k">else</span> (C + dc, p.top + dr, p.bottom + dr)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> h:
+        Rh, l, r_ = R + (<span class="tk-n">0</span> <span class="tk-k">if</span> vb <span class="tk-k">else</span> dr), C + (<span class="tk-n">0</span> <span class="tk-k">if</span> vb <span class="tk-k">else</span> dc), C + (<span class="tk-n">0</span> <span class="tk-k">if</span> vb <span class="tk-k">else</span> dc)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> v:
+        Cv, t, b = C + (<span class="tk-n">0</span> <span class="tk-k">if</span> hb <span class="tk-k">else</span> dc), R + (<span class="tk-n">0</span> <span class="tk-k">if</span> hb <span class="tk-k">else</span> dr), R + (<span class="tk-n">0</span> <span class="tk-k">if</span> hb <span class="tk-k">else</span> dr)
+    <span class="tk-k">return</span> type(p)(<span class="tk-s">&quot;cross&quot;</span>, p.color, min(t, Rh), min(l, Cv), max(b, Rh), max(r_, Cv),
+                   (Rh, Cv), <span class="tk-k">False</span>, p.known)
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    r = first(not_push(a), not_in_level(ctx))
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    dr, dc = DELTA[a]
+    <span class="tk-k">if</span> <span class="tk-k">not</span> blocked(p, dr, dc, w.blockers):
+        …
+    <span class="tk-k">if</span> p.kind != <span class="tk-s">&quot;cross&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    dr, dc = DELTA[a]
+    <span class="tk-k">if</span> any((r + dr, c + dc) <span class="tk-k">in</span> w.blockers <span class="tk-k">for</span> r, c <span class="tk-k">in</span> reach(p)):
+        …
+    q = predict(p, a, w.blockers)
+    <span class="tk-k">for</span> o <span class="tk-k">in</span> nw.pieces:
+        q2 = type(q)(q.kind, o.color, q.top, q.left, q.bottom, q.right, q.hub, q.hollow, q.known)
+        <span class="tk-k">if</span> agree(q2, o) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+            <span class="tk-k">return</span> <span class="tk-k">True</span>
+    <span class="tk-k">return</span> <span class="tk-k">False</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Rule.Move.Translate
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> blockedCross (b : Board) (p : Piece) (a : Act) : Piece :=
+  <span class="tk-k">let</span> dr := a.delta.1
+  <span class="tk-k">let</span> dc := a.delta.2
+  <span class="tk-k">let</span> hasH := <span class="tk-k">decide</span> (p.left &lt; p.right)
+  <span class="tk-k">let</span> hasV := <span class="tk-k">decide</span> (p.top &lt; p.bottom)
+  <span class="tk-k">let</span> hb := hasH &amp;&amp; b.blockers.any (<span class="tk-k">fun</span> rc =&gt;
+    rc.1 - dr == p.hr &amp;&amp; <span class="tk-k">decide</span> (p.left ≤ rc.2 - dc) &amp;&amp; <span class="tk-k">decide</span> (rc.2 - dc ≤ p.right))
+  <span class="tk-k">let</span> vb := hasV &amp;&amp; b.blockers.any (<span class="tk-k">fun</span> rc =&gt;
+    rc.2 - dc == p.hc &amp;&amp; <span class="tk-k">decide</span> (p.top ≤ rc.1 - dr) &amp;&amp; <span class="tk-k">decide</span> (rc.1 - dr ≤ p.bottom))
+  <span class="tk-k">let</span> rh := <span class="tk-k">if</span> hasH <span class="tk-k">then</span> (<span class="tk-k">if</span> hb <span class="tk-k">then</span> p.hr <span class="tk-k">else</span> p.hr + dr) <span class="tk-k">else</span> (<span class="tk-k">if</span> vb <span class="tk-k">then</span> p.hr <span class="tk-k">else</span> p.hr + dr)
+  <span class="tk-k">let</span> l  := <span class="tk-k">if</span> hasH <span class="tk-k">then</span> (<span class="tk-k">if</span> hb <span class="tk-k">then</span> p.left <span class="tk-k">else</span> p.left + dc) <span class="tk-k">else</span> (<span class="tk-k">if</span> vb <span class="tk-k">then</span> p.hc <span class="tk-k">else</span> p.hc + dc)
+  <span class="tk-k">let</span> rr := <span class="tk-k">if</span> hasH <span class="tk-k">then</span> (<span class="tk-k">if</span> hb <span class="tk-k">then</span> p.right <span class="tk-k">else</span> p.right + dc) <span class="tk-k">else</span> (<span class="tk-k">if</span> vb <span class="tk-k">then</span> p.hc <span class="tk-k">else</span> p.hc + dc)
+  <span class="tk-k">let</span> cv := <span class="tk-k">if</span> hasV <span class="tk-k">then</span> (<span class="tk-k">if</span> vb <span class="tk-k">then</span> p.hc <span class="tk-k">else</span> p.hc + dc) <span class="tk-k">else</span> (<span class="tk-k">if</span> hb <span class="tk-k">then</span> p.hc <span class="tk-k">else</span> p.hc + dc)
+  <span class="tk-k">let</span> t  := <span class="tk-k">if</span> hasV <span class="tk-k">then</span> (<span class="tk-k">if</span> vb <span class="tk-k">then</span> p.top <span class="tk-k">else</span> p.top + dr) <span class="tk-k">else</span> (<span class="tk-k">if</span> hb <span class="tk-k">then</span> p.hr <span class="tk-k">else</span> p.hr + dr)
+  <span class="tk-k">let</span> bt := <span class="tk-k">if</span> hasV <span class="tk-k">then</span> (<span class="tk-k">if</span> vb <span class="tk-k">then</span> p.bottom <span class="tk-k">else</span> p.bottom + dr) <span class="tk-k">else</span> (<span class="tk-k">if</span> hb <span class="tk-k">then</span> p.hr <span class="tk-k">else</span> p.hr + dr)
+  { p <span class="tk-k">with</span> top := min t rh, left := min l cv, bottom := max bt rh, right := max rr cv,
+           hr := rh, hc := cv }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-blocked_box"><code class="rn">blocked_box</code><span>A blocked hollow square frame reshapes with equal perimeter; a side under 4 stops it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.contact <span class="tk-k">import</span> blocked
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> agree
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> DELTA, first, not_in_level, not_push
+
+…
+BOOK = [<span class="tk-s">&quot;blocked_rect_trades&quot;</span>, <span class="tk-s">&quot;rect_trade_needs_room&quot;</span>]
+
+<span class="tk-k">def</span> predict(p, a):
+    dr, dc = DELTA[a]
+    t, l, b, r = p.top, p.left, p.bottom, p.right
+    h, wd = b - t + <span class="tk-n">1</span>, r - l + <span class="tk-n">1</span>
+    R0, C0 = p.center
+    <span class="tk-k">if</span> dc != <span class="tk-n">0</span>:
+        nh, nw_ = h + <span class="tk-n">3</span>, wd - <span class="tk-n">3</span>
+        l2, r2 = (l + <span class="tk-n">3</span>, r) <span class="tk-k">if</span> dc &gt; <span class="tk-n">0</span> <span class="tk-k">else</span> (l, r - <span class="tk-n">3</span>)
+        opts = [(t, b + <span class="tk-n">3</span>), (t - <span class="tk-n">3</span>, b)]
+        t2, b2 = min(opts, key=<span class="tk-k">lambda</span> x: abs((x[<span class="tk-n">0</span>] + x[<span class="tk-n">1</span>] + <span class="tk-n">1</span>) // <span class="tk-n">2</span> - R0))
+    <span class="tk-k">else</span>:
+        nh, nw_ = h - <span class="tk-n">3</span>, wd + <span class="tk-n">3</span>
+        t2, b2 = (t + <span class="tk-n">3</span>, b) <span class="tk-k">if</span> dr &gt; <span class="tk-n">0</span> <span class="tk-k">else</span> (t, b - <span class="tk-n">3</span>)
+        opts = [(l, r + <span class="tk-n">3</span>), (l - <span class="tk-n">3</span>, r)]
+        l2, r2 = min(opts, key=<span class="tk-k">lambda</span> x: abs((x[<span class="tk-n">0</span>] + x[<span class="tk-n">1</span>] + <span class="tk-n">1</span>) // <span class="tk-n">2</span> - C0))
+    <span class="tk-k">if</span> min(nh, nw_) &lt; <span class="tk-n">4</span>:
+        <span class="tk-k">return</span> p
+    <span class="tk-k">return</span> type(p)(<span class="tk-s">&quot;box&quot;</span>, p.color, t2, l2, b2, r2, ((t2 + b2 + <span class="tk-n">1</span>) // <span class="tk-n">2</span>, (l2 + r2 + <span class="tk-n">1</span>) // <span class="tk-n">2</span>),
+                   p.hollow, p.known)
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    r = first(not_push(a), not_in_level(ctx))
+    <span class="tk-k">if</span> r:
+        <span class="tk-k">return</span> r
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    dr, dc = DELTA[a]
+    <span class="tk-k">if</span> <span class="tk-k">not</span> blocked(p, dr, dc, w.blockers):
+        …
+    <span class="tk-k">if</span> p.kind != <span class="tk-s">&quot;box&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> all(p.known):
+        …
+    q = predict(p, a)
+    <span class="tk-k">for</span> o <span class="tk-k">in</span> nw.pieces:
+        q2 = type(q)(q.kind, o.color, q.top, q.left, q.bottom, q.right, q.hub, q.hollow, q.known)
+        <span class="tk-k">if</span> agree(q2, o) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+            <span class="tk-k">return</span> <span class="tk-k">True</span>
+    <span class="tk-k">return</span> <span class="tk-k">False</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Rule.Move.Translate
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> blockedBox (p : Piece) (a : Act) : Piece :=
+  <span class="tk-k">let</span> dr := a.delta.1
+  <span class="tk-k">let</span> dc := a.delta.2
+  <span class="tk-k">let</span> h := p.bottom - p.top + <span class="tk-n">1</span>
+  <span class="tk-k">let</span> w := p.right - p.left + <span class="tk-n">1</span>
+  <span class="tk-k">if</span> dc ≠ <span class="tk-n">0</span> <span class="tk-k">then</span>
+    <span class="tk-k">let</span> l2 := <span class="tk-k">if</span> dc &gt; <span class="tk-n">0</span> <span class="tk-k">then</span> p.left + <span class="tk-n">3</span> <span class="tk-k">else</span> p.left
+    <span class="tk-k">let</span> r2 := <span class="tk-k">if</span> dc &gt; <span class="tk-n">0</span> <span class="tk-k">then</span> p.right <span class="tk-k">else</span> p.right - <span class="tk-n">3</span>
+    <span class="tk-k">let</span> d1 := iabs ((p.top + (p.bottom + <span class="tk-n">3</span>) + <span class="tk-n">1</span>) / <span class="tk-n">2</span> - p.cr)
+    <span class="tk-k">let</span> d2 := iabs (((p.top - <span class="tk-n">3</span>) + p.bottom + <span class="tk-n">1</span>) / <span class="tk-n">2</span> - p.cr)
+    <span class="tk-k">let</span> t2 := <span class="tk-k">if</span> d2 &lt; d1 <span class="tk-k">then</span> p.top - <span class="tk-n">3</span> <span class="tk-k">else</span> p.top
+    <span class="tk-k">let</span> b2 := <span class="tk-k">if</span> d2 &lt; d1 <span class="tk-k">then</span> p.bottom <span class="tk-k">else</span> p.bottom + <span class="tk-n">3</span>
+    <span class="tk-k">if</span> min (h + <span class="tk-n">3</span>) (w - <span class="tk-n">3</span>) &lt; <span class="tk-n">4</span> <span class="tk-k">then</span> p
+    <span class="tk-k">else</span> { p <span class="tk-k">with</span> top := t2, left := l2, bottom := b2, right := r2,
+                  hr := (t2 + b2 + <span class="tk-n">1</span>) / <span class="tk-n">2</span>, hc := (l2 + r2 + <span class="tk-n">1</span>) / <span class="tk-n">2</span> }
+  <span class="tk-k">else</span>
+    <span class="tk-k">let</span> t2 := <span class="tk-k">if</span> dr &gt; <span class="tk-n">0</span> <span class="tk-k">then</span> p.top + <span class="tk-n">3</span> <span class="tk-k">else</span> p.top
+    <span class="tk-k">let</span> b2 := <span class="tk-k">if</span> dr &gt; <span class="tk-n">0</span> <span class="tk-k">then</span> p.bottom <span class="tk-k">else</span> p.bottom - <span class="tk-n">3</span>
+    <span class="tk-k">let</span> d1 := iabs ((p.left + (p.right + <span class="tk-n">3</span>) + <span class="tk-n">1</span>) / <span class="tk-n">2</span> - p.cc)
+    <span class="tk-k">let</span> d2 := iabs (((p.left - <span class="tk-n">3</span>) + p.right + <span class="tk-n">1</span>) / <span class="tk-n">2</span> - p.cc)
+    <span class="tk-k">let</span> l2 := <span class="tk-k">if</span> d2 &lt; d1 <span class="tk-k">then</span> p.left - <span class="tk-n">3</span> <span class="tk-k">else</span> p.left
+    <span class="tk-k">let</span> r2 := <span class="tk-k">if</span> d2 &lt; d1 <span class="tk-k">then</span> p.right <span class="tk-k">else</span> p.right + <span class="tk-n">3</span>
+    <span class="tk-k">if</span> min (h - <span class="tk-n">3</span>) (w + <span class="tk-n">3</span>) &lt; <span class="tk-n">4</span> <span class="tk-k">then</span> p
+    <span class="tk-k">else</span> { p <span class="tk-k">with</span> top := t2, left := l2, bottom := b2, right := r2,
+                  hr := (t2 + b2 + <span class="tk-n">1</span>) / <span class="tk-n">2</span>, hc := (l2 + r2 + <span class="tk-n">1</span>) / <span class="tk-n">2</span> }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-recolor"><code class="rn">recolor</code><span>Touching a colour block or its grey frame turns the whole object that colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.contact <span class="tk-k">import</span> maybe_touched, touched
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> first, not_in_level, not_push
+
+…
+BOOK = [<span class="tk-s">&quot;swatch_recolors_object&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">return</span> first(not_push(a), not_in_level(ctx))
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    p = w.active_piece()
+    <span class="tk-k">if</span> p <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    q = nw.active_piece()
+    <span class="tk-k">if</span> q <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> maybe_touched(q, nw.swatches):
+        …
+    hit = touched(q, nw.swatches)
+    want = hit[<span class="tk-n">0</span>].color <span class="tk-k">if</span> hit <span class="tk-k">else</span> p.color
+    <span class="tk-k">return</span> q.color == want</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> Piece.touches (p : Piece) (s : Swatch) : Bool :=
+  (List.range s.size.toNat).any (<span class="tk-k">fun</span> i =&gt;
+    (List.range s.size.toNat).any (<span class="tk-k">fun</span> j =&gt; p.mem (s.top + i) (s.left + j)))
+
+<span class="tk-k">def</span> firstTouched (ss : List Swatch) (p : Piece) : Option Swatch :=
+  (ss.filter (<span class="tk-k">fun</span> s =&gt; p.touches s)).foldl
+    (<span class="tk-k">fun</span> acc s =&gt; <span class="tk-k">match</span> acc <span class="tk-k">with</span>
+      | none =&gt; some s
+      | some t =&gt; <span class="tk-k">if</span> s.top &lt; t.top || (s.top == t.top &amp;&amp; s.left &lt; t.left) <span class="tk-k">then</span> some s <span class="tk-k">else</span> acc)
+    none
+
+<span class="tk-k">def</span> recolor (b : Board) (p : Piece) : Piece :=
+  <span class="tk-k">match</span> firstTouched b.swatches p <span class="tk-k">with</span>
+  | some s =&gt; { p <span class="tk-k">with</span> color := s.color }
+  | none   =&gt; p
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-cycle"><code class="rn">cycle</code><span>Switching moves the cursor one object up the stacking order, wrapping from top to bottom.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> agree
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> first, not_in_level
+
+…
+BOOK = [<span class="tk-s">&quot;a5_switch&quot;</span>, <span class="tk-s">&quot;a5_cycle_order&quot;</span>, <span class="tk-s">&quot;a5_skips_offboard&quot;</span>, <span class="tk-s">&quot;active_center_when_hidden&quot;</span>,
+        <span class="tk-s">&quot;diamond_center_hollow&quot;</span>, <span class="tk-s">&quot;rect_center_hollow&quot;</span>, <span class="tk-s">&quot;center_cell_persists&quot;</span>,
+        <span class="tk-s">&quot;cursor_layer&quot;</span>, <span class="tk-s">&quot;cursor_hidden_by_object&quot;</span>]
+
+<span class="tk-k">def</span> _on(c):
+    <span class="tk-k">return</span> <span class="tk-n">0</span> &lt;= c[<span class="tk-n">0</span>] &lt; <span class="tk-n">63</span> <span class="tk-k">and</span> <span class="tk-n">0</span> &lt;= c[<span class="tk-n">1</span>] &lt; <span class="tk-n">64</span>
+
+<span class="tk-k">def</span> successor(pieces, layers, cur):
+    ring = [i <span class="tk-k">for</span> i <span class="tk-k">in</span> layers <span class="tk-k">if</span> _on(pieces[i].center) <span class="tk-k">or</span> i == cur]
+    k = ring.index(cur)
+    <span class="tk-k">for</span> step <span class="tk-k">in</span> range(<span class="tk-n">1</span>, len(ring) + <span class="tk-n">1</span>):
+        j = ring[(k + step) % len(ring)]
+        <span class="tk-k">if</span> j != cur <span class="tk-k">and</span> _on(pieces[j].center):
+            <span class="tk-k">return</span> j
+    <span class="tk-k">return</span> cur
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    …
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    <span class="tk-k">if</span> w.active <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> nw.active <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">for</span> p <span class="tk-k">in</span> w.pieces:
+        <span class="tk-k">if</span> <span class="tk-k">not</span> any(agree(p, o) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">for</span> o <span class="tk-k">in</span> nw.pieces):
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    n = len(w.pieces)
+    layers = ctx.get(<span class="tk-s">&quot;layers&quot;</span>)
+    <span class="tk-k">if</span> n &gt; <span class="tk-n">2</span> <span class="tk-k">and</span> layers <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> layers <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        layers = list(range(n))
+    want = w.pieces[successor(w.pieces, layers, w.active)]
+    got = nw.active_piece()
+    want2 = type(want)(want.kind, want.color, want.top, want.left, want.bottom, want.right,
+                       want.hub, <span class="tk-k">None</span>, want.known)
+    <span class="tk-k">return</span> agree(want2, type(got)(got.kind, got.color, got.top, got.left, got.bottom, got.right,
+                                  got.hub, <span class="tk-k">None</span>, got.known)) <span class="tk-k">is</span> <span class="tk-k">None</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> Piece.onBoard (p : Piece) : Bool :=
+  <span class="tk-k">decide</span> (<span class="tk-n">0</span> ≤ p.cr) &amp;&amp; <span class="tk-k">decide</span> (p.cr &lt; <span class="tk-n">63</span>) &amp;&amp; <span class="tk-k">decide</span> (<span class="tk-n">0</span> ≤ p.cc) &amp;&amp; <span class="tk-k">decide</span> (p.cc &lt; <span class="tk-n">64</span>)
+
+<span class="tk-k">def</span> cycle (s : World) : Nat :=
+  <span class="tk-k">let</span> n := s.pieces.length
+  <span class="tk-k">let</span> cand := (List.range n).map (<span class="tk-k">fun</span> k =&gt; (s.active + k + <span class="tk-n">1</span>) % n)
+  (cand.find? (<span class="tk-k">fun</span> j =&gt; j != s.active &amp;&amp; ((s.pieces[j]?).map Piece.onBoard).getD false)).getD s.active
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-level_up"><code class="rn">level_up</code><span>The level is cleared exactly when every ring centre is covered by a same-colour object.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.contact <span class="tk-k">import</span> blocked, reach, touched
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> DELTA
+<span class="tk-k">from</span> ..move <span class="tk-k">import</span> blocked_box, blocked_cross, translate
+
+…
+BOOK = [<span class="tk-s">&quot;all_on_target_levels_up&quot;</span>, <span class="tk-s">&quot;no_levelup_unless_aligned&quot;</span>, <span class="tk-s">&quot;wrong_color_cover_no_levelup&quot;</span>,
+        <span class="tk-s">&quot;no_visible_satisfaction_mark&quot;</span>]
+
+<span class="tk-k">def</span> push_piece(p, a, blockers, swatches):
+    dr, dc = DELTA[a]
+    <span class="tk-k">if</span> <span class="tk-k">not</span> blocked(p, dr, dc, blockers):
+        q = translate.predict(p, a)
+    <span class="tk-k">elif</span> p.kind == <span class="tk-s">&quot;cross&quot;</span>:
+        q = blocked_cross.predict(p, a, blockers)
+    <span class="tk-k">elif</span> p.kind == <span class="tk-s">&quot;box&quot;</span>:
+        <span class="tk-k">if</span> <span class="tk-k">not</span> all(p.known):
+            …
+        q = blocked_box.predict(p, a)
+    <span class="tk-k">else</span>:
+        …
+    hit = touched(q, swatches)
+    <span class="tk-k">if</span> hit:
+        q = type(q)(q.kind, hit[<span class="tk-n">0</span>].color, q.top, q.left, q.bottom, q.right, q.hub, q.hollow, q.known)
+    <span class="tk-k">return</span> q
+
+<span class="tk-k">def</span> after(w, a):
+    pcs = list(w.pieces)
+    <span class="tk-k">if</span> a == <span class="tk-s">&quot;ACTION5&quot;</span>:
+        <span class="tk-k">return</span> pcs
+    <span class="tk-k">if</span> w.active <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    q = push_piece(w.active_piece(), a, w.blockers, w.swatches)
+    <span class="tk-k">if</span> isinstance(q, str):
+        <span class="tk-k">return</span> q
+    pcs[w.active] = q
+    <span class="tk-k">return</span> pcs
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">return</span> <span class="tk-s">&quot;RESET → notmodel/reset_restarts&quot;</span> <span class="tk-k">if</span> a == <span class="tk-s">&quot;RESET&quot;</span> <span class="tk-k">else</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    owners = ctx.get(<span class="tk-s">&quot;owners&quot;</span>) <span class="tk-k">or</span> {}
+    <span class="tk-k">if</span> any(o <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">for</span> o <span class="tk-k">in</span> owners.values()) <span class="tk-k">or</span> <span class="tk-k">not</span> owners:
+        …
+    pcs = after(w, a)
+    <span class="tk-k">if</span> isinstance(pcs, str):
+        <span class="tk-k">return</span> pcs
+    won = ctx.get(<span class="tk-s">&quot;level_next&quot;</span>) != ctx.get(<span class="tk-s">&quot;level_prev&quot;</span>) <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;WIN&quot;</span>
+    goal, maybe = <span class="tk-k">True</span>, <span class="tk-k">False</span>
+    <span class="tk-k">for</span> c, o <span class="tk-k">in</span> owners.items():
+        <span class="tk-k">if</span> any(c <span class="tk-k">in</span> p.cells() <span class="tk-k">and</span> p.color == o <span class="tk-k">for</span> p <span class="tk-k">in</span> pcs):
+            <span class="tk-k">continue</span>
+        goal = <span class="tk-k">False</span>
+        <span class="tk-k">if</span> any(c <span class="tk-k">in</span> reach(p) <span class="tk-k">for</span> p <span class="tk-k">in</span> pcs):
+            maybe = <span class="tk-k">True</span>
+    <span class="tk-k">if</span> <span class="tk-k">not</span> goal <span class="tk-k">and</span> maybe:
+        …
+    <span class="tk-k">return</span> goal == won</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> isGoal (b : Board) (s : World) : Bool :=
+  b.rings.all (<span class="tk-k">fun</span> g =&gt; s.pieces.any (<span class="tk-k">fun</span> p =&gt; p.mem g.r g.c &amp;&amp; p.color == g.owner))
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-others_stay"><code class="rn">others_stay</code><span>When pushing, objects not controlled keep their position and colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> agree
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> first, not_in_level, not_push
+
+…
+BOOK = [<span class="tk-s">&quot;other_cross_static&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">return</span> first(not_push(a), not_in_level(ctx))
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    <span class="tk-k">if</span> w.active <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">for</span> i, p <span class="tk-k">in</span> enumerate(w.pieces):
+        <span class="tk-k">if</span> i == w.active:
+            <span class="tk-k">continue</span>
+        <span class="tk-k">if</span> <span class="tk-k">not</span> any(agree(p, o) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">for</span> o <span class="tk-k">in</span> nw.pieces):
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+
+<span class="tk-k">open</span> Game
+
+<span class="tk-k">theorem</span> others_stay (b : Board) (s s&#x27; : World) (a : Act) (ha : a ≠ .switch)
+    (h : next b s a = some s&#x27;) :
+    s&#x27;.pieces.length = s.pieces.length ∧ ∀ i, i ≠ s.active → s&#x27;.pieces[i]? = s.pieces[i]? := <span class="tk-k">by</span>
+  <span class="tk-k">cases</span> a <span class="tk-k">with</span>
+  | switch =&gt; <span class="tk-k">exact</span> absurd <span class="tk-k">rfl</span> ha
+  | up | down | left | right =&gt;
+    <span class="tk-k">simp</span> only [next] at h
+    split at h
+    · <span class="tk-k">simp</span> at h
+    · obtain ⟨q, _, hq⟩ := Option.map_eq_some_iff.mp h
+      subst hq
+      refine ⟨List.length_set, ?_⟩
+      <span class="tk-k">intro</span> i hi
+      <span class="tk-k">exact</span> List.getElem?_set_ne (Ne.symm hi)
+
+<span class="tk-k">theorem</span> layers_kept (b : Board) (s s&#x27; : World) (a : Act) (h : next b s a = some s&#x27;) :
+    s&#x27;.pieces.length = s.pieces.length ∧ ∀ i, i ≠ s.active → s&#x27;.pieces[i]? = s.pieces[i]? := <span class="tk-k">by</span>
+  by_cases ha : a = .switch
+  · subst ha
+    <span class="tk-k">simp</span> only [next, Option.some.injEq] at h
+    subst h
+    <span class="tk-k">exact</span> ⟨<span class="tk-k">rfl</span>, <span class="tk-k">fun</span> _ _ =&gt; <span class="tk-k">rfl</span>⟩
+  · <span class="tk-k">exact</span> others_stay b s s&#x27; a ha h
+
+<span class="tk-k">theorem</span> switch_keeps_pieces (b : Board) (s s&#x27; : World) (h : next b s .switch = some s&#x27;) :
+    s&#x27;.pieces = s.pieces := <span class="tk-k">by</span>
+  <span class="tk-k">simp</span> only [next, Option.some.injEq] at h
+  subst h
+  <span class="tk-k">rfl</span></code></pre></details></li><li id="rule-layers"><code class="rn">layers</code><span>The stacking order of overlapping objects never flips within a step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.fiber <span class="tk-k">import</span> agree
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> not_in_level
+
+…
+BOOK = [<span class="tk-s">&quot;zorder_fixed_order&quot;</span>, <span class="tk-s">&quot;zorder_stable_one_step&quot;</span>, <span class="tk-s">&quot;recolor_keeps_zorder&quot;</span>]
+
+<span class="tk-k">def</span> _ids(w, nw):
+    out = {}
+    used = set()
+    <span class="tk-k">for</span> i, p <span class="tk-k">in</span> enumerate(w.pieces):
+        <span class="tk-k">if</span> i == w.active:
+            <span class="tk-k">continue</span>
+        <span class="tk-k">for</span> j, o <span class="tk-k">in</span> enumerate(nw.pieces):
+            <span class="tk-k">if</span> j <span class="tk-k">not</span> <span class="tk-k">in</span> used <span class="tk-k">and</span> agree(p, o) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+                out[i] = j
+                used.add(j)
+                <span class="tk-k">break</span>
+    <span class="tk-k">if</span> w.active <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> nw.active <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> nw.active <span class="tk-k">not</span> <span class="tk-k">in</span> used:
+        out[w.active] = nw.active
+    <span class="tk-k">return</span> out
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">return</span> not_in_level(ctx)
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> w.over <span class="tk-k">or</span> <span class="tk-k">not</span> nw.over:
+        …
+    m = _ids(w, nw)
+    both = <span class="tk-n">0</span>
+    <span class="tk-k">for</span> (i, j) <span class="tk-k">in</span> w.over:
+        <span class="tk-k">if</span> i <span class="tk-k">in</span> m <span class="tk-k">and</span> j <span class="tk-k">in</span> m:
+            <span class="tk-k">if</span> (m[j], m[i]) <span class="tk-k">in</span> nw.over:
+                <span class="tk-k">return</span> <span class="tk-k">False</span>
+            <span class="tk-k">if</span> (m[i], m[j]) <span class="tk-k">in</span> nw.over:
+                both += <span class="tk-n">1</span>
+    …</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Step
+
+<span class="tk-k">open</span> Game
+
+<span class="tk-k">theorem</span> others_stay (b : Board) (s s&#x27; : World) (a : Act) (ha : a ≠ .switch)
+    (h : next b s a = some s&#x27;) :
+    s&#x27;.pieces.length = s.pieces.length ∧ ∀ i, i ≠ s.active → s&#x27;.pieces[i]? = s.pieces[i]? := <span class="tk-k">by</span>
+  <span class="tk-k">cases</span> a <span class="tk-k">with</span>
+  | switch =&gt; <span class="tk-k">exact</span> absurd <span class="tk-k">rfl</span> ha
+  | up | down | left | right =&gt;
+    <span class="tk-k">simp</span> only [next] at h
+    split at h
+    · <span class="tk-k">simp</span> at h
+    · obtain ⟨q, _, hq⟩ := Option.map_eq_some_iff.mp h
+      subst hq
+      refine ⟨List.length_set, ?_⟩
+      <span class="tk-k">intro</span> i hi
+      <span class="tk-k">exact</span> List.getElem?_set_ne (Ne.symm hi)
+
+<span class="tk-k">theorem</span> layers_kept (b : Board) (s s&#x27; : World) (a : Act) (h : next b s a = some s&#x27;) :
+    s&#x27;.pieces.length = s.pieces.length ∧ ∀ i, i ≠ s.active → s&#x27;.pieces[i]? = s.pieces[i]? := <span class="tk-k">by</span>
+  by_cases ha : a = .switch
+  · subst ha
+    <span class="tk-k">simp</span> only [next, Option.some.injEq] at h
+    subst h
+    <span class="tk-k">exact</span> ⟨<span class="tk-k">rfl</span>, <span class="tk-k">fun</span> _ _ =&gt; <span class="tk-k">rfl</span>⟩
+  · <span class="tk-k">exact</span> others_stay b s s&#x27; a ha h
+
+<span class="tk-k">theorem</span> switch_keeps_pieces (b : Board) (s s&#x27; : World) (h : next b s .switch = some s&#x27;) :
+    s&#x27;.pieces = s.pieces := <span class="tk-k">by</span>
+  <span class="tk-k">simp</span> only [next, Option.some.injEq] at h
+  subst h
+  <span class="tk-k">rfl</span></code></pre></details></li><li id="rule-static"><code class="rn">static</code><span>Within a level, rings, colour blocks and blockers keep their position and colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> not_in_level
+
+…
+BOOK = [<span class="tk-s">&quot;rings_static&quot;</span>, <span class="tk-s">&quot;blocker_is_terrain&quot;</span>, <span class="tk-s">&quot;furniture_restores&quot;</span>, <span class="tk-s">&quot;shape_over_ring&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">return</span> not_in_level(ctx)
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    <span class="tk-k">if</span> [r.center <span class="tk-k">for</span> r <span class="tk-k">in</span> w.rings] != [r.center <span class="tk-k">for</span> r <span class="tk-k">in</span> nw.rings]:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">for</span> r1, r2 <span class="tk-k">in</span> zip(w.rings, nw.rings):
+        <span class="tk-k">if</span> r1.owner <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> r2.owner <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> r1.owner != r2.owner:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> w.swatches == nw.swatches <span class="tk-k">and</span> w.blockers == nw.blockers</code></pre></details></li><li id="rule-tick"><code class="rn">tick</code><span>Each step the counter bar grows 0 or 1 cells, resetting on a new level.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+…
+BOOK = [<span class="tk-s">&quot;hud_delta_01&quot;</span>, <span class="tk-s">&quot;hud_fill_right&quot;</span>, <span class="tk-s">&quot;spent_resets_on_levelup&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">if</span> a == <span class="tk-s">&quot;RESET&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET → notmodel/reset_restarts&quot;</span>
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;WIN&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;level_next&quot;</span>) != ctx.get(<span class="tk-s">&quot;level_prev&quot;</span>):
+        <span class="tk-k">return</span> nw.spent == <span class="tk-n">0</span>
+    <span class="tk-k">return</span> nw.spent - w.spent <span class="tk-k">in</span> (<span class="tk-n">0</span>, <span class="tk-n">1</span>)</code></pre></details></li><li id="rule-budget_curve"><code class="rn">budget_curve</code><span>Spent cells are proportional to steps taken this level, scaled by the level&#x27;s fixed budget.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+…
+…
+                    …
+BOOK = []
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    <span class="tk-k">if</span> a == <span class="tk-s">&quot;RESET&quot;</span> <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;level_next&quot;</span>) != ctx.get(<span class="tk-s">&quot;level_prev&quot;</span>) <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;WIN&quot;</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;n_in_level&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;budget&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    n = ctx[<span class="tk-s">&quot;n_in_level&quot;</span>] + <span class="tk-n">1</span>
+    B = ctx[<span class="tk-s">&quot;budget&quot;</span>]
+    <span class="tk-k">return</span> nw.spent == (<span class="tk-n">128</span> * n + B) // (<span class="tk-n">2</span> * B)</code></pre></details></li><li id="rule-reset_restarts"><code class="rn">reset_restarts</code><span>Pressing reset makes the next frame the start of level 1.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+…
+…
+                    …
+BOOK = []
+
+<span class="tk-k">def</span> scope_(w, a, nw, ctx):
+    …
+
+<span class="tk-k">def</span> assert_(w, a, nw, ctx):
+    op = ctx.get(<span class="tk-s">&quot;opening&quot;</span>)
+    <span class="tk-k">if</span> op <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> nw == op</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable L0_board (L0_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable L1_board (L1_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable L2_board (L2_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable L3_board (L3_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable L4_board (L4_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable L5_board (L5_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable L6_board (L6_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L7_winnable : Winnable L7_board (L7_start : World) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/re86.zip" download>Download re86.zip</a> <span class="note">0.9 MB · 69 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="re86";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

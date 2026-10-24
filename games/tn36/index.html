@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>tn36 · Algebraic World Model</title>
+<meta name="description" content="tn36: Write a program on a switch panel and submit it; the level clears when the piece exactly fills the socket.">
+<meta property="og:title" content="tn36 · Algebraic World Model">
+<meta property="og:description" content="tn36: Write a program on a switch panel and submit it; the level clears when the piece exactly fills the socket.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/tn36/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="tn36 · Algebraic World Model">
+<meta name="twitter:description" content="tn36: Write a program on a switch panel and submit it; the level clears when the piece exactly fills the socket.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../su15/" aria-label="Previous game">‹ su15</a><a href="../tr87/" aria-label="Next game">tr87 ›</a></span></div><h1>tn36</h1><p class="one">Write a program on a switch panel and submit it; the level clears when the piece exactly fills the socket.</p><p class="stat">7 levels · 7 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>On the board there is a piece that can be enlarged, with a notch, as well as sockets, flower cells and walls; on the right is a panel made of columns of switches, with a big circle next to it. Which lights are dark in each column makes up a code, and the code is translated by a fixed codebook into one instruction: move one cell up/down/left/right, enlarge, shrink, rotate. Read from left to right, the whole panel is one program. Clicking a switch is writing the program, and the piece does not move; only pressing the big circle hands it in, and then the piece goes through the program instruction by instruction, skipping any instruction that cannot be walked. Only if the end point falls on a flower cell does the piece stay there, otherwise the whole program is voided. If the end point exactly fills the cavity of the socket (position, size and notch orientation all right), the level is cleared. Clicking the box in the bottom bar makes the demo canvas on the left show the effect of some code, for looking up the codebook. The top bar drops cells with clicks, and in some levels two clicks are needed to drop one cell.</p></div><div class="frames"><figure><img src="../../img/thumbs/tn36.png" alt="tn36, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/tn36-last.png" alt="tn36, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 5 object types and 7 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Top bar</b> <code>counter</code><span>The gauge at the very top of the screen: how many cells remain this level.</span></li><li><b>Clickable panel</b> <code>panel</code><span>Which switches are dark; read left to right, it is one program.</span></li><li><b>Piece</b> <code>piece</code><span>Which board cell it is on, how many times enlarged, and where its notch points.</span></li><li><b>Flower cells</b> <code>pads</code><span>Cells on the board where the piece can stop.</span></li><li><b>Layout</b> <code>layout</code><span>This level&#x27;s board, walls, socket, bottom-bar box and big circle.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-panel_follows_clicks"><code class="rn">panel_follows_clicks</code><span>Clicking a switch toggles only it; clicking the big circle or nothing changes no switch.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> target, xy
+<span class="tk-k">from</span> objects <span class="tk-k">import</span> Panel
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> level_changed
+
+…
+              …
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> xy(action) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> level_changed(ctx):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    tgt = target(w, action)
+    <span class="tk-k">if</span> tgt <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> tgt == (<span class="tk-s">&quot;disc&quot;</span>,):
+        <span class="tk-k">return</span> nw.panel == w.panel
+    want = Panel(w.panel.groups, w.panel.slots, w.panel.dark ^ {tgt})
+    <span class="tk-k">return</span> nw.panel == want</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+<span class="tk-k">import</span> Obj.Screen.Controls
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> panelAfter (w : World) : Option Target → Panel
+  | some (.piece kd g k) =&gt; w.panel.toggle kd g k
+  | _                    =&gt; w.panel
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-piece_follows_program"><code class="rn">piece_follows_program</code><span>Pressing the big circle makes the piece follow the panel&#x27;s program, instruction by instruction.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> target, xy
+<span class="tk-k">from</span> derive.outcome <span class="tk-k">import</span> outcome
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> level_changed
+
+…
+              …
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> xy(action) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> level_changed(ctx):
+        …
+    <span class="tk-k">if</span> target(w, action) == (<span class="tk-s">&quot;disc&quot;</span>,) <span class="tk-k">and</span> outcome(w)[<span class="tk-n">0</span>] == <span class="tk-s">&quot;win&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">if</span> target(w, action) != (<span class="tk-s">&quot;disc&quot;</span>,):
+        <span class="tk-k">return</span> nw.piece == w.piece <span class="tk-k">and</span> nw.pads == w.pads
+    kind, got = outcome(w)
+    <span class="tk-k">if</span> kind == <span class="tk-s">&quot;void&quot;</span>:
+        <span class="tk-k">return</span> nw.piece == w.piece <span class="tk-k">and</span> nw.pads == w.pads
+    <span class="tk-k">if</span> nw.piece != got:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    must = w.pads.cells - got.footprint()
+    may = must | w.piece.footprint()
+    <span class="tk-k">return</span> must &lt;= nw.pads.cells &lt;= may</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Compose.Outcome
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> pieceAfter (L : Layout) (w : World) : Option Target → Form
+  | some .disc =&gt;
+      <span class="tk-k">match</span> outcome L w <span class="tk-k">with</span>
+      | .move f =&gt; f
+      | _       =&gt; w.piece
+  | _ =&gt; w.piece
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-counter_pays"><code class="rn">counter_pays</code><span>Each click drops cells from the top bar at this level&#x27;s pace.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> is_reset
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> level_changed
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+]
+
+RATE = {<span class="tk-n">5</span>: <span class="tk-n">2</span>, <span class="tk-n">6</span>: <span class="tk-n">2</span>}
+
+<span class="tk-k">def</span> pay(level: int, k: int) -&gt; int:
+    <span class="tk-k">return</span> <span class="tk-n">1</span> <span class="tk-k">if</span> RATE.get(level, <span class="tk-n">1</span>) == <span class="tk-n">1</span> <span class="tk-k">else</span> k % <span class="tk-n">2</span>
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> is_reset(action):
+        …
+    <span class="tk-k">if</span> level_changed(ctx):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.counter.left == w.counter.left - pay(ctx[<span class="tk-s">&quot;level&quot;</span>], ctx[<span class="tk-s">&quot;k&quot;</span>])</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Layout
+<span class="tk-k">import</span> Obj.Frame.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> rateOf : Nat → Nat
+  | <span class="tk-n">5</span> =&gt; <span class="tk-n">2</span>
+  | <span class="tk-n">6</span> =&gt; <span class="tk-n">2</span>
+  | _ =&gt; <span class="tk-n">1</span>
+
+<span class="tk-k">def</span> pay (lvl : Nat) (phase : Bool) : Nat :=
+  <span class="tk-k">if</span> rateOf lvl = <span class="tk-n">1</span> <span class="tk-k">then</span> <span class="tk-n">1</span> <span class="tk-k">else</span> <span class="tk-k">if</span> phase <span class="tk-k">then</span> <span class="tk-n">1</span> <span class="tk-k">else</span> <span class="tk-n">0</span>
+
+<span class="tk-k">def</span> upkeep (L : Layout) (w : World) : World :=
+  { w <span class="tk-k">with</span> counter := w.counter - pay L.level w.phase, phase := !w.phase }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-fit_clears_level"><code class="rn">fit_clears_level</code><span>The level clears when the program&#x27;s end point exactly fills the socket&#x27;s cavity.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> is_reset, target
+<span class="tk-k">from</span> derive.outcome <span class="tk-k">import</span> outcome
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> level_changed
+
+…
+              …
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+NEEDS = (<span class="tk-s">&quot;w&quot;</span>,)
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> is_reset(action):
+        …
+    <span class="tk-k">if</span> level_changed(ctx) <span class="tk-k">and</span> (ctx.get(<span class="tk-s">&quot;level_next&quot;</span>, <span class="tk-n">0</span>) &gt; ctx.get(<span class="tk-s">&quot;level&quot;</span>, <span class="tk-n">0</span>)
+                               <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;WIN&quot;</span>):
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    <span class="tk-k">if</span> target(w, action) == (<span class="tk-s">&quot;disc&quot;</span>,) <span class="tk-k">and</span> outcome(w)[<span class="tk-n">0</span>] == <span class="tk-s">&quot;win&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    fit = target(w, action) == (<span class="tk-s">&quot;disc&quot;</span>,) <span class="tk-k">and</span> outcome(w)[<span class="tk-n">0</span>] == <span class="tk-s">&quot;win&quot;</span>
+    advanced = (ctx.get(<span class="tk-s">&quot;level_next&quot;</span>, <span class="tk-n">0</span>) &gt; ctx.get(<span class="tk-s">&quot;level&quot;</span>, <span class="tk-n">0</span>)) <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;WIN&quot;</span>
+    <span class="tk-k">return</span> fit == advanced</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Compose.Outcome
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> isGoal (L : Layout) (w : World) : Bool :=
+  <span class="tk-k">match</span> outcome L w <span class="tk-k">with</span>
+  | .win =&gt; true
+  | _    =&gt; false
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-layout_stays"><code class="rn">layout_stays</code><span>Within a level, the layout does not change.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> is_reset
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> level_changed
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> is_reset(action):
+        …
+    <span class="tk-k">if</span> level_changed(ctx):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.layout == w.layout</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Layout
+
+<span class="tk-k">namespace</span> Game
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-clear_starts_fresh"><code class="rn">clear_starts_fresh</code><span>On entering a new level, the top bar is full and all switches are lit.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> objects.gauge.counter <span class="tk-k">import</span> WIDTH
+
+…
+              …
+
+…
+                    …
+                    …
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+NEEDS = (<span class="tk-s">&quot;nw&quot;</span>,)
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> (ctx.get(<span class="tk-s">&quot;level_next&quot;</span>, <span class="tk-n">0</span>) &gt; ctx.get(<span class="tk-s">&quot;level&quot;</span>, <span class="tk-n">0</span>)):
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) != <span class="tk-s">&quot;NOT_FINISHED&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.counter.left == WIDTH <span class="tk-k">and</span> <span class="tk-k">not</span> nw.panel.dark</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+
+<span class="tk-k">namespace</span> Game
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-reset_restarts"><code class="rn">reset_restarts</code><span>After a restart, the game returns to the first level with a full top bar.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> is_reset
+<span class="tk-k">from</span> objects.gauge.counter <span class="tk-k">import</span> WIDTH
+
+…
+
+…
+                    …
+                    …
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+NEEDS = (<span class="tk-s">&quot;nw&quot;</span>,)
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> ctx.get(<span class="tk-s">&quot;level_next&quot;</span>) == <span class="tk-n">0</span> <span class="tk-k">and</span> nw.counter.left == WIDTH</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+
+<span class="tk-k">namespace</span> Game
+<span class="tk-k">end</span> Game</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L0_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">0</span>)) L0_start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L1_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">1</span>)) L1_start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L2_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">2</span>)) L2_start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L3_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">3</span>)) L3_start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L4_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">4</span>)) L4_start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L5_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">5</span>)) L5_start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Levels.L6_winnable :
+    ∃ as : List Act, everWon (step (Replay.levelLayout <span class="tk-n">6</span>)) L6_start as = true := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.unsolvable_of_invariant (L : Layout) (P : World → Prop)
+    (hkeep : ∀ w w&#x27; a, P w → step L w a = Res.ok w&#x27; → P w&#x27;)
+    (hwin : ∀ w a, P w → step L w a ≠ Res.won) :
+    ∀ w, P w → ∀ as : List Act, everWon (step L) w as = false := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/tn36.zip" download>Download tn36.zip</a> <span class="note">0.2 MB · 64 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="tn36";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

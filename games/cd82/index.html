@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>cd82 · Algebraic World Model</title>
+<meta name="description" content="cd82: Turn a cup around a container and pour colours until the container matches the target picture.">
+<meta property="og:title" content="cd82 · Algebraic World Model">
+<meta property="og:description" content="cd82: Turn a cup around a container and pour colours until the container matches the target picture.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/cd82/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="cd82 · Algebraic World Model">
+<meta name="twitter:description" content="cd82: Turn a cup around a container and pour colours until the container matches the target picture.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../bp35/" aria-label="Previous game">‹ bp35</a><a href="../cn04/" aria-label="Next game">cn04 ›</a></span></div><h1>cd82</h1><p class="one">Turn a cup around a container and pour colours until the container matches the target picture.</p><p class="stat">6 levels · 11 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>The small picture at the top left is the target, and the square container in the middle is to be painted to look like it. At the top right is the palette; click a block and the cup changes to that colour. The large cup turns around the container among eight positions; a direction key makes it turn one cell toward the side pressed, with the cup mouth always facing the container; when the direction pressed is not suitable, this key does nothing. Press &quot;pour&quot;, and the container is cut into two halves by a line through the centre perpendicular to the direction of the cup mouth, and the half nearer the cup is painted whole in the colour in the cup; a later pour covers an earlier one. Shapes that one cut cannot produce are left to the small cup: the small cup appears only when the large cup is exactly east, south, west or north; click its grey edge, and a strip of colour is laid over the container&#x27;s edge nearest to it. When the container equals the target picture cell by cell, the level is cleared. The budget bar at the very bottom shortens bit by bit with the steps, and when it shrinks to the end the game is over; colours not on the palette cannot be painted.</p></div><div class="frames"><figure><img src="../../img/thumbs/cd82.png" alt="cd82, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/cd82-last.png" alt="cd82, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 7 object types and 11 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Target picture</b> <code>target</code><span>The small picture at top left that the container must match.</span></li><li><b>Palette</b> <code>palette</code><span>The row of colour blocks at top right; clicking one picks that colour.</span></li><li><b>Container</b> <code>vessel</code><span>The square canvas in the middle and the current colour of each cell.</span></li><li><b>Cup position</b> <code>pose</code><span>Which of eight positions around the container the large cup occupies, mouth facing in.</span></li><li><b>Current colour</b> <code>paint</code><span>The colour in the cup, marked by a short line under the palette.</span></li><li><b>Small cup</b> <code>spout</code><span>Whether the small cup is present right now.</span></li><li><b>Budget bar</b> <code>budget</code><span>The bottom row; it shortens each step and the game ends when it runs out.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-turn"><code class="rn">turn</code><span>A direction key turns the large cup one cell around the container, or does nothing.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.turn <span class="tk-k">import</span> turned
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;keys_are_screen_dirs&quot;</span>, <span class="tk-s">&quot;orbit_turn_rule&quot;</span>, <span class="tk-s">&quot;key_dead_by_open_angle&quot;</span>, <span class="tk-s">&quot;rot_apply&quot;</span>,
+           <span class="tk-s">&quot;rot8_apply&quot;</span>, <span class="tk-s">&quot;cup_frozen_within_tilt&quot;</span>, <span class="tk-s">&quot;a12_only_cup&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    <span class="tk-k">return</span> within_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.pose == turned(w.pose, action)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> turn (p k : Nat) : Nat :=
+  <span class="tk-k">if</span> (p + <span class="tk-n">12</span> - k) % <span class="tk-n">8</span> == <span class="tk-n">5</span> || (p + <span class="tk-n">12</span> - k) % <span class="tk-n">8</span> == <span class="tk-n">6</span> <span class="tk-k">then</span> (p + <span class="tk-n">1</span>) % <span class="tk-n">8</span>
+  <span class="tk-k">else</span> <span class="tk-k">if</span> (p + <span class="tk-n">12</span> - k) % <span class="tk-n">8</span> == <span class="tk-n">2</span> || (p + <span class="tk-n">12</span> - k) % <span class="tk-n">8</span> == <span class="tk-n">3</span> <span class="tk-k">then</span> (p + <span class="tk-n">7</span>) % <span class="tk-n">8</span>
+  <span class="tk-k">else</span> p
+
+<span class="tk-k">def</span> turnBy (p : Pose) : Act → Pose
+  | .up    =&gt; turn p <span class="tk-n">2</span>
+  | .down  =&gt; turn p <span class="tk-n">6</span>
+  | .left  =&gt; turn p <span class="tk-n">4</span>
+  | .right =&gt; turn p <span class="tk-n">0</span>
+  | _      =&gt; p
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-pick_paint"><code class="rn">pick_paint</code><span>Clicking a palette block fills the cup with that colour; nothing else changes the colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> what
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+HISTORY = [
+    …
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;a6_swatch_sets_paint&quot;</span>, <span class="tk-s">&quot;underline_relocates_on_recolor&quot;</span>, <span class="tk-s">&quot;a6_dead_outside_swatches&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    <span class="tk-k">return</span> within_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    kind, s = what(w, action)
+    <span class="tk-k">if</span> kind == <span class="tk-s">&quot;swatch&quot;</span>:
+        <span class="tk-k">return</span> nw.paint == s.color
+    <span class="tk-k">return</span> nw.paint == w.paint</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> pickPaint (b : Board) (p : Color) (r c : Nat) : Color :=
+  <span class="tk-k">match</span> swatchHit b.palette r c <span class="tk-k">with</span>
+  | some sw =&gt; sw.color
+  | none    =&gt; p
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-pour"><code class="rn">pour</code><span>Pour paints the container half nearer the cup, centre line included, in the current colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.pour <span class="tk-k">import</span> poured
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+HISTORY = [
+    …
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;a5_paints_cup_side&quot;</span>, <span class="tk-s">&quot;a5_fill_halfplane&quot;</span>, <span class="tk-s">&quot;a5_pours_into_vessel&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    <span class="tk-k">if</span> <span class="tk-k">not</span> action.startswith(<span class="tk-s">&quot;ACTION5&quot;</span>):
+        …
+    <span class="tk-k">return</span> within_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.vessel == poured(w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> inHalf : Nat → Nat → Nat → Bool
+  | <span class="tk-n">0</span>, _, c =&gt; <span class="tk-k">decide</span> (c ≤ <span class="tk-n">4</span>)
+  | <span class="tk-n">1</span>, r, c =&gt; <span class="tk-k">decide</span> (c ≤ r)
+  | <span class="tk-n">2</span>, r, _ =&gt; <span class="tk-k">decide</span> (<span class="tk-n">5</span> ≤ r)
+  | <span class="tk-n">3</span>, r, c =&gt; <span class="tk-k">decide</span> (<span class="tk-n">9</span> ≤ r + c)
+  | <span class="tk-n">4</span>, _, c =&gt; <span class="tk-k">decide</span> (<span class="tk-n">5</span> ≤ c)
+  | <span class="tk-n">5</span>, r, c =&gt; <span class="tk-k">decide</span> (r ≤ c)
+  | <span class="tk-n">6</span>, r, _ =&gt; <span class="tk-k">decide</span> (r ≤ <span class="tk-n">4</span>)
+  | <span class="tk-n">7</span>, r, c =&gt; <span class="tk-k">decide</span> (r + c ≤ <span class="tk-n">9</span>)
+  | _, _, _ =&gt; false
+
+<span class="tk-k">def</span> pour (s : St) : Vessel :=
+  <span class="tk-k">fun</span> r c =&gt; <span class="tk-k">if</span> inHalf s.pose r c <span class="tk-k">then</span> s.paint <span class="tk-k">else</span> s.vessel r c
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-spout_follows"><code class="rn">spout_follows</code><span>The small cup appears only when the large cup is east, south, west or north.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.turn <span class="tk-k">import</span> turned
+<span class="tk-k">from</span> objects.stage.cup <span class="tk-k">import</span> START, cardinal
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> WHY_LEVEL, WHY_NEWGAME, WHY_OVER
+
+…
+              …
+              …
+HISTORY = [
+    …
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;secondcup_only_cardinal&quot;</span>, <span class="tk-s">&quot;secondcup_at_level2_cardinals&quot;</span>, <span class="tk-s">&quot;secondcup_returns_where&quot;</span>]
+…
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    mark = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>, <span class="tk-s">&quot;&quot;</span>)
+    …
+        <span class="tk-k">return</span> WHY_LEVEL
+    …
+        <span class="tk-k">return</span> WHY_NEWGAME
+    …
+        <span class="tk-k">return</span> WHY_OVER
+    goes_to = START <span class="tk-k">if</span> action.startswith(<span class="tk-s">&quot;RESET&quot;</span>) <span class="tk-k">else</span> turned(w.pose, action)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> cardinal(w.pose) <span class="tk-k">and</span> cardinal(goes_to):
+        <span class="tk-k">return</span> WHY_UNREADABLE
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.spout == (cardinal(nw.pose) <span class="tk-k">and</span> w.spout)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> spoutOn (b : Board) (p : Pose) : Bool := b.hasSpout &amp;&amp; cardinal p
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-stamp"><code class="rn">stamp</code><span>Clicking the small cup&#x27;s grey edge paints a strip on the nearest container edge.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> what
+<span class="tk-k">from</span> derive.stamp <span class="tk-k">import</span> stamped
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+HISTORY = [
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;a6_spout_rim_stamps&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    kind, _ = what(w, action)
+    <span class="tk-k">if</span> kind != <span class="tk-s">&quot;rim&quot;</span>:
+        …
+    <span class="tk-k">return</span> within_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.vessel == stamped(w)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Rule.Move.SpoutFollows
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> inBand : Nat → Nat → Nat → Bool
+  | <span class="tk-n">6</span>, r, c =&gt; <span class="tk-k">decide</span> (r ≤ <span class="tk-n">2</span> ∧ <span class="tk-n">3</span> ≤ c ∧ c ≤ <span class="tk-n">6</span>)
+  | <span class="tk-n">0</span>, r, c =&gt; <span class="tk-k">decide</span> (c ≤ <span class="tk-n">2</span> ∧ <span class="tk-n">3</span> ≤ r ∧ r ≤ <span class="tk-n">6</span>)
+  | <span class="tk-n">2</span>, r, c =&gt; <span class="tk-k">decide</span> (<span class="tk-n">7</span> ≤ r ∧ <span class="tk-n">3</span> ≤ c ∧ c ≤ <span class="tk-n">6</span>)
+  | <span class="tk-n">4</span>, r, c =&gt; <span class="tk-k">decide</span> (<span class="tk-n">7</span> ≤ c ∧ <span class="tk-n">3</span> ≤ r ∧ r ≤ <span class="tk-n">6</span>)
+  | _, _, _ =&gt; false
+
+<span class="tk-k">def</span> stampHit (b : Board) (s : St) (r c : Nat) : Bool :=
+  spoutOn b s.pose &amp;&amp; rimHit s.pose r c
+
+<span class="tk-k">def</span> stamp (s : St) : Vessel :=
+  <span class="tk-k">fun</span> r c =&gt; <span class="tk-k">if</span> inBand s.pose r c <span class="tk-k">then</span> s.paint <span class="tk-k">else</span> s.vessel r c
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-budget"><code class="rn">budget</code><span>Every action, even one that does nothing, shortens the budget bar at a fixed rate.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.budget <span class="tk-k">import</span> next_bars
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+HISTORY = [
+    …
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;bar_rule&quot;</span>, <span class="tk-s">&quot;bar_prefix_shrink&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    <span class="tk-k">return</span> within_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.budget <span class="tk-k">in</span> next_bars(w.budget)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> HORIZON : Nat := <span class="tk-n">100</span>
+
+<span class="tk-k">def</span> barOf (k : Nat) : Nat := FULL - (<span class="tk-n">2</span> * FULL * k + HORIZON) / (<span class="tk-n">2</span> * HORIZON)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-vessel_still"><code class="rn">vessel_still</code><span>Only pouring and stamping change the container; this follows from the rules above.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> what
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+HISTORY = [
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;vessel_frozen&quot;</span>, <span class="tk-s">&quot;a6_dead_outside_swatches&quot;</span>, <span class="tk-s">&quot;a12_only_cup&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    <span class="tk-k">if</span> action.startswith(<span class="tk-s">&quot;ACTION5&quot;</span>):
+        …
+    kind, _ = what(w, action)
+    <span class="tk-k">if</span> kind == <span class="tk-s">&quot;rim&quot;</span>:
+        …
+    <span class="tk-k">return</span> within_level(action, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.vessel == w.vessel</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> vessel_still_keys (b : Board) (s : St) :
+    (act b s .up).vessel = s.vessel ∧ (act b s .down).vessel = s.vessel ∧
+    (act b s .left).vessel = s.vessel ∧ (act b s .right).vessel = s.vessel := <span class="tk-k">by</span>
+  <span class="tk-k">simp</span> [act]
+
+<span class="tk-k">theorem</span> vessel_still_swatch (b : Board) (s : St) (r c : Nat) (sw : Swatch)
+    (h : swatchHit b.palette r c = some sw) :
+    (act b s (.click r c)).vessel = s.vessel := <span class="tk-k">by</span>
+  <span class="tk-k">simp</span> [act, h]
+
+<span class="tk-k">theorem</span> vessel_still_miss (b : Board) (s : St) (r c : Nat)
+    (h1 : swatchHit b.palette r c = none) (h2 : stampHit b s r c = false) :
+    (act b s (.click r c)).vessel = s.vessel := <span class="tk-k">by</span>
+  <span class="tk-k">simp</span> [act, h1, h2]
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-level_up"><code class="rn">level_up</code><span>The level advances exactly when the container matches the target picture cell by cell.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.after <span class="tk-k">import</span> after_vessel
+
+…
+              …
+HISTORY = [
+    …
+]
+SOURCES = [<span class="tk-s">&quot;levelup_needs_target_pic&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    <span class="tk-k">if</span> action.startswith(<span class="tk-s">&quot;RESET&quot;</span>):
+        …
+    mark = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>, <span class="tk-s">&quot;&quot;</span>)
+    …
+        …
+    <span class="tk-k">if</span> ctx <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;level_prev&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;level_next&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    hit = after_vessel(w, action).pic == w.target.pic
+    <span class="tk-k">return</span> hit == (ctx[<span class="tk-s">&quot;level_next&quot;</span>] &gt; ctx[<span class="tk-s">&quot;level_prev&quot;</span>])</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> isGoal (b : Board) (s : St) : Bool := Vessel.same s.vessel b.target
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-game_over"><code class="rn">game_over</code><span>The game ends exactly on the step when the budget bar runs out.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> within_level
+
+…
+…
+SOURCES = [<span class="tk-s">&quot;budget_zero_gameover&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    why = within_level(action, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> ctx <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    over = ctx[<span class="tk-s">&quot;state_next&quot;</span>] == <span class="tk-s">&quot;GAME_OVER&quot;</span> <span class="tk-k">and</span> ctx.get(<span class="tk-s">&quot;state_prev&quot;</span>) != <span class="tk-s">&quot;GAME_OVER&quot;</span>
+    emptied = w.budget &gt; <span class="tk-n">0</span> <span class="tk-k">and</span> nw.budget == <span class="tk-n">0</span>
+    <span class="tk-k">return</span> over == emptied</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Move.Budget
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> overAt (k : Nat) : Bool := barOf k == <span class="tk-n">0</span>
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-back_to_start"><code class="rn">back_to_start</code><span>Restart, clearing or new game sets cup on top, colour purple, container white, budget full.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> objects.hud.budget <span class="tk-k">import</span> FULL
+<span class="tk-k">from</span> objects.stage.cup <span class="tk-k">import</span> START
+
+START_PAINT = <span class="tk-n">15</span>
+BLANK = <span class="tk-n">0</span>
+
+…
+HISTORY = [
+    …
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;reset_sets_state&quot;</span>, <span class="tk-s">&quot;reset_wipes_stage&quot;</span>, <span class="tk-s">&quot;levelup_resets_stage&quot;</span>, <span class="tk-s">&quot;levelup_sets_paint&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    mark = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>, <span class="tk-s">&quot;&quot;</span>)
+    …
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    …
+        …
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> (nw.pose == START <span class="tk-k">and</span> nw.paint == START_PAINT <span class="tk-k">and</span> nw.budget == FULL
+            <span class="tk-k">and</span> all(v == BLANK <span class="tk-k">for</span> row <span class="tk-k">in</span> nw.vessel.pic <span class="tk-k">for</span> v <span class="tk-k">in</span> row))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> START_PAINT : Color := <span class="tk-n">15</span>
+
+<span class="tk-k">def</span> start : St :=
+  { vessel := <span class="tk-k">fun</span> _ _ =&gt; <span class="tk-n">0</span>, pose := START_POSE, paint := START_PAINT, clock := <span class="tk-n">0</span> }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-board_static"><code class="rn">board_static</code><span>Within a level, the target picture and palette never change, even on restart.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._scope <span class="tk-k">import</span> WHY_LEVEL, WHY_NEWGAME, WHY_OVER
+
+…
+…
+                    …
+HISTORY = [
+    …
+    …
+]
+SOURCES = [<span class="tk-s">&quot;panel_static&quot;</span>, <span class="tk-s">&quot;target_panel_static&quot;</span>]
+
+<span class="tk-k">def</span> scope_(w, action, _nw, ctx):
+    mark = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;mark&quot;</span>, <span class="tk-s">&quot;&quot;</span>)
+    …
+        <span class="tk-k">return</span> WHY_LEVEL
+    …
+        <span class="tk-k">return</span> WHY_NEWGAME
+    …
+        <span class="tk-k">return</span> WHY_OVER
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx):
+    <span class="tk-k">return</span> nw.target == w.target <span class="tk-k">and</span> nw.palette == w.palette</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> color_control_winnable : Winnable L2_board L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> pair_control_winnable : Winnable L3_board L3_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> color_not_winnable : ¬ Winnable colorBoard L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> pair_not_winnable : ¬ Winnable pairBoard L3_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable L0_board L0_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable L1_board L1_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable L2_board L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable L3_board L3_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable L4_board L4_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable L5_board L5_start := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> colorKey_no_win (b : Board) (hp : ColorPremise b) :
+    ∀ s a, legal a = true → ColorKey b s → step b s a ≠ .won := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> unsolvable_by_color (b : Board) (s : St) (hp : ColorPremise b) (h : ColorKey b s) :
+    Unsolvable b s := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> color_unsolvable : Unsolvable colorBoard L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> pairKey_no_win (b : Board) (hp : PairPremise b) :
+    ∀ s a, legal a = true → PairKey s → step b s a ≠ .won := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> unsolvable_by_pair (b : Board) (s : St) (hp : PairPremise b) (h : PairKey s) :
+    Unsolvable b s := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> pair_unsolvable : Unsolvable pairBoard L3_start := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/cd82.zip" download>Download cd82.zip</a> <span class="note">1.1 MB · 66 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="cd82";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

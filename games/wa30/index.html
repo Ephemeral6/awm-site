@@ -1,0 +1,456 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>wa30 · Algebraic World Model</title>
+<meta name="description" content="wa30: Drag every doughnut into a blue-framed container; the level is won when all sit there and nothing is carried.">
+<meta property="og:title" content="wa30 · Algebraic World Model">
+<meta property="og:description" content="wa30: Drag every doughnut into a blue-framed container; the level is won when all sit there and nothing is carried.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/wa30/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="wa30 · Algebraic World Model">
+<meta name="twitter:description" content="wa30: Drag every doughnut into a blue-framed container; the level is won when all sit there and nothing is carried.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../vc33/" aria-label="Previous game">‹ vc33</a><a href="../ar25/" aria-label="Next game">ar25 ›</a></span></div><h1>wa30</h1><p class="one">Drag every doughnut into a blue-framed container; the level is won when all sit there and nothing is carried.</p><p class="stat">9 levels · 8 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>The green square is the player; the white edge on top shows which way it faces. Every doughnut has to be brought into a blue-framed container. With empty hands, an arrow key turns the player and, where the way is open, moves it one cell; next to a piece of cargo, the action key grabs it, after which the arrow keys move the player and the cargo together, and pressing the action key again lets go. Cargo can enter fenced areas; the player cannot. After every step each mole on the field moves once: the orange helpers carry cargo that is not in a container into one, and the purple thieves carry cargo back to their own nest, even cargo the player is holding; pressing the action key while facing a thief knocks it out. The level is won when every doughnut sits in a container, the player holds nothing and no mole is carrying anything. The pink timer bar along the bottom shortens with each step; when the steps run out before the level is won, the game is over.</p></div><div class="frames"><figure><img src="../../img/thumbs/wa30.png" alt="wa30, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/wa30-last.png" alt="wa30, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 8 object types and 8 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Player</b> <code>player</code><span>Which cell the green square is on.</span></li><li><b>Facing</b> <code>facing</code><span>Which way the square&#x27;s white edge points; it fixes the cell in front.</span></li><li><b>Holding</b> <code>holding</code><span>Whether the doughnut in front of the player is grabbed.</span></li><li><b>Doughnuts</b> <code>donuts</code><span>The cell each doughnut is on.</span></li><li><b>Carried cargo</b> <code>carried</code><span>Which doughnuts are riding on a mole&#x27;s back.</span></li><li><b>Helpers</b> <code>helpers</code><span>Which cell each orange mole is on.</span></li><li><b>Thieves</b> <code>thieves</code><span>Which cell each purple mole is on.</span></li><li><b>Timer bar</b> <code>timer</code><span>How much of the pink bar along the bottom remains.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-walk"><code class="rn">walk</code><span>Empty-handed, an arrow key turns the player and moves it one cell where open.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> skip_breaks, world
+
+…
+…
+LEAN = <span class="tk-s">&quot;Rule/Player/Walk.lean&quot;</span>
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    why = skip_breaks(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>):
+        …
+    <span class="tk-k">if</span> world(prev).holding:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">from</span> derive.hidden <span class="tk-k">import</span> lift
+    <span class="tk-k">from</span> derive.player_step <span class="tk-k">import</span> player_step
+    wp, wn = world(prev), world(nxt)
+    cands = lift(wp, ctx[<span class="tk-s">&quot;board&quot;</span>])
+    <span class="tk-k">if</span> <span class="tk-k">not</span> cands:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;NA&quot;</span>
+    t = player_step(cands[<span class="tk-n">0</span>], action, ctx[<span class="tk-s">&quot;board&quot;</span>])
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> (t.player, t.facing) == (wn.player, wn.facing) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> St.freeFor (b : Board) (s : St) (x : Cell) : Bool :=
+  b.walkable x &amp;&amp; !s.donuts.contains x &amp;&amp; !(s.moles.any (<span class="tk-k">fun</span> m =&gt; m.pos == x))
+
+<span class="tk-k">def</span> walk (b : Board) (s : St) (d : Dir) : St :=
+  <span class="tk-k">match</span> s.player.go d <span class="tk-k">with</span>
+  | some t =&gt; <span class="tk-k">if</span> s.freeFor b t <span class="tk-k">then</span> { s <span class="tk-k">with</span> facing := d, player := t } <span class="tk-k">else</span> { s <span class="tk-k">with</span> facing := d }
+  | none =&gt; { s <span class="tk-k">with</span> facing := d }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-drag"><code class="rn">drag</code><span>Holding cargo, an arrow key moves the player and the cargo together.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> skip_breaks, world
+
+…
+…
+LEAN = <span class="tk-s">&quot;Rule/Player/Drag.lean&quot;</span>
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    why = skip_breaks(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>):
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> world(prev).holding:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">from</span> derive.hidden <span class="tk-k">import</span> lift
+    <span class="tk-k">from</span> derive.player_step <span class="tk-k">import</span> player_step
+    wp, wn = world(prev), world(nxt)
+    cands = lift(wp, ctx[<span class="tk-s">&quot;board&quot;</span>])
+    <span class="tk-k">if</span> <span class="tk-k">not</span> cands:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;NA&quot;</span>
+    t = player_step(cands[<span class="tk-n">0</span>], action, ctx[<span class="tk-s">&quot;board&quot;</span>])
+    ok = (t.player, t.facing) == (wn.player, wn.facing) <span class="tk-k">and</span> (wn.player + wn.facing) <span class="tk-k">in</span> wn.donuts
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> ok <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Rule.Player.Walk
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> dragOk (b : Board) (s : St) (f t h : Cell) : Bool :=
+  (t == f || s.freeFor b t) &amp;&amp;
+  (h == s.player || (b.carryable h &amp;&amp; !s.donuts.contains h &amp;&amp; !(s.moles.any (<span class="tk-k">fun</span> m =&gt; m.pos == h))))
+
+<span class="tk-k">def</span> drag (b : Board) (s : St) (d : Dir) : St :=
+  <span class="tk-k">match</span> s.front, s.player.go d <span class="tk-k">with</span>
+  | some f, some t =&gt;
+    <span class="tk-k">match</span> f.go d <span class="tk-k">with</span>
+    | some h =&gt;
+      <span class="tk-k">if</span> dragOk b s f t h <span class="tk-k">then</span>
+        { s <span class="tk-k">with</span> player := t, donuts := s.donuts.map (<span class="tk-k">fun</span> c =&gt; <span class="tk-k">if</span> c == f <span class="tk-k">then</span> h <span class="tk-k">else</span> c) }
+      <span class="tk-k">else</span> s
+    | none =&gt; s
+  | _, _ =&gt; s
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-press"><code class="rn">press</code><span>The action key lets go, grabs cargo, or knocks out a thief.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> skip_breaks, world
+
+…
+…
+LEAN = <span class="tk-s">&quot;Rule/Player/Press.lean&quot;</span>
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    why = skip_breaks(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> <span class="tk-k">not</span> action.startswith(<span class="tk-s">&quot;ACTION5&quot;</span>):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    wp, wn = world(prev), world(nxt)
+    <span class="tk-k">if</span> (wn.player, wn.facing) != (wp.player, wp.facing):
+        <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
+    f = wp.player + wp.facing
+    <span class="tk-k">if</span> wp.holding:
+        ok = <span class="tk-k">not</span> wn.holding
+    <span class="tk-k">elif</span> f <span class="tk-k">in</span> wp.donuts:
+        ok = wn.holding <span class="tk-k">or</span> any(t + d == f <span class="tk-k">for</span> t <span class="tk-k">in</span> wn.thieves <span class="tk-k">for</span> d <span class="tk-k">in</span> _dirs())
+    <span class="tk-k">elif</span> f <span class="tk-k">in</span> wp.thieves:
+        ok = len(wn.thieves) == len(wp.thieves) - <span class="tk-n">1</span>
+    <span class="tk-k">else</span>:
+        ok = <span class="tk-k">not</span> wn.holding
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> ok <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span>
+
+<span class="tk-k">def</span> _dirs():
+    <span class="tk-k">from</span> objects.geometry.dir <span class="tk-k">import</span> ORDER
+    <span class="tk-k">return</span> ORDER</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> press (s : St) : St :=
+  <span class="tk-k">if</span> s.holding <span class="tk-k">then</span> { s <span class="tk-k">with</span> holding := false } <span class="tk-k">else</span>
+  <span class="tk-k">match</span> s.front <span class="tk-k">with</span>
+  | none =&gt; s
+  | some f =&gt;
+    <span class="tk-k">if</span> s.donuts.contains f <span class="tk-k">then</span>
+      { s <span class="tk-k">with</span> holding := true,
+               moles := s.moles.map (<span class="tk-k">fun</span> m =&gt; <span class="tk-k">if</span> m.load == some f <span class="tk-k">then</span> { m <span class="tk-k">with</span> cargo := none } <span class="tk-k">else</span> m) }
+    <span class="tk-k">else</span> <span class="tk-k">if</span> s.moles.any (<span class="tk-k">fun</span> m =&gt; m.pos == f &amp;&amp; m.role == .thief) <span class="tk-k">then</span>
+      { s <span class="tk-k">with</span> moles := s.moles.filter (<span class="tk-k">fun</span> m =&gt; !(m.pos == f &amp;&amp; m.role == .thief)) }
+    <span class="tk-k">else</span> s
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-moles_act"><code class="rn">moles_act</code><span>After the player acts, each mole moves once in turn.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> skip_breaks, world
+
+…
+…
+LEAN = <span class="tk-s">&quot;Rule/Moles/MolesAct.lean&quot;</span>
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+…
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    why = skip_breaks(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    wp = world(prev)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> (wp.helpers <span class="tk-k">or</span> wp.thieves <span class="tk-k">or</span> wp.carried):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">from</span> derive.hidden <span class="tk-k">import</span> lift, observe
+    <span class="tk-k">from</span> derive.npc <span class="tk-k">import</span> npc_step
+    <span class="tk-k">from</span> derive.player_step <span class="tk-k">import</span> player_step
+    b = ctx[<span class="tk-s">&quot;board&quot;</span>]
+    wp, wn = world(prev), world(nxt)
+    seen_player = <span class="tk-k">False</span>
+    <span class="tk-k">for</span> s <span class="tk-k">in</span> lift(wp, b):
+        t = player_step(s, action, b)
+        <span class="tk-k">if</span> (t.player, t.facing) != (wn.player, wn.facing):
+            <span class="tk-k">continue</span>
+        seen_player = <span class="tk-k">True</span>
+        <span class="tk-k">for</span> u <span class="tk-k">in</span> npc_step(t, b, branch=<span class="tk-k">True</span>):
+            o = observe(u, b)
+            <span class="tk-k">if</span> (o.helpers, o.thieves, o.donuts, o.carried, o.holding) == \
+               (wn.helpers, wn.thieves, wn.donuts, wn.carried, wn.holding):
+                <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span> <span class="tk-k">if</span> seen_player <span class="tk-k">else</span> <span class="tk-s">&quot;NA&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+<span class="tk-k">import</span> Rule.Moles.Route
+<span class="tk-k">import</span> Rule.Moles.Targets
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> nth (ms : List Mole) : Nat → Option Mole
+  | i =&gt; (ms.drop i).head?
+
+<span class="tk-k">def</span> posIn : List Cell → Cell → Nat
+  | [], _ =&gt; <span class="tk-n">0</span>
+  | y :: ys, x =&gt; <span class="tk-k">if</span> y == x <span class="tk-k">then</span> <span class="tk-n">0</span> <span class="tk-k">else</span> posIn ys x + <span class="tk-n">1</span>
+
+<span class="tk-k">def</span> pickLast (ds : List Cell) : List Cell → Option Cell
+  | [] =&gt; none
+  | x :: xs =&gt; <span class="tk-k">match</span> pickLast ds xs <span class="tk-k">with</span>
+    | none =&gt; some x
+    | some y =&gt; <span class="tk-k">if</span> posIn ds x ≥ posIn ds y <span class="tk-k">then</span> some x <span class="tk-k">else</span> some y
+
+<span class="tk-k">def</span> othersMask (s : St) (m : Mole) : Nat :=
+  maskOf (s.moles.map (·.pos)) ^^^ (<span class="tk-n">1</span> &lt;&lt;&lt; m.pos.idx)
+
+<span class="tk-k">def</span> carryTurn (b : Board) (s : St) (i : Nat) (m : Mole) (o : Dir) : St :=
+  <span class="tk-k">match</span> m.pos.go o <span class="tk-k">with</span>
+  | none =&gt; s
+  | some cc =&gt;
+    <span class="tk-k">if</span> isHome b m.role cc <span class="tk-k">then</span>
+      { s <span class="tk-k">with</span> moles := s.moles.set i { m <span class="tk-k">with</span> cargo := none }, donuts := s.donuts.erase cc ++ [cc] }
+    <span class="tk-k">else</span>
+      <span class="tk-k">let</span> bl0 := maskOf s.donuts ||| othersMask s m ||| (<span class="tk-n">1</span> &lt;&lt;&lt; s.player.idx)
+      <span class="tk-k">let</span> blocked := <span class="tk-k">if</span> bl0.testBit cc.idx <span class="tk-k">then</span> bl0 ^^^ (<span class="tk-n">1</span> &lt;&lt;&lt; cc.idx) <span class="tk-k">else</span> bl0
+      <span class="tk-k">let</span> ok := <span class="tk-k">fun</span> (v : Cell) =&gt; b.walkable v &amp;&amp; !v.inMask blocked &amp;&amp;
+        (<span class="tk-k">match</span> v.go o <span class="tk-k">with</span>
+         | some c2 =&gt; b.carryable c2 &amp;&amp; (!c2.inMask blocked || c2 == m.pos)
+         | none =&gt; false)
+      <span class="tk-k">let</span> goal := <span class="tk-k">fun</span> (v : Cell) =&gt; <span class="tk-k">match</span> v.go o <span class="tk-k">with</span>
+        | some c2 =&gt; isHome b m.role c2 &amp;&amp; !s.donuts.contains c2
+        | none =&gt; false
+      <span class="tk-k">match</span> firstStep ok goal m.pos <span class="tk-k">with</span>
+      | none =&gt; s
+      | some nx =&gt;
+        <span class="tk-k">match</span> nx.go o <span class="tk-k">with</span>
+        | none =&gt; s
+        | some nc =&gt; { s <span class="tk-k">with</span> moles := s.moles.set i { m <span class="tk-k">with</span> pos := nx },
+                              donuts := s.donuts.map (<span class="tk-k">fun</span> c =&gt; <span class="tk-k">if</span> c == cc <span class="tk-k">then</span> nc <span class="tk-k">else</span> c) }
+
+<span class="tk-k">def</span> seekTurn (b : Board) (s : St) (i : Nat) (m : Mole) : St × Bool :=
+  <span class="tk-k">let</span> adj := Dir.order.filterMap (<span class="tk-k">fun</span> d =&gt; <span class="tk-k">match</span> m.pos.go d <span class="tk-k">with</span>
+    | some c =&gt; <span class="tk-k">if</span> isTarget b s m c <span class="tk-k">then</span> some c <span class="tk-k">else</span> none
+    | none =&gt; none)
+  <span class="tk-k">match</span> pickLast s.donuts adj <span class="tk-k">with</span>
+  | some c =&gt;
+    <span class="tk-k">let</span> ms := s.moles.map (<span class="tk-k">fun</span> mm =&gt; <span class="tk-k">if</span> mm.load == some c <span class="tk-k">then</span> { mm <span class="tk-k">with</span> cargo := none } <span class="tk-k">else</span> mm)
+    <span class="tk-k">let</span> hold := <span class="tk-k">if</span> s.holding &amp;&amp; s.front == some c <span class="tk-k">then</span> false <span class="tk-k">else</span> s.holding
+    ({ s <span class="tk-k">with</span> moles := ms.set i { m <span class="tk-k">with</span> cargo := Dir.between m.pos c }, holding := hold }, true)
+  | none =&gt;
+    <span class="tk-k">let</span> tmask := s.donuts.foldl (<span class="tk-k">fun</span> acc c =&gt; <span class="tk-k">if</span> isTarget b s m c <span class="tk-k">then</span> acc ||| (<span class="tk-n">1</span> &lt;&lt;&lt; c.idx) <span class="tk-k">else</span> acc) <span class="tk-n">0</span>
+    <span class="tk-k">if</span> tmask == <span class="tk-n">0</span> <span class="tk-k">then</span> (s, false) <span class="tk-k">else</span>
+    <span class="tk-k">let</span> blocked := maskOf s.donuts ||| othersMask s m ||| (<span class="tk-n">1</span> &lt;&lt;&lt; s.player.idx)
+    <span class="tk-k">let</span> ok := <span class="tk-k">fun</span> (v : Cell) =&gt; b.walkable v &amp;&amp; !v.inMask blocked
+    <span class="tk-k">let</span> goal := <span class="tk-k">fun</span> (v : Cell) =&gt; Dir.order.any (<span class="tk-k">fun</span> d =&gt; <span class="tk-k">match</span> v.go d <span class="tk-k">with</span>
+      | some c =&gt; c.inMask tmask
+      | none =&gt; false)
+    <span class="tk-k">match</span> firstStep ok goal m.pos <span class="tk-k">with</span>
+    | none =&gt; (s, false)
+    | some nx =&gt; ({ s <span class="tk-k">with</span> moles := s.moles.set i { m <span class="tk-k">with</span> pos := nx } }, false)
+
+<span class="tk-k">def</span> turnOne (b : Board) (acc : St × Bool × Bool) (i : Nat) : St × Bool × Bool :=
+  <span class="tk-k">match</span> nth acc.1.moles i <span class="tk-k">with</span>
+  | none =&gt; acc
+  | some m =&gt;
+    <span class="tk-k">if</span> (m.role == .helper &amp;&amp; acc.2.1) || (m.role == .thief &amp;&amp; acc.2.2) <span class="tk-k">then</span> acc <span class="tk-k">else</span>
+    <span class="tk-k">match</span> m.cargo <span class="tk-k">with</span>
+    | some o =&gt; (carryTurn b acc.1 i m o, acc.2.1, acc.2.2)
+    | none =&gt;
+      <span class="tk-k">let</span> r := seekTurn b acc.1 i m
+      <span class="tk-k">if</span> r.2 <span class="tk-k">then</span> (r.1, acc.2.1 || m.role == .helper, acc.2.2 || m.role == .thief)
+      <span class="tk-k">else</span> (r.1, acc.2.1, acc.2.2)
+
+<span class="tk-k">def</span> molesAct (b : Board) (s : St) : List Cell × List Mole × Bool :=
+  <span class="tk-k">let</span> idx := List.range s.moles.length
+  <span class="tk-k">let</span> order := idx.filter (<span class="tk-k">fun</span> i =&gt; (nth s.moles i).map (·.role) == some .helper) ++
+               idx.filter (<span class="tk-k">fun</span> i =&gt; (nth s.moles i).map (·.role) == some .thief)
+  <span class="tk-k">let</span> r := order.foldl (turnOne b) (s, false, false)
+  (r.1.donuts, r.1.moles, r.1.holding)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-timer_tick"><code class="rn">timer_tick</code><span>Each key press shortens the timer bar proportionally.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> skip_breaks, world
+
+…
+…
+LEAN = <span class="tk-s">&quot;Rule/Clock/TimerTick.lean&quot;</span>
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    <span class="tk-k">return</span> skip_breaks(ctx)
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">from</span> derive.timer <span class="tk-k">import</span> bar, steps_for
+    B = ctx[<span class="tk-s">&quot;board&quot;</span>].budget
+    wp, wn = world(prev), world(nxt)
+    ks = steps_for(wp.timer, B)
+    <span class="tk-k">if</span> <span class="tk-k">not</span> ks:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> any(bar(k + <span class="tk-n">1</span>, B) == wn.timer <span class="tk-k">for</span> k <span class="tk-k">in</span> ks) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> tick (s : St) : St := { s <span class="tk-k">with</span> used := s.used + <span class="tk-n">1</span> }
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-time_up"><code class="rn">time_up</code><span>The game is over when the steps run out before the level is won.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> skip_breaks, world
+
+…
+…
+LEAN = <span class="tk-s">&quot;Rule/Clock/TimeUp.lean&quot;</span>
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    <span class="tk-k">return</span> skip_breaks(ctx)
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">from</span> derive.timer <span class="tk-k">import</span> bar, steps_for
+    B = ctx[<span class="tk-s">&quot;board&quot;</span>].budget
+    wp, wn = world(prev), world(nxt)
+    over = ctx.get(<span class="tk-s">&quot;state_next&quot;</span>) == <span class="tk-s">&quot;GAME_OVER&quot;</span>
+    <span class="tk-k">for</span> k <span class="tk-k">in</span> steps_for(wp.timer, B):
+        <span class="tk-k">if</span> bar(k + <span class="tk-n">1</span>, B) == wn.timer <span class="tk-k">and</span> (k + <span class="tk-n">1</span> &gt;= B) == over:
+            <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> timeUp (b : Board) (s : St) : Bool := <span class="tk-k">decide</span> (b.budget ≤ s.used)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-level_up"><code class="rn">level_up</code><span>The level is won exactly when every doughnut is placed in a container.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> RESET, world
+
+…
+              …
+              …
+…
+LEAN = <span class="tk-s">&quot;Rule/Goal/LevelUp.lean&quot;</span>
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+…
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;tag&quot;</span>) == <span class="tk-s">&quot;reset&quot;</span>:
+        <span class="tk-k">return</span> RESET
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">from</span> derive.hidden <span class="tk-k">import</span> lift, observe
+    <span class="tk-k">from</span> derive.outcome <span class="tk-k">import</span> full_step
+    b = ctx[<span class="tk-s">&quot;board&quot;</span>]
+    wp = world(prev)
+    up = ctx.get(<span class="tk-s">&quot;tag&quot;</span>) == <span class="tk-s">&quot;levelup&quot;</span>
+    wn = <span class="tk-k">None</span> <span class="tk-k">if</span> up <span class="tk-k">else</span> world(nxt)
+    matched = <span class="tk-k">False</span>
+    <span class="tk-k">for</span> s <span class="tk-k">in</span> lift(wp, b):
+        <span class="tk-k">for</span> res, u <span class="tk-k">in</span> full_step(s, action, b, branch=<span class="tk-k">True</span>):
+            <span class="tk-k">if</span> up:
+                <span class="tk-k">if</span> res == <span class="tk-s">&quot;won&quot;</span>:
+                    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span>
+                <span class="tk-k">continue</span>
+            o = observe(u, b)
+            <span class="tk-k">if</span> (o.player, o.facing, o.holding, o.donuts, o.carried, o.helpers, o.thieves) == \
+               (wn.player, wn.facing, wn.holding, wn.donuts, wn.carried, wn.helpers, wn.thieves):
+                matched = <span class="tk-k">True</span>
+                <span class="tk-k">if</span> res != <span class="tk-s">&quot;won&quot;</span>:
+                    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span>
+    <span class="tk-k">if</span> up:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span> <span class="tk-k">if</span> matched <span class="tk-k">else</span> <span class="tk-s">&quot;NA&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> isGoal (b : Board) (s : St) : Bool :=
+  !s.holding &amp;&amp; s.moles.all (<span class="tk-k">fun</span> m =&gt; m.cargo == none) &amp;&amp; s.donuts.all (<span class="tk-k">fun</span> c =&gt; c.inMask b.home)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-reset_to_start"><code class="rn">reset_to_start</code><span>After a reset, the screen returns to this level&#x27;s opening frame.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> .._common <span class="tk-k">import</span> world
+
+…
+…
+…
+                    …
+                    …
+                    …
+LEAN = <span class="tk-k">None</span>
+HISTORY = [
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    …
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    st = ctx.get(<span class="tk-s">&quot;start&quot;</span>)
+    <span class="tk-k">if</span> st <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;NA&quot;</span>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> world(nxt) == st <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv0.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv0.board Game.Lv0.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv1.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv1.board Game.Lv1.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv2.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv2.board Game.Lv2.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv3.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv3.board Game.Lv3.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv4.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv4.board Game.Lv4.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv5.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv5.board Game.Lv5.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv6.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv6.board Game.Lv6.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv7.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv7.board Game.Lv7.start as = true := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.Lv8.winnable :
+    ∃ as : List Game.Act, Game.everGoal Game.step Game.Lv8.board Game.Lv8.start as = true := …</code></pre><h3>What cannot be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> Game.unsolvable_of_invariant (b : Board) (P : St → Prop)
+    (hkeep : ∀ s s&#x27; a, P s → step b s a = .ok s&#x27; → P s&#x27;)
+    (hwin : ∀ s a s&#x27;, P s → step b s a ≠ .won s&#x27;) :
+    ∀ s, P s → ∀ as : List Act, everGoal step b s as = false := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/wa30.zip" download>Download wa30.zip</a> <span class="note">0.7 MB · 76 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="wa30";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

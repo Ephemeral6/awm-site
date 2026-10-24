@@ -1,0 +1,960 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>su15 · Algebraic World Model</title>
+<meta name="description" content="su15: Click to move and merge pieces until everything to be handed in lands inside the rings.">
+<meta property="og:title" content="su15 · Algebraic World Model">
+<meta property="og:description" content="su15: Click to move and merge pieces until everything to be handed in lands inside the rings.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/su15/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="su15 · Algebraic World Model">
+<meta name="twitter:description" content="su15: Click to move and merge pieces until everything to be handed in lands inside the rings.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../sp80/" aria-label="Previous game">‹ sp80</a><a href="../tn36/" aria-label="Next game">tn36 ›</a></span></div><h1>su15</h1><p class="one">Click to move and merge pieces until everything to be handed in lands inside the rings.</p><p class="stat">9 levels · 16 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>The squares on the board are graded by size and called pieces; the top draws what this level must hand in, and the field has rings. Click a place on the board: if there is only one piece within range, it jumps to the click; if there are two pieces of the same level, they merge into one piece one level higher, landing at the click. Then the hunters, diamonds and crabs on the field move in small steps, each small step toward the piece nearest to it at that moment; whichever piece it presses on, it bites down one level and flings far away, and the smallest piece is gone when bitten. The new piece just merged in this move cannot be bitten. When everything to be handed in lands whole inside the rings, the level is cleared; in some levels what must be handed in also includes diamonds or crabs. The bottom row is the budget, which shortens at every click on the board, and the game ends when it is deducted to zero.</p></div><div class="frames"><figure><img src="../../img/thumbs/su15.png" alt="su15, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/su15-last.png" alt="su15, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 5 object types and 16 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Pieces</b> <code>pieces</code><span>Squares on the board graded by size; each has a level and top-left position.</span></li><li><b>Creatures</b> <code>creatures</code><span>Hunters, diamonds, and crabs, which move by themselves after each board click.</span></li><li><b>Board</b> <code>board</code><span>Ring positions and what this level must hand in; fixed within a level.</span></li><li><b>Budget</b> <code>budget</code><span>Cells left in the bottom row; each board click shortens it.</span></li><li><b>Hidden creatures</b> <code>hidden</code><span>Creatures fully under a piece; unseen on screen, known only from the model&#x27;s earlier steps.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-click_lands_fresh"><code class="rn">click_lands_fresh</code><span>A board click moves the one piece in range there, or merges two same-level pieces.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell, in_reach, resolve
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = board_step(w, action, nw, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    near = in_reach(w.pieces, click_cell(action))
+    <span class="tk-k">if</span> <span class="tk-k">not</span> near:
+        …
+    <span class="tk-k">if</span> len(near) &gt; <span class="tk-n">2</span>:
+        …
+    <span class="tk-k">if</span> len({p.tier <span class="tk-k">for</span> p <span class="tk-k">in</span> near}) != <span class="tk-n">1</span>:
+        …
+    <span class="tk-k">if</span> len(near) == <span class="tk-n">2</span> <span class="tk-k">and</span> near[<span class="tk-n">0</span>].tier &gt;= <span class="tk-n">6</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    cell = click_cell(action)
+    near = in_reach(w.pieces, cell)
+    q = resolve(list(w.pieces), cell).fresh
+    <span class="tk-k">return</span> q <span class="tk-k">in</span> nw.pieces <span class="tk-k">and</span> all(p <span class="tk-k">not</span> <span class="tk-k">in</span> nw.pieces <span class="tk-k">or</span> p == q <span class="tk-k">for</span> p <span class="tk-k">in</span> near)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> reach2 (p : Piece) (r c : Int) : Int :=
+  <span class="tk-k">let</span> dr := max (max (p.row - r) <span class="tk-n">0</span>) (r - (p.row + p.sideI - <span class="tk-n">1</span>))
+  <span class="tk-k">let</span> dc := max (max (p.col - c) <span class="tk-n">0</span>) (c - (p.col + p.sideI - <span class="tk-n">1</span>))
+  dr * dr + dc * dc
+
+<span class="tk-k">def</span> inReach (ps : List Piece) (r c : Int) : List Piece :=
+  ps.filter (<span class="tk-k">fun</span> p =&gt; <span class="tk-k">decide</span> (reach2 p r c ≤ <span class="tk-n">64</span>))
+
+<span class="tk-k">def</span> placedRow (s r : Int) : Int := min (max (r - s / <span class="tk-n">2</span>) <span class="tk-n">10</span>) (<span class="tk-n">63</span> - s + <span class="tk-n">1</span>)
+<span class="tk-k">def</span> placedCol (s c : Int) : Int := min (max (c - s / <span class="tk-n">2</span>) <span class="tk-n">0</span>) (<span class="tk-n">64</span> - s)
+
+<span class="tk-k">def</span> placedPiece (t : Nat) (r c : Int) : Piece :=
+  ⟨t, placedRow (side t : Int) r, placedCol (side t : Int) c⟩
+
+<span class="tk-k">structure</span> Resolved <span class="tk-k">where</span>
+  pieces : List Piece
+  fresh  : Option Piece
+<span class="tk-k">deriving</span> DecidableEq, Repr
+
+<span class="tk-k">def</span> resolve (ps : List Piece) (r c : Int) : Option Resolved :=
+  <span class="tk-k">match</span> inReach ps r c <span class="tk-k">with</span>
+  | [] =&gt; some ⟨ps, none⟩
+  | [p] =&gt;
+      <span class="tk-k">let</span> q := placedPiece p.tier r c
+      some ⟨ps.map (<span class="tk-k">fun</span> z =&gt; <span class="tk-k">if</span> z = p <span class="tk-k">then</span> q <span class="tk-k">else</span> z), some q⟩
+  | [a, b] =&gt;
+      <span class="tk-k">if</span> a.tier = b.tier ∧ a.tier &lt; <span class="tk-n">6</span> <span class="tk-k">then</span>
+        <span class="tk-k">let</span> q := placedPiece (a.tier + <span class="tk-n">1</span>) r c
+        some ⟨(ps.filter (<span class="tk-k">fun</span> z =&gt; z ≠ a ∧ z ≠ b)) ++ [q], some q⟩
+      <span class="tk-k">else</span> some ⟨ps, none⟩
+  | _ =&gt; none
+
+<span class="tk-k">def</span> ident (ps : List Piece) (r c : Int) (res : Resolved) (p : Piece) : Piece :=
+  <span class="tk-k">if</span> p ∈ inReach ps r c <span class="tk-k">then</span> res.fresh.getD p <span class="tk-k">else</span> p
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_top_band_inert"><code class="rn">click_top_band_inert</code><span>Clicking the top strip of the screen changes nothing.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> not_click, next_is_elsewhere
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
+
+HISTORY = [
+    …
+]
+…
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = not_click(action) <span class="tk-k">or</span> next_is_elsewhere(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> click_cell(action)[<span class="tk-n">0</span>] &gt;= <span class="tk-n">10</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    <span class="tk-k">return</span> nw == w</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> isTopBand (r : Int) : Bool := <span class="tk-k">decide</span> (r &lt; <span class="tk-n">10</span>)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creature_chases_target"><code class="rn">creature_chases_target</code><span>A creature far from the click steps toward its nearest piece each small step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = board_step(w, action, nw, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> <span class="tk-k">not</span> w.creatures <span class="tk-k">and</span> <span class="tk-k">not</span> w.hidden:
+        …
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;na&quot;</span>:
+        …
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;won&quot;</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(m.mode == <span class="tk-s">&quot;chase&quot;</span> <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    seen = p.outcome.world.creatures
+    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode == <span class="tk-s">&quot;chase&quot;</span> <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> cCentre (c : Creature) : Int × Int := (c.row * <span class="tk-n">104</span> + rowOff c.kind, c.col * <span class="tk-n">104</span> + <span class="tk-n">208</span>)
+<span class="tk-k">def</span> pCentre (p : Piece) : Int × Int := (p.row * <span class="tk-n">104</span> + (p.sideI - <span class="tk-n">1</span>) * <span class="tk-n">52</span>, p.col * <span class="tk-n">104</span> + (p.sideI - <span class="tk-n">1</span>) * <span class="tk-n">52</span>)
+
+<span class="tk-k">def</span> dist2 (a b : Int × Int) : Int := (a.1 - b.1) * (a.1 - b.1) + (a.2 - b.2) * (a.2 - b.2)
+
+<span class="tk-k">def</span> sgn (d : Int) : Int := <span class="tk-k">if</span> <span class="tk-n">52</span> ≤ d <span class="tk-k">then</span> <span class="tk-n">1</span> <span class="tk-k">else</span> <span class="tk-k">if</span> d &lt; -<span class="tk-n">52</span> <span class="tk-k">then</span> -<span class="tk-n">1</span> <span class="tk-k">else</span> <span class="tk-n">0</span>
+
+<span class="tk-k">def</span> touches (c : Creature) (p : Piece) : Bool :=
+  <span class="tk-k">decide</span> (p.row &lt; c.row + <span class="tk-n">4</span>) &amp;&amp; <span class="tk-k">decide</span> (c.row &lt; p.row + p.sideI) &amp;&amp;
+  <span class="tk-k">decide</span> (p.col &lt; c.col + <span class="tk-n">5</span>) &amp;&amp; <span class="tk-k">decide</span> (c.col &lt; p.col + p.sideI)
+
+<span class="tk-k">def</span> place (k : Nat) (r c : Int) : Creature := ⟨k, min (max r <span class="tk-n">10</span>) <span class="tk-n">60</span>, min (max c <span class="tk-n">0</span>) <span class="tk-n">59</span>⟩
+
+<span class="tk-k">def</span> clampI (x lo hi : Int) : Int := max lo (min hi x)
+
+<span class="tk-k">def</span> slideAt (a b : Int × Int) (i : Nat) : Int × Int :=
+  (a.1 + clampI (b.1 - a.1) (-(<span class="tk-n">416</span> * (i : Int))) (<span class="tk-n">416</span> * (i : Int)),
+   a.2 + clampI (b.2 - a.2) (-(<span class="tk-n">416</span> * (i : Int))) (<span class="tk-n">416</span> * (i : Int)))
+
+<span class="tk-k">structure</span> Cand <span class="tk-k">where</span>
+  src     : Piece
+  dest    : Piece
+  centre  : Int × Int
+  arrived : Bool
+<span class="tk-k">deriving</span> DecidableEq, Repr
+
+<span class="tk-k">def</span> Cand.at (k : Cand) : Piece :=
+  ⟨k.dest.tier, (k.centre.1 - (k.dest.sideI - <span class="tk-n">1</span>) * <span class="tk-n">52</span>) / <span class="tk-n">104</span>, (k.centre.2 - (k.dest.sideI - <span class="tk-n">1</span>) * <span class="tk-n">52</span>) / <span class="tk-n">104</span>⟩
+
+<span class="tk-k">def</span> cands (srcs : List Piece) (dst : Piece → Piece) (i : Nat) : List Cand :=
+  srcs.map (<span class="tk-k">fun</span> p =&gt;
+    <span class="tk-k">let</span> x := slideAt (pCentre p) (pCentre (dst p)) i
+    ⟨p, dst p, x, x == pCentre (dst p)⟩)
+
+<span class="tk-k">def</span> nearest (cc : Int × Int) : List Cand → Option Cand
+  | [] =&gt; none
+  | k :: ks =&gt; some (ks.foldl (<span class="tk-k">fun</span> best x =&gt; <span class="tk-k">if</span> dist2 cc x.centre &lt; dist2 cc best.centre <span class="tk-k">then</span> x <span class="tk-k">else</span> best) k)
+
+<span class="tk-k">def</span> pickPoint (c : Creature) : Int × Int := (c.row * <span class="tk-n">104</span> + <span class="tk-n">208</span>, c.col * <span class="tk-n">104</span> + <span class="tk-n">208</span>)
+
+<span class="tk-k">def</span> Cand.still (k : Cand) : Bool := k.src == k.dest
+
+<span class="tk-k">def</span> choose (prev : Option Cand) (cs : List Cand) (best : Cand) : Cand :=
+  <span class="tk-k">match</span> prev <span class="tk-k">with</span>
+  | some p =&gt; <span class="tk-k">if</span> p.still &amp;&amp; best.still <span class="tk-k">then</span> (cs.find? (<span class="tk-k">fun</span> k =&gt; k.src == p.src)).getD best <span class="tk-k">else</span> best
+  | none =&gt; best
+
+<span class="tk-k">def</span> speed : Nat → Int
+  | <span class="tk-n">13</span> =&gt; <span class="tk-n">2</span>
+  | _ =&gt; <span class="tk-n">1</span>
+
+<span class="tk-k">def</span> chase (prev : Option Cand) (c : Creature) (cs : List Cand) : Option (Creature × Cand × Bool) :=
+  <span class="tk-k">match</span> nearest (pickPoint c) cs <span class="tk-k">with</span>
+  | none =&gt; none
+  | some b =&gt;
+      <span class="tk-k">let</span> t := choose prev cs b
+      <span class="tk-k">let</span> sr := sgn (t.centre.1 - (cCentre c).<span class="tk-n">1</span>)
+      <span class="tk-k">let</span> sc := sgn (t.centre.2 - (cCentre c).<span class="tk-n">2</span>)
+      <span class="tk-k">if</span> sr = <span class="tk-n">0</span> ∧ sc = <span class="tk-n">0</span> <span class="tk-k">then</span> some (c, t, true)
+      <span class="tk-k">else</span> some (place c.kind (c.row + speed c.kind * sr) (c.col + speed c.kind * sc), t, false)
+
+<span class="tk-k">def</span> chaseRun (srcs : List Piece) (dst : Piece → Piece) : Nat → Nat → Option Cand → Creature → Creature
+  | <span class="tk-n">0</span>, _, _, c =&gt; c
+  | n + <span class="tk-n">1</span>, i, prev, c =&gt;
+      <span class="tk-k">match</span> chase prev c (cands srcs dst i) <span class="tk-k">with</span>
+      | none =&gt; c
+      | some (c&#x27;, t, stop) =&gt; <span class="tk-k">if</span> stop <span class="tk-k">then</span> c&#x27; <span class="tk-k">else</span> chaseRun srcs dst n (i + <span class="tk-n">1</span>) (some t) c&#x27;
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creature_dashes_near_click"><code class="rn">creature_dashes_near_click</code><span>Creatures near the click do not chase: hunters dash to it, diamonds pounce onto it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = board_step(w, action, nw, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> <span class="tk-k">not</span> w.creatures <span class="tk-k">and</span> <span class="tk-k">not</span> w.hidden:
+        …
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;na&quot;</span>:
+        …
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;won&quot;</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(m.mode <span class="tk-k">in</span> (<span class="tk-s">&quot;dash&quot;</span>, <span class="tk-s">&quot;pounce&quot;</span>) <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    seen = p.outcome.world.creatures
+    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode <span class="tk-k">in</span> (<span class="tk-s">&quot;dash&quot;</span>, <span class="tk-s">&quot;pounce&quot;</span>) <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Bite
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> nearClick (c : Creature) (r x : Int) : Bool :=
+  <span class="tk-k">let</span> dr := max (max (c.row - r) <span class="tk-n">0</span>) (r - (c.row + <span class="tk-n">3</span>))
+  <span class="tk-k">let</span> dc := max (max (c.col - x) <span class="tk-n">0</span>) (x - (c.col + <span class="tk-n">4</span>))
+  <span class="tk-k">decide</span> (dr * dr + dc * dc ≤ <span class="tk-n">64</span>)
+
+<span class="tk-k">def</span> roundDash (d l2 : Int) : Int :=
+  <span class="tk-k">match</span> (List.range <span class="tk-n">9</span>).find? (<span class="tk-k">fun</span> (i : Nat) =&gt;
+      leMulSqrt (<span class="tk-n">5</span> * (<span class="tk-n">2</span> * ((i : Int) - <span class="tk-n">4</span>) - <span class="tk-n">1</span>)) l2 (<span class="tk-n">34</span> * d) &amp;&amp;
+        !(leMulSqrt (<span class="tk-n">5</span> * (<span class="tk-n">2</span> * ((i : Int) - <span class="tk-n">4</span>) + <span class="tk-n">1</span>)) l2 (<span class="tk-n">34</span> * d))) <span class="tk-k">with</span>
+  | some i =&gt; (i : Int) - <span class="tk-n">4</span>
+  | none =&gt; <span class="tk-n">0</span>
+
+<span class="tk-k">def</span> dashV (c : Creature) (r x : Int) : Int × Int :=
+  <span class="tk-k">let</span> dy := r * <span class="tk-n">104</span> - (pickPoint c).<span class="tk-n">1</span>
+  <span class="tk-k">let</span> dx := x * <span class="tk-n">104</span> - (pickPoint c).<span class="tk-n">2</span>
+  <span class="tk-k">let</span> l2 := dy * dy + dx * dx
+  <span class="tk-k">if</span> l2 = <span class="tk-n">0</span> <span class="tk-k">then</span> (<span class="tk-n">0</span>, <span class="tk-n">0</span>) <span class="tk-k">else</span> (roundDash dy l2, roundDash dx l2)
+
+<span class="tk-k">def</span> pounceV (c : Creature) (r x : Int) : Int × Int :=
+  ((r * <span class="tk-n">104</span> - (cCentre c).<span class="tk-n">1</span> + <span class="tk-n">52</span>) / <span class="tk-n">104</span>, (x * <span class="tk-n">104</span> - (cCentre c).<span class="tk-n">2</span> + <span class="tk-n">52</span>) / <span class="tk-n">104</span>)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creatures_merge_on_overlap"><code class="rn">creatures_merge_on_overlap</code><span>Two touching creatures of a kind merge: hunters into a diamond, diamonds into a crab.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = board_step(w, action, nw, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> len(w.creatures) + len(w.hidden) &lt; <span class="tk-n">2</span>:
+        …
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;na&quot;</span>:
+        …
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;won&quot;</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(m.mode == <span class="tk-s">&quot;born&quot;</span> <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    seen = p.outcome.world.creatures
+    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode == <span class="tk-s">&quot;born&quot;</span> <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> upKind : Nat → Nat
+  | <span class="tk-n">7</span> =&gt; <span class="tk-n">14</span>
+  | <span class="tk-n">14</span> =&gt; <span class="tk-n">13</span>
+  | _ =&gt; <span class="tk-n">0</span>
+
+<span class="tk-k">def</span> canMerge (a b : Creature) : Bool :=
+  a.kind == b.kind &amp;&amp; (a.kind == <span class="tk-n">7</span> || a.kind == <span class="tk-n">14</span>) &amp;&amp;
+  <span class="tk-k">decide</span> (a.row - b.row &lt; <span class="tk-n">4</span>) &amp;&amp; <span class="tk-k">decide</span> (b.row - a.row &lt; <span class="tk-n">4</span>) &amp;&amp;
+  <span class="tk-k">decide</span> (a.col - b.col &lt; <span class="tk-n">5</span>) &amp;&amp; <span class="tk-k">decide</span> (b.col - a.col &lt; <span class="tk-n">5</span>)
+
+<span class="tk-k">def</span> bornAt (a b : Creature) : Creature :=
+  ⟨upKind a.kind, (a.row + b.row) / <span class="tk-n">2</span>, (a.col + b.col) / <span class="tk-n">2</span>⟩
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-bite_demotes_and_flings"><code class="rn">bite_demotes_and_flings</code><span>A chasing creature hitting an older piece bites it one level down and flings it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = board_step(w, action, nw, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> <span class="tk-k">not</span> w.creatures <span class="tk-k">and</span> <span class="tk-k">not</span> w.hidden:
+        …
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;na&quot;</span>:
+        …
+    <span class="tk-k">if</span> p.outcome.kind == <span class="tk-s">&quot;won&quot;</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> p.bites:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    <span class="tk-k">for</span> old, _, q, _ <span class="tk-k">in</span> p.bites:
+        <span class="tk-k">if</span> old <span class="tk-k">in</span> nw.pieces:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+        <span class="tk-k">if</span> q <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> q <span class="tk-k">not</span> <span class="tk-k">in</span> nw.pieces:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> leMulSqrt (a l2 b : Int) : Bool :=
+  <span class="tk-k">if</span> a ≤ <span class="tk-n">0</span> ∧ <span class="tk-n">0</span> ≤ b <span class="tk-k">then</span> true
+  <span class="tk-k">else</span> <span class="tk-k">if</span> <span class="tk-n">0</span> &lt; a ∧ b &lt; <span class="tk-n">0</span> <span class="tk-k">then</span> false
+  <span class="tk-k">else</span> <span class="tk-k">if</span> <span class="tk-n">0</span> ≤ a <span class="tk-k">then</span> <span class="tk-k">decide</span> (a * a * l2 ≤ b * b)
+  <span class="tk-k">else</span> <span class="tk-k">decide</span> (b * b ≤ a * a * l2)
+
+<span class="tk-k">def</span> roundRatio (v l2 : Int) : Int :=
+  <span class="tk-k">match</span> (List.range <span class="tk-n">21</span>).find? (<span class="tk-k">fun</span> (i : Nat) =&gt;
+      leMulSqrt (<span class="tk-n">2</span> * ((i : Int) - <span class="tk-n">10</span>) - <span class="tk-n">1</span>) l2 (<span class="tk-n">20</span> * v) &amp;&amp; !(leMulSqrt (<span class="tk-n">2</span> * ((i : Int) - <span class="tk-n">10</span>) + <span class="tk-n">1</span>) l2 (<span class="tk-n">20</span> * v))) <span class="tk-k">with</span>
+  | some i =&gt; (i : Int) - <span class="tk-n">10</span>
+  | none =&gt; <span class="tk-n">0</span>
+
+<span class="tk-k">def</span> bitten (p : Piece) (c : Creature) : Option Piece :=
+  <span class="tk-k">if</span> p.tier ≤ <span class="tk-n">1</span> <span class="tk-k">then</span> none
+  <span class="tk-k">else</span>
+    <span class="tk-k">let</span> dy := (p.row + p.sideI / <span class="tk-n">2</span>) - (c.row + <span class="tk-n">2</span>)
+    <span class="tk-k">let</span> dx := (p.col + p.sideI / <span class="tk-n">2</span>) - (c.col + <span class="tk-n">2</span>)
+    <span class="tk-k">let</span> l2 := dy * dy + dx * dx
+    <span class="tk-k">let</span> sr := <span class="tk-k">if</span> l2 = <span class="tk-n">0</span> <span class="tk-k">then</span> -<span class="tk-n">10</span> <span class="tk-k">else</span> roundRatio dy l2
+    <span class="tk-k">let</span> sc := <span class="tk-k">if</span> l2 = <span class="tk-n">0</span> <span class="tk-k">then</span> <span class="tk-n">0</span> <span class="tk-k">else</span> roundRatio dx l2
+    <span class="tk-k">let</span> s : Int := (side (p.tier - <span class="tk-n">1</span>) : Int)
+    some ⟨p.tier - <span class="tk-n">1</span>, min (max (p.row + sr) <span class="tk-n">10</span>) (<span class="tk-n">63</span> - s + <span class="tk-n">1</span>), min (max (p.col + sc) <span class="tk-n">0</span>) (<span class="tk-n">64</span> - s)⟩
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-levelup_iff_covered_after_step"><code class="rn">levelup_iff_covered_after_step</code><span>The level clears if, at any small step, everything to hand in lies in rings.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.step <span class="tk-k">import</span> step
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> not_board_click, refused
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = not_board_click(action)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> <span class="tk-s">&quot;game_over&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()):
+        …
+    <span class="tk-k">if</span> refused(w, nw, ctx) <span class="tk-k">and</span> <span class="tk-s">&quot;level_up&quot;</span> <span class="tk-k">not</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()):
+        …
+    o = step(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    <span class="tk-k">if</span> o.kind == <span class="tk-s">&quot;na&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    o = step(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
+    won = <span class="tk-s">&quot;level_up&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()) <span class="tk-k">or</span> <span class="tk-s">&quot;win&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ())
+    <span class="tk-k">return</span> (o.kind == <span class="tk-s">&quot;won&quot;</span>) == won</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">structure</span> Thing <span class="tk-k">where</span>
+  isPiece : Bool
+  grade   : Nat
+  inRing  : Bool
+
+<span class="tk-k">def</span> pieceCells (p : Piece) : List (Int × Int) :=
+  (List.range (side p.tier)).flatMap (<span class="tk-k">fun</span> (i : Nat) =&gt;
+    (List.range (side p.tier)).map (<span class="tk-k">fun</span> (j : Nat) =&gt; (p.row + (i : Int), p.col + (j : Int))))
+
+<span class="tk-k">def</span> insideSome (cells : List (Int × Int)) (rs : List Ring) : Bool :=
+  rs.any (<span class="tk-k">fun</span> r =&gt; cells.all (<span class="tk-k">fun</span> x =&gt; r.boxHas x.1 x.2))
+
+<span class="tk-k">def</span> centreInside (c : Creature) (rs : List Ring) : Bool :=
+  rs.any (<span class="tk-k">fun</span> r =&gt;
+    <span class="tk-k">decide</span> (r.row * <span class="tk-n">104</span> ≤ (cCentre c).<span class="tk-n">1</span>) &amp;&amp; <span class="tk-k">decide</span> ((cCentre c).<span class="tk-n">1</span> ≤ (r.row + <span class="tk-n">8</span>) * <span class="tk-n">104</span>) &amp;&amp;
+    <span class="tk-k">decide</span> (r.col * <span class="tk-n">104</span> ≤ (cCentre c).<span class="tk-n">2</span>) &amp;&amp; <span class="tk-k">decide</span> ((cCentre c).<span class="tk-n">2</span> ≤ (r.col + <span class="tk-n">8</span>) * <span class="tk-n">104</span>))
+
+<span class="tk-k">def</span> things (rs : List Ring) (ps : List Piece) (cs : List Creature) : List Thing :=
+  ps.map (<span class="tk-k">fun</span> p =&gt; ⟨true, p.tier, insideSome (pieceCells p) rs⟩) ++
+  cs.map (<span class="tk-k">fun</span> c =&gt; ⟨false, c.kind, centreInside c rs⟩)
+
+<span class="tk-k">def</span> picks {α : Type} : List α → List (α × List α)
+  | [] =&gt; []
+  | x :: xs =&gt; (x, xs) :: (picks xs).map (<span class="tk-k">fun</span> p =&gt; (p.1, x :: p.2))
+
+<span class="tk-k">def</span> matchAll : List Sample → List Thing → Bool
+  | [], _ =&gt; true
+  | s :: ss, ts =&gt;
+      (picks ts).any (<span class="tk-k">fun</span> p =&gt;
+        p.1.isPiece == s.isPiece &amp;&amp; p.1.grade == s.grade &amp;&amp; p.1.inRing &amp;&amp; matchAll ss p.2)
+
+<span class="tk-k">def</span> covered (b : Board) (ps : List Piece) (cs : List Creature) : Bool :=
+  !b.samples.isEmpty &amp;&amp; matchAll b.samples (things b.rings ps cs)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-budget_step_cost"><code class="rn">budget_step_cost</code><span>The budget shrinks in proportion to steps taken; only board clicks count as steps.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> delta_steps, next_is_elsewhere
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET&quot;</span>
+    why = next_is_elsewhere(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> action != <span class="tk-s">&quot;ACTION7&quot;</span> <span class="tk-k">and</span> click_cell(action) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    d = delta_steps(w, nw, ctx)
+    <span class="tk-k">if</span> d <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;ACTION7&quot;</span> <span class="tk-k">or</span> click_cell(action)[<span class="tk-n">0</span>] &lt; <span class="tk-n">10</span>:
+        <span class="tk-k">return</span> d == <span class="tk-n">0</span>
+    <span class="tk-k">return</span> d == <span class="tk-n">1</span> <span class="tk-k">or</span> d == <span class="tk-n">2</span> * (ctx[<span class="tk-s">&quot;refusals_before&quot;</span>] + <span class="tk-n">1</span>)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> barOf (k n : Nat) : Nat := <span class="tk-n">64</span> - (<span class="tk-n">64</span> * k) / n
+
+<span class="tk-k">def</span> stepsOf (bar n : Nat) : Option Nat :=
+  (List.range (n + <span class="tk-n">1</span>)).find? (<span class="tk-k">fun</span> k =&gt; barOf k n == bar)
+
+<span class="tk-k">def</span> nextBar (bar n : Nat) : Option Nat :=
+  (stepsOf bar n).map (<span class="tk-k">fun</span> k =&gt; barOf (k + <span class="tk-n">1</span>) n)
+
+<span class="tk-k">def</span> refusedBar (bar n r : Nat) : Option Nat :=
+  (stepsOf bar n).map (<span class="tk-k">fun</span> k =&gt; barOf (k + <span class="tk-n">2</span> * (r + <span class="tk-n">1</span>)) n)
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-budget_game_over_at_zero"><code class="rn">budget_game_over_at_zero</code><span>The game ends exactly on the step that brings the budget to zero.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.budget <span class="tk-k">import</span> N_OF_LEVEL, bar_of, steps_of
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
+
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> action <span class="tk-k">in</span> (<span class="tk-s">&quot;RESET&quot;</span>, <span class="tk-s">&quot;ACTION7&quot;</span>):
+        …
+    cell = click_cell(action)
+    <span class="tk-k">if</span> cell <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> cell[<span class="tk-n">0</span>] &lt; <span class="tk-n">10</span>:
+        …
+    m = ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ())
+    <span class="tk-k">if</span> <span class="tk-s">&quot;level_up&quot;</span> <span class="tk-k">in</span> m <span class="tk-k">or</span> <span class="tk-s">&quot;win&quot;</span> <span class="tk-k">in</span> m:
+        …
+    n = N_OF_LEVEL.get(ctx.get(<span class="tk-s">&quot;level&quot;</span>))
+    <span class="tk-k">if</span> n <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> steps_of(w.budget, n) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    n = N_OF_LEVEL[ctx[<span class="tk-s">&quot;level&quot;</span>]]
+    empty = bar_of(steps_of(w.budget, n) + <span class="tk-n">1</span>, n) == <span class="tk-n">0</span>
+    <span class="tk-k">return</span> empty == (<span class="tk-s">&quot;game_over&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> overAt (bar : Nat) : Bool := bar == <span class="tk-n">0</span>
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-pieces_out_of_reach_stay_or_bitten"><code class="rn">pieces_out_of_reach_stay_or_bitten</code><span>Pieces out of range either stay put or get bitten.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell, in_reach
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">return</span> board_step(w, action, nw, ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    near = set(in_reach(w.pieces, click_cell(action)))
+    far = [p <span class="tk-k">for</span> p <span class="tk-k">in</span> w.pieces <span class="tk-k">if</span> p <span class="tk-k">not</span> <span class="tk-k">in</span> near]
+    gone = [p <span class="tk-k">for</span> p <span class="tk-k">in</span> far <span class="tk-k">if</span> p <span class="tk-k">not</span> <span class="tk-k">in</span> nw.pieces]
+    born = [q <span class="tk-k">for</span> q <span class="tk-k">in</span> nw.pieces <span class="tk-k">if</span> q <span class="tk-k">not</span> <span class="tk-k">in</span> w.pieces]
+    spare = list(born)
+    <span class="tk-k">if</span> near:
+        tiers = {p.tier <span class="tk-k">for</span> p <span class="tk-k">in</span> near} | {p.tier + <span class="tk-n">1</span> <span class="tk-k">for</span> p <span class="tk-k">in</span> near}
+        cand = [q <span class="tk-k">for</span> q <span class="tk-k">in</span> spare <span class="tk-k">if</span> q.tier <span class="tk-k">in</span> tiers]
+        <span class="tk-k">if</span> cand:
+            spare.remove(cand[<span class="tk-n">0</span>])
+    <span class="tk-k">for</span> p <span class="tk-k">in</span> gone:
+        <span class="tk-k">if</span> p.tier == <span class="tk-n">1</span>:
+            <span class="tk-k">continue</span>
+        cand = [q <span class="tk-k">for</span> q <span class="tk-k">in</span> spare <span class="tk-k">if</span> q.tier == p.tier - <span class="tk-n">1</span>]
+        <span class="tk-k">if</span> <span class="tk-k">not</span> cand:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+        spare.remove(cand[<span class="tk-n">0</span>])
+    <span class="tk-k">return</span> <span class="tk-k">not</span> spare</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Click.LandsFresh
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> resolve_keeps_far (ps : List Piece) (r c : Int) (res : Resolved) (p : Piece)
+    (h : resolve ps r c = some res) (hp : p ∈ ps) (hfar : <span class="tk-n">64</span> &lt; reach2 p r c) : p ∈ res.pieces := <span class="tk-k">by</span>
+  <span class="tk-k">have</span> hnot : ∀ q, q ∈ inReach ps r c → q ≠ p := <span class="tk-k">by</span>
+    <span class="tk-k">intro</span> q hq heq
+    subst heq
+    <span class="tk-k">simp</span> [inReach, List.mem_filter] at hq
+    omega
+  unfold resolve at h
+  split at h
+  · <span class="tk-k">simp</span> only [Option.some.injEq] at h
+    subst h
+    <span class="tk-k">exact</span> hp
+  · rename_i q hq
+    <span class="tk-k">simp</span> only [Option.some.injEq] at h
+    subst h
+    <span class="tk-k">have</span> hne : q ≠ p := hnot q (<span class="tk-k">by</span> rw [hq]; <span class="tk-k">simp</span>)
+    <span class="tk-k">simp</span> only [List.mem_map]
+    <span class="tk-k">exact</span> ⟨p, hp, <span class="tk-k">by</span> <span class="tk-k">simp</span> [Ne.symm hne]⟩
+  · rename_i a b hab
+    <span class="tk-k">have</span> hna : a ≠ p := hnot a (<span class="tk-k">by</span> rw [hab]; <span class="tk-k">simp</span>)
+    <span class="tk-k">have</span> hnb : b ≠ p := hnot b (<span class="tk-k">by</span> rw [hab]; <span class="tk-k">simp</span>)
+    split at h
+    · <span class="tk-k">simp</span> only [Option.some.injEq] at h
+      subst h
+      <span class="tk-k">simp</span> only [List.mem_append, List.mem_filter]
+      left
+      <span class="tk-k">exact</span> ⟨hp, <span class="tk-k">by</span> <span class="tk-k">simp</span> [Ne.symm hna, Ne.symm hnb]⟩
+    · <span class="tk-k">simp</span> only [Option.some.injEq] at h
+      subst h
+      <span class="tk-k">exact</span> hp
+  · <span class="tk-k">simp</span> at h
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creature_step_bounded"><code class="rn">creature_step_bounded</code><span>A creature far from the click moves at most its chase steps per axis.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.creature <span class="tk-k">import</span> near_click
+<span class="tk-k">from</span> derive.creature.chase <span class="tk-k">import</span> SPEED
+<span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> _kinds(ws):
+    out = {}
+    <span class="tk-k">for</span> c <span class="tk-k">in</span> ws:
+        out[c.kind] = out.get(c.kind, <span class="tk-n">0</span>) + <span class="tk-n">1</span>
+    <span class="tk-k">return</span> out
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = board_step(w, action, nw, ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    <span class="tk-k">if</span> <span class="tk-k">not</span> w.creatures:
+        …
+    <span class="tk-k">if</span> _kinds(w.creatures) != _kinds(nw.creatures):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    cell = click_cell(action)
+    <span class="tk-k">for</span> c <span class="tk-k">in</span> w.creatures:
+        <span class="tk-k">if</span> near_click(c, cell):
+            <span class="tk-k">continue</span>
+        lim = <span class="tk-n">4</span> * SPEED[c.kind]
+        <span class="tk-k">if</span> <span class="tk-k">not</span> any(d.kind == c.kind <span class="tk-k">and</span> abs(d.row - c.row) &lt;= lim <span class="tk-k">and</span> abs(d.col - c.col) &lt;= lim
+                   <span class="tk-k">for</span> d <span class="tk-k">in</span> nw.creatures):
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">theorem</span> sgn_bounds (d : Int) : sgn d ≤ <span class="tk-n">1</span> ∧ -<span class="tk-n">1</span> ≤ sgn d := <span class="tk-k">by</span>
+  unfold sgn
+  split
+  · omega
+  · split &lt;;&gt; omega
+
+<span class="tk-k">theorem</span> speed_cases (k : Nat) : speed k = <span class="tk-n">1</span> ∨ speed k = <span class="tk-n">2</span> := <span class="tk-k">by</span>
+  unfold speed
+  split &lt;;&gt; <span class="tk-k">simp</span>
+
+<span class="tk-k">def</span> onBoard (c : Creature) : Prop := <span class="tk-n">10</span> ≤ c.row ∧ c.row ≤ <span class="tk-n">60</span> ∧ <span class="tk-n">0</span> ≤ c.col ∧ c.col ≤ <span class="tk-n">59</span>
+
+<span class="tk-k">theorem</span> chase_step (prev : Option Cand) (c : Creature) (cs : List Cand)
+    (c&#x27; : Creature) (t : Cand) (s : Bool)
+    (hb : onBoard c) (h : chase prev c cs = some (c&#x27;, t, s)) :
+    c&#x27;.kind = c.kind ∧
+    c&#x27;.row - c.row ≤ speed c.kind ∧ c.row - c&#x27;.row ≤ speed c.kind ∧
+    c&#x27;.col - c.col ≤ speed c.kind ∧ c.col - c&#x27;.col ≤ speed c.kind ∧ onBoard c&#x27; := <span class="tk-k">by</span>
+  <span class="tk-k">have</span> hv := speed_cases c.kind
+  unfold onBoard at hb ⊢
+  unfold chase at h
+  split at h
+  · <span class="tk-k">simp</span> at h
+  · rename_i b _
+    dsimp only at h
+    split at h
+    · <span class="tk-k">simp</span> only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨<span class="tk-k">rfl</span>, -, -⟩ := h
+      omega
+    · <span class="tk-k">simp</span> only [Option.some.injEq, Prod.mk.injEq] at h
+      obtain ⟨<span class="tk-k">rfl</span>, -, -⟩ := h
+      <span class="tk-k">have</span> s1 := sgn_bounds ((choose prev cs b).centre.1 - (cCentre c).<span class="tk-n">1</span>)
+      <span class="tk-k">have</span> s2 := sgn_bounds ((choose prev cs b).centre.2 - (cCentre c).<span class="tk-n">2</span>)
+      <span class="tk-k">simp</span> only [place]
+      rcases hv <span class="tk-k">with</span> hv | hv &lt;;&gt; rw [hv] &lt;;&gt; refine ⟨trivial, ?_⟩ &lt;;&gt; omega
+
+<span class="tk-k">theorem</span> chaseRun_bounded (srcs : List Piece) (dst : Piece → Piece) (v : Int) (hv : v = <span class="tk-n">1</span> ∨ v = <span class="tk-n">2</span>) (n : Nat) :
+    ∀ (i : Nat) (prev : Option Cand) (c : Creature), onBoard c → speed c.kind = v →
+    (chaseRun srcs dst n i prev c).kind = c.kind ∧
+    (chaseRun srcs dst n i prev c).row - c.row ≤ n * v ∧ c.row - (chaseRun srcs dst n i prev c).row ≤ n * v ∧
+    (chaseRun srcs dst n i prev c).col - c.col ≤ n * v ∧ c.col - (chaseRun srcs dst n i prev c).col ≤ n * v := <span class="tk-k">by</span>
+  rcases hv <span class="tk-k">with</span> <span class="tk-k">rfl</span> | <span class="tk-k">rfl</span>
+  all_goals
+    <span class="tk-k">induction</span> n <span class="tk-k">with</span>
+    | zero =&gt; <span class="tk-k">intro</span> i prev c _ _; <span class="tk-k">simp</span> [chaseRun]
+    | succ n ih =&gt;
+      <span class="tk-k">intro</span> i prev c hb hs
+      <span class="tk-k">simp</span> only [chaseRun]
+      split
+      · omega
+      · rename_i c&#x27; t s h
+        <span class="tk-k">have</span> ⟨k1, a1, a2, a3, a4, hb&#x27;⟩ := chase_step prev c _ c&#x27; t s hb h
+        rw [hs] at a1 a2 a3 a4
+        split
+        · refine ⟨k1, ?_, ?_, ?_, ?_⟩ &lt;;&gt; push_cast &lt;;&gt; omega
+        · <span class="tk-k">have</span> hs&#x27; : speed c&#x27;.kind = speed c.kind := <span class="tk-k">by</span> rw [k1]
+          rw [hs] at hs&#x27;
+          <span class="tk-k">have</span> ⟨k2, b1, b2, b3, b4⟩ := ih (i + <span class="tk-n">1</span>) (some t) c&#x27; hb&#x27; hs&#x27;
+          refine ⟨<span class="tk-k">by</span> rw [k2, k1], ?_, ?_, ?_, ?_⟩ &lt;;&gt; push_cast &lt;;&gt; omega
+
+<span class="tk-k">theorem</span> chase_bounded (srcs : List Piece) (dst : Piece → Piece) (c : Creature) (hb : onBoard c) :
+    (chaseRun srcs dst <span class="tk-n">4</span> <span class="tk-n">1</span> none c).row - c.row ≤ <span class="tk-n">4</span> * speed c.kind ∧
+    c.row - (chaseRun srcs dst <span class="tk-n">4</span> <span class="tk-n">1</span> none c).row ≤ <span class="tk-n">4</span> * speed c.kind ∧
+    (chaseRun srcs dst <span class="tk-n">4</span> <span class="tk-n">1</span> none c).col - c.col ≤ <span class="tk-n">4</span> * speed c.kind ∧
+    c.col - (chaseRun srcs dst <span class="tk-n">4</span> <span class="tk-n">1</span> none c).col ≤ <span class="tk-n">4</span> * speed c.kind := <span class="tk-k">by</span>
+  <span class="tk-k">have</span> ⟨_, h1, h2, h3, h4⟩ := chaseRun_bounded srcs dst (speed c.kind) (speed_cases c.kind) <span class="tk-n">4</span> <span class="tk-n">1</span> none c hb <span class="tk-k">rfl</span>
+  push_cast at h1 h2 h3 h4
+  <span class="tk-k">exact</span> ⟨h1, h2, h3, h4⟩
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-still_uncovered_while_playing"><code class="rn">still_uncovered_while_playing</code><span>While play stays on this level, the hand-in is not fully matched.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.goal <span class="tk-k">import</span> covered
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> next_is_elsewhere
+
+HISTORY = [
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        <span class="tk-k">return</span> <span class="tk-s">&quot;RESET&quot;</span>
+    <span class="tk-k">return</span> next_is_elsewhere(ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    <span class="tk-k">return</span> <span class="tk-k">not</span> covered(nw.pieces, nw.creatures, nw.board)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+
+<span class="tk-k">namespace</span> Game
+
+<span class="tk-k">def</span> State.all (s : State) : List Creature := s.world.creatures ++ s.hidden
+
+<span class="tk-k">theorem</span> finish_ok (b : Board) (ps : List Piece) (vis hid : List Creature) (bar rf : Nat) (s&#x27; : State)
+    (h : finish b ps vis hid bar rf = ResS.ok s&#x27;) : covered b s&#x27;.world.pieces s&#x27;.all = false := <span class="tk-k">by</span>
+  unfold finish at h
+  split at h
+  · <span class="tk-k">simp</span> at h
+  · rename_i hc
+    split at h
+    · <span class="tk-k">simp</span> at h
+    · <span class="tk-k">simp</span> only [ResS.ok.injEq] at h
+      subst h
+      simpa [State.all] using hc
+
+<span class="tk-k">theorem</span> refuse_ok (b : Board) (lim : Nat) (s s&#x27; : State) (h0 : covered b s.world.pieces s.all = false)
+    (h : refuse lim s = ResS.ok s&#x27;) : covered b s&#x27;.world.pieces s&#x27;.all = false := <span class="tk-k">by</span>
+  unfold refuse at h
+  split at h
+  · split at h
+    · <span class="tk-k">simp</span> at h
+    · <span class="tk-k">simp</span> only [ResS.ok.injEq] at h
+      subst h
+      simpa [State.all] using h0
+  · <span class="tk-k">simp</span> at h
+
+<span class="tk-k">theorem</span> step_keeps_uncovered (b : Board) (lim : Nat) (s s&#x27; : State) (a : Act)
+    (h0 : covered b s.world.pieces s.all = false)
+    (h : stepS b lim s a = ResS.ok s&#x27;) : covered b s&#x27;.world.pieces s&#x27;.all = false := <span class="tk-k">by</span>
+  <span class="tk-k">cases</span> a <span class="tk-k">with</span>
+  | undo =&gt; <span class="tk-k">simp</span> [stepS] at h
+  | reset =&gt; <span class="tk-k">simp</span> [stepS] at h
+  | click r c =&gt;
+    <span class="tk-k">simp</span> only [stepS] at h
+    split at h
+    · <span class="tk-k">simp</span> only [ResS.ok.injEq] at h
+      subst h
+      <span class="tk-k">exact</span> h0
+    · unfold clickStep at h
+      split at h
+      · dsimp only at h
+        split at h
+        · <span class="tk-k">simp</span> at h
+        · split at h
+          · <span class="tk-k">simp</span> at h
+          · split at h
+            · <span class="tk-k">simp</span> at h
+            · <span class="tk-k">simp</span> at h
+            · <span class="tk-k">exact</span> refuse_ok b lim s s&#x27; h0 h
+            · unfold afterFrames at h
+              dsimp only at h
+              <span class="tk-k">exact</span> finish_ok _ _ _ _ _ _ _ h
+      · <span class="tk-k">simp</span> at h
+
+<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-levelup_starts_fresh"><code class="rn">levelup_starts_fresh</code><span>Clearing a level opens the next with full budget and new rings and hand-in.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    m = ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ())
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    board_same = w.board == nw.board
+    <span class="tk-k">if</span> <span class="tk-s">&quot;win&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()):
+        <span class="tk-k">return</span> board_same <span class="tk-k">and</span> nw.budget == w.budget
+    <span class="tk-k">return</span> (<span class="tk-k">not</span> board_same) <span class="tk-k">and</span> nw.budget == <span class="tk-n">64</span></code></pre></details></li><li id="rule-undo_restores_before_last_click"><code class="rn">undo_restores_before_last_click</code><span>Undo restores pieces and creatures to before the last accepted board click; budget unchanged.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> same_but_budget
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> next_is_elsewhere
+
+HISTORY = [
+    …
+    …
+    …
+]
+…
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    <span class="tk-k">if</span> action != <span class="tk-s">&quot;ACTION7&quot;</span>:
+        …
+    <span class="tk-k">return</span> next_is_elsewhere(ctx)
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    <span class="tk-k">if</span> nw.budget != w.budget:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    back = ctx.get(<span class="tk-s">&quot;undo_target&quot;</span>)
+    <span class="tk-k">if</span> back <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        <span class="tk-k">return</span> nw == w
+    <span class="tk-k">return</span> same_but_budget(nw, back)</code></pre></details></li><li id="rule-reset_refills_budget"><code class="rn">reset_refills_budget</code><span>Restart refills the budget and returns everything to this level&#x27;s opening.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> same_but_budget
+
+HISTORY = [
+    …
+    …
+]
+…
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    <span class="tk-k">if</span> nw.budget != <span class="tk-n">64</span>:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    start = ctx.get(<span class="tk-s">&quot;level_start&quot;</span>)
+    <span class="tk-k">return</span> <span class="tk-k">True</span> <span class="tk-k">if</span> start <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">else</span> same_but_budget(nw, start)</code></pre></details></li><li id="rule-refusal_freezes_board"><code class="rn">refusal_freezes_board</code><span>A refused click moves no piece or creature but still costs budget, more each time.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> board_frozen
+<span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> delta_steps, not_board_click, next_is_elsewhere, refused
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+]
+…
+                    …
+
+<span class="tk-k">def</span> scope_(w, action, nw, ctx):
+    why = not_board_click(action) <span class="tk-k">or</span> next_is_elsewhere(ctx)
+    <span class="tk-k">if</span> why:
+        <span class="tk-k">return</span> why
+    …
+
+<span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
+    <span class="tk-k">return</span> board_frozen(w, nw) <span class="tk-k">and</span> delta_steps(w, nw, ctx) == <span class="tk-n">2</span> * (ctx[<span class="tk-s">&quot;refusals_before&quot;</span>] + <span class="tk-n">1</span>)</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (boardOf <span class="tk-n">0</span>) (limitOf <span class="tk-n">0</span>) L0_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (boardOf <span class="tk-n">1</span>) (limitOf <span class="tk-n">1</span>) L1_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (boardOf <span class="tk-n">2</span>) (limitOf <span class="tk-n">2</span>) L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (boardOf <span class="tk-n">3</span>) (limitOf <span class="tk-n">3</span>) L3_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (boardOf <span class="tk-n">4</span>) (limitOf <span class="tk-n">4</span>) L4_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (boardOf <span class="tk-n">5</span>) (limitOf <span class="tk-n">5</span>) L5_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable (boardOf <span class="tk-n">6</span>) (limitOf <span class="tk-n">6</span>) L6_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L7_winnable : Winnable (boardOf <span class="tk-n">7</span>) (limitOf <span class="tk-n">7</span>) L7_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L8_winnable : Winnable (boardOf <span class="tk-n">8</span>) (limitOf <span class="tk-n">8</span>) L8_start := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/su15.zip" download>Download su15.zip</a> <span class="note">0.7 MB · 56 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="su15";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>

@@ -1,0 +1,581 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>g50t · Algebraic World Model</title>
+<meta name="description" content="g50t: Move a pawn and record stand-ins that replay your moves; the pawn walking into the end cell clears the level.">
+<meta property="og:title" content="g50t · Algebraic World Model">
+<meta property="og:description" content="g50t: Move a pawn and record stand-ins that replay your moves; the pawn walking into the end cell clears the level.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://ephemeral6.github.io/awm-site/games/g50t/">
+<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="g50t · Algebraic World Model">
+<meta name="twitter:description" content="g50t: Move a pawn and record stand-ins that replay your moves; the pawn walking into the end cell clears the level.">
+<meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../assets/site.css">
+<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
+</head>
+<body>
+<header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../ft09/" aria-label="Previous game">‹ ft09</a><a href="../ka59/" aria-label="Next game">ka59 ›</a></span></div><h1>g50t</h1><p class="one">Move a pawn and record stand-ins that replay your moves; the pawn walking into the end cell clears the level.</p><p class="stat">7 levels · 13 rules · all levels replayed in Lean</p><nav class="tabs" role="tablist"><a role="tab" href="#how" data-tab="how">How it plays</a><a role="tab" href="#replay" data-tab="replay">Replay</a><a role="tab" href="#model" data-tab="model">Model</a><a role="tab" href="#proof" data-tab="proof">Proof</a><a role="tab" href="#files" data-tab="files">Files</a></nav><section class="panel" id="p-how" role="tabpanel" data-panel="how"><h2 class="vh">How it plays</h2><div class="two"><div class="prose"><p>The player operates a pawn, and the direction keys make it move one cell on the floor. The field has buttons, portals and carts, and tracks of the same colour link them into a network. Press the switch-board key, and the pawn returns to the start, the moves of the board just played are recorded as a stand-in; in the next board the stand-in replays them, and after finishing stops on the last cell without moving. The stand-in can also step on buttons and go through portals, so clearing the level depends on division of labour: let the stand-in press and hold the button and push aside the cart blocking the way, while the pawn passes during this time. A red spring cart makes way by one cell while the button is pressed, and goes back home when released; a yellow latch cart flips between two cells each time it is stepped on. Going into a portal has to catch the step at which the button on the same network is pressed. The number of slots in the top-left corner limits the number of stand-ins, and some levels also have a ring patrolling along a corridor. The pawn walking into the end cell clears the level.</p></div><div class="frames"><figure><img src="../../img/thumbs/g50t.png" alt="g50t, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/g50t-last.png" alt="g50t, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="panel" id="p-replay" role="tabpanel" data-panel="replay"><h2 class="vh">Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="panel" id="p-model" role="tabpanel" data-panel="model"><h2 class="vh">Model</h2><p class="lede">The final model: 10 object types and 13 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Terrain</b> <code>terrain</code><span>Whether each cell is wall, floor, end cell, button, portal, or covered by a cart.</span></li><li><b>Tracks</b> <code>rails</code><span>The coloured track lines between neighbouring cells.</span></li><li><b>Track networks</b> <code>wires</code><span>Each connected same-colour track network and the buttons, portals and carts it links.</span></li><li><b>Pawn</b> <code>me</code><span>The cell where the player&#x27;s pawn is.</span></li><li><b>Stand-ins</b> <code>ghosts</code><span>The cell of each visible stand-in.</span></li><li><b>Ring</b> <code>walker</code><span>The cell of the self-moving ring; some levels have none.</span></li><li><b>Carts</b> <code>carts</code><span>Each cart&#x27;s cell and whether it is a spring cart or a latch cart.</span></li><li><b>Slots</b> <code>hud</code><span>How many slots the top-left row has and which slot the cursor marks.</span></li><li><b>Counter bar</b> <code>spent</code><span>How many cells of the bottom-row counter bar are spent.</span></li><li><b>Counter bar gap</b> <code>bar_gap</code><span>How many cells at the right end of the counter bar are not drawn.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-me_steps_if_free"><code class="rn">me_steps_if_free</code><span>A direction key moves the pawn one cell unless that cell is wall or cart.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> enterable, target
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> MOVE_ACTIONS, common_skip
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> MOVE_ACTIONS:
+        …
+    <span class="tk-k">if</span> prev.at(target(prev, action)) <span class="tk-k">in</span> (<span class="tk-s">&quot;A&quot;</span>, <span class="tk-s">&quot;B&quot;</span>, <span class="tk-s">&quot;F&quot;</span>):
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    t = target(prev, action)
+    want = t <span class="tk-k">if</span> enterable(prev, t) <span class="tk-k">else</span> prev.me
+    <span class="tk-k">return</span> nxt.me == want</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Cells
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> meStepsIfFree (b : Board) (s : World) (d : Dir) : Cell :=
+  tryGo b s.carts s.me d
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-portal_needs_rising_edge"><code class="rn">portal_needs_rising_edge</code><span>A portal works only on the step a button on its network gets pressed.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> enterable, occupied, target
+<span class="tk-k">from</span> derive.links <span class="tk-k">import</span> portal_link, rising
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> MOVE_ACTIONS, common_skip
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> MOVE_ACTIONS:
+        …
+    t = target(prev, action)
+    <span class="tk-k">if</span> prev.at(t) <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;A&quot;</span>, <span class="tk-s">&quot;B&quot;</span>, <span class="tk-s">&quot;F&quot;</span>):
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> enterable(prev, t):
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> portal_link(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev), t) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    t = target(prev, action)
+    other, buttons = portal_link(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev), t)
+    want = other <span class="tk-k">if</span> rising(occupied(prev), occupied(nxt), buttons) <span class="tk-k">else</span> t
+    <span class="tk-k">return</span> nxt.me == want</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Links
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> portalNeedsRisingEdge (b : Board) (occ0 occ1 : List Cell) (p0 p1 : Cell) : Cell :=
+  <span class="tk-k">if</span> p1 = p0 <span class="tk-k">then</span> p1 <span class="tk-k">else</span>
+  <span class="tk-k">match</span> linkOf b p1 <span class="tk-k">with</span>
+  | some (other, trig) =&gt; <span class="tk-k">if</span> rising occ0 occ1 trig <span class="tk-k">then</span> other <span class="tk-k">else</span> p1
+  | none =&gt; p1
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-spring_follows_button"><code class="rn">spring_follows_button</code><span>A spring cart steps toward its button when pressed and returns home when released.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> occupied
+<span class="tk-k">from</span> derive.track <span class="tk-k">import</span> match, tracks
+<span class="tk-k">from</span> objects.pieces.cart <span class="tk-k">import</span> KIND, SPRING
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> MOVE_ACTIONS, common_skip
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> _springs(ctx, prev):
+    <span class="tk-k">return</span> [t <span class="tk-k">for</span> t <span class="tk-k">in</span> tracks(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev)) <span class="tk-k">if</span> KIND.get(t.color) == SPRING]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> MOVE_ACTIONS:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    ts = tracks(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev))
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(KIND.get(t.color) == SPRING <span class="tk-k">for</span> t <span class="tk-k">in</span> ts):
+        …
+    <span class="tk-k">if</span> match(ts, prev) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> match(ts, nxt) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    ts = tracks(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev))
+    a, b = match(ts, prev), match(ts, nxt)
+    o0, o1 = occupied(prev), occupied(nxt)
+    <span class="tk-k">for</span> t <span class="tk-k">in</span> ts:
+        <span class="tk-k">if</span> KIND.get(t.color) != SPRING:
+            <span class="tk-k">continue</span>
+        <span class="tk-k">if</span> t.button <span class="tk-k">in</span> o1 <span class="tk-k">and</span> t.button <span class="tk-k">not</span> <span class="tk-k">in</span> o0:
+            want = t.fwd
+        <span class="tk-k">elif</span> t.button <span class="tk-k">in</span> o0 <span class="tk-k">and</span> t.button <span class="tk-k">not</span> <span class="tk-k">in</span> o1:
+            want = t.home
+        <span class="tk-k">else</span>:
+            want = a[t]
+        <span class="tk-k">if</span> b[t] != want:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Board.Rail
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> springFollowsButton (tr : Track) (occ0 occ1 : List Cell) (pos : Cell) : Cell :=
+  <span class="tk-k">if</span> occ1.contains tr.button &amp;&amp; !(occ0.contains tr.button) <span class="tk-k">then</span> tr.fwd
+  <span class="tk-k">else</span> <span class="tk-k">if</span> occ0.contains tr.button &amp;&amp; !(occ1.contains tr.button) <span class="tk-k">then</span> tr.home
+  <span class="tk-k">else</span> pos
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-latch_toggles_on_press"><code class="rn">latch_toggles_on_press</code><span>A latch cart flips between two cells each time its button is pressed.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> occupied
+<span class="tk-k">from</span> derive.track <span class="tk-k">import</span> match, tracks
+<span class="tk-k">from</span> objects.pieces.cart <span class="tk-k">import</span> KIND, LATCH
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> MOVE_ACTIONS, common_skip
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> MOVE_ACTIONS:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    ts = tracks(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev))
+    <span class="tk-k">if</span> <span class="tk-k">not</span> any(KIND.get(t.color) == LATCH <span class="tk-k">for</span> t <span class="tk-k">in</span> ts):
+        …
+    <span class="tk-k">if</span> match(ts, prev) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> match(ts, nxt) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    ts = tracks(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev))
+    a, b = match(ts, prev), match(ts, nxt)
+    o0, o1 = occupied(prev), occupied(nxt)
+    <span class="tk-k">for</span> t <span class="tk-k">in</span> ts:
+        <span class="tk-k">if</span> KIND.get(t.color) != LATCH:
+            <span class="tk-k">continue</span>
+        want = t.other(a[t]) <span class="tk-k">if</span> (t.button <span class="tk-k">in</span> o1 <span class="tk-k">and</span> t.button <span class="tk-k">not</span> <span class="tk-k">in</span> o0) <span class="tk-k">else</span> a[t]
+        <span class="tk-k">if</span> b[t] != want:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Track
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> latchTogglesOnPress (tr : Track) (occ0 occ1 : List Cell) (pos : Cell) : Cell :=
+  <span class="tk-k">if</span> occ1.contains tr.button &amp;&amp; !(occ0.contains tr.button) <span class="tk-k">then</span> tr.other pos <span class="tk-k">else</span> pos
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-ghosts_replay_tapes"><code class="rn">ghosts_replay_tapes</code><span>Each stand-in replays its recorded moves, then stays on its last cell.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> (<span class="tk-s">&quot;ACTION1&quot;</span>, <span class="tk-s">&quot;ACTION2&quot;</span>, <span class="tk-s">&quot;ACTION3&quot;</span>, <span class="tk-s">&quot;ACTION4&quot;</span>):
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> <span class="tk-k">not</span> ctx[<span class="tk-s">&quot;hist&quot;</span>].tapes(prev) <span class="tk-k">and</span> <span class="tk-k">not</span> prev.ghosts <span class="tk-k">and</span> <span class="tk-k">not</span> nxt.ghosts:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    pos = ctx[<span class="tk-s">&quot;hist&quot;</span>].ghosts_after(prev, action, nxt)
+    seen = set(pos) - {nxt.me}
+    <span class="tk-k">return</span> seen == set(nxt.ghosts)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Cells
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> ghostsReplayTapes (b : Board) (carts : List Cell) (t : Nat) (g : Ghost) : Ghost :=
+  <span class="tk-k">match</span> g.tape[t]? <span class="tk-k">with</span>
+  | some d =&gt; { g <span class="tk-k">with</span> pos := tryGo b carts g.pos d }
+  | none   =&gt; g
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-walker_patrols"><code class="rn">walker_patrols</code><span>The ring patrols the corridor, moving one cell each time the pawn moves one cell.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> enterable
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+              …
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+    …
+    …
+]
+
+DIRS = ((-<span class="tk-n">1</span>, <span class="tk-n">0</span>), (<span class="tk-n">1</span>, <span class="tk-n">0</span>), (<span class="tk-n">0</span>, -<span class="tk-n">1</span>), (<span class="tk-n">0</span>, <span class="tk-n">1</span>))
+
+<span class="tk-k">def</span> choice(w, heading):
+    <span class="tk-k">def</span> ok(d):
+        <span class="tk-k">return</span> enterable(w, w.walker + _delta(d))
+    <span class="tk-k">if</span> heading <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> ok(heading):
+        <span class="tk-k">return</span> heading
+    back = (-heading[<span class="tk-n">0</span>], -heading[<span class="tk-n">1</span>]) <span class="tk-k">if</span> heading <span class="tk-k">else</span> <span class="tk-k">None</span>
+    side = [d <span class="tk-k">for</span> d <span class="tk-k">in</span> DIRS <span class="tk-k">if</span> d != heading <span class="tk-k">and</span> d != back <span class="tk-k">and</span> ok(d)]
+    <span class="tk-k">if</span> len(side) == <span class="tk-n">1</span>:
+        <span class="tk-k">return</span> side[<span class="tk-n">0</span>]
+    <span class="tk-k">if</span> len(side) &gt; <span class="tk-n">1</span>:
+        <span class="tk-k">return</span> <span class="tk-k">None</span>
+    <span class="tk-k">if</span> back <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> ok(back):
+        <span class="tk-k">return</span> back
+    <span class="tk-k">return</span> (<span class="tk-n">0</span>, <span class="tk-n">0</span>)
+
+<span class="tk-k">def</span> _delta(d):
+    <span class="tk-k">from</span> objects.geometry.delta <span class="tk-k">import</span> Delta
+    <span class="tk-k">return</span> Delta(*d)
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;ACTION5&quot;</span>:
+        …
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        …
+    <span class="tk-k">if</span> prev.walker <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> prev.me != nxt.me <span class="tk-k">and</span> choice(prev, ctx[<span class="tk-s">&quot;hist&quot;</span>].walker_heading()) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    <span class="tk-k">if</span> prev.me == nxt.me:
+        <span class="tk-k">return</span> nxt.walker == prev.walker
+    d = choice(prev, ctx[<span class="tk-s">&quot;hist&quot;</span>].walker_heading())
+    want = prev.walker + _delta(d)
+    <span class="tk-k">if</span> want <span class="tk-k">in</span> {c.cell <span class="tk-k">for</span> c <span class="tk-k">in</span> nxt.carts}:
+        <span class="tk-k">return</span> nxt.walker <span class="tk-k">is</span> <span class="tk-k">None</span>
+    <span class="tk-k">return</span> nxt.walker == want</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Cells
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> sides : Dir → List Dir
+  | .up | .down =&gt; [.left, .right]
+  | .left | .right =&gt; [.up, .down]
+
+<span class="tk-k">def</span> canGo (b : Board) (carts : List Cell) (w : Cell) (d : Dir) : Bool :=
+  <span class="tk-k">match</span> w.go d <span class="tk-k">with</span>
+  | some y =&gt; enterable b carts y
+  | none =&gt; false
+
+<span class="tk-k">def</span> walkerChoice (b : Board) (carts : List Cell) (w : Cell) : Option Dir → Option Dir
+  | some h =&gt;
+    <span class="tk-k">if</span> canGo b carts w h <span class="tk-k">then</span> some h <span class="tk-k">else</span>
+    <span class="tk-k">match</span> (sides h).filter (canGo b carts w) <span class="tk-k">with</span>
+    | [d] =&gt; some d
+    | [] =&gt; <span class="tk-k">if</span> canGo b carts w h.back <span class="tk-k">then</span> some h.back <span class="tk-k">else</span> none
+    | _ =&gt; none
+  | none =&gt;
+    <span class="tk-k">match</span> [Dir.up, Dir.down, Dir.left, Dir.right].filter (canGo b carts w) <span class="tk-k">with</span>
+    | [d] =&gt; some d
+    | _ =&gt; none
+
+<span class="tk-k">def</span> walkerPatrols (b : Board) (carts : List Cell) (w : Option Cell) (h : Option Dir) :
+    Option Cell × Option Dir :=
+  <span class="tk-k">match</span> w <span class="tk-k">with</span>
+  | none =&gt; (none, h)
+  | some x =&gt;
+    <span class="tk-k">match</span> walkerChoice b carts x h <span class="tk-k">with</span>
+    | some d =&gt; ((x.go d).orElse (<span class="tk-k">fun</span> _ =&gt; some x), some d)
+    | none =&gt; (some x, h)
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-hud_cursor_cycle"><code class="rn">hud_cursor_cycle</code><span>The switch-board key moves the top-left cursor to the next slot, wrapping around.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+
+HISTORY = [
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    n, k = prev.hud.n, prev.hud.cursor
+    <span class="tk-k">if</span> nxt.hud.n != n:
+        <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;ACTION5&quot;</span>:
+        <span class="tk-k">return</span> nxt.hud.cursor == (k + <span class="tk-n">1</span>) % n
+    <span class="tk-k">return</span> nxt.hud.cursor == k</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Panel.Hud
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> hudCursorCycle (h : Hud) : Hud :=
+  { h <span class="tk-k">with</span> cursor := (h.cursor + <span class="tk-n">1</span>) % h.n }
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-switch_restarts_round"><code class="rn">switch_restarts_round</code><span>The switch-board key returns the pawn, all stand-ins and the ring to their start cells.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action != <span class="tk-s">&quot;ACTION5&quot;</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    w0 = ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev)
+    <span class="tk-k">return</span> nxt.me == w0.me <span class="tk-k">and</span> <span class="tk-k">not</span> nxt.ghosts <span class="tk-k">and</span> nxt.walker == w0.walker</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Board.Board
+<span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> switchRestartsRound (b : Board) (s : World) (wrap : Bool) : List Ghost :=
+  <span class="tk-k">if</span> wrap <span class="tk-k">then</span> []
+  <span class="tk-k">else</span> s.ghosts.map (<span class="tk-k">fun</span> g =&gt; { g <span class="tk-k">with</span> pos := b.start }) ++ [⟨b.start, s.tape⟩]
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-switch_rewinds_carts"><code class="rn">switch_rewinds_carts</code><span>The switch-board key returns carts to where they stood when this board began.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> occupied
+<span class="tk-k">from</span> derive.track <span class="tk-k">import</span> match, tracks
+<span class="tk-k">from</span> objects.pieces.cart <span class="tk-k">import</span> KIND, LATCH, SPRING
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action != <span class="tk-s">&quot;ACTION5&quot;</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    ts = tracks(ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev))
+    <span class="tk-k">if</span> <span class="tk-k">not</span> ts:
+        …
+    <span class="tk-k">if</span> match(ts, prev) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> match(ts, nxt) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    h = ctx[<span class="tk-s">&quot;hist&quot;</span>]
+    ts = tracks(h.start(prev))
+    fs = h.frames(prev)
+    r0 = match(ts, fs[h.round_start()])
+    a, b = match(ts, prev), match(ts, nxt)
+    occ = occupied(prev)
+    <span class="tk-k">for</span> t <span class="tk-k">in</span> ts:
+        k = KIND.get(t.color)
+        <span class="tk-k">if</span> k == SPRING:
+            want = t.home
+        <span class="tk-k">elif</span> k == LATCH:
+            want = a[t] <span class="tk-k">if</span> t.button <span class="tk-k">in</span> occ <span class="tk-k">else</span> r0[t]
+        <span class="tk-k">else</span>:
+            want = a[t]
+        <span class="tk-k">if</span> b[t] != want:
+            <span class="tk-k">return</span> <span class="tk-k">False</span>
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Board.Rail
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> switchRewindsCarts (tr : Track) (occ0 : List Cell) (pos roundPos : Cell) : Cell :=
+  <span class="tk-k">match</span> tr.kind <span class="tk-k">with</span>
+  | .spring =&gt; tr.home
+  | .latch  =&gt; <span class="tk-k">if</span> occ0.contains tr.button <span class="tk-k">then</span> pos <span class="tk-k">else</span> roundPos
+  | .other  =&gt; pos
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-goal_is_levelup"><code class="rn">goal_is_levelup</code><span>The pawn walking into the end cell clears the level on that step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> derive.cells <span class="tk-k">import</span> enterable, target
+<span class="tk-k">from</span> objects.board.terrain <span class="tk-k">import</span> GOAL
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> MOVE_ACTIONS
+
+…
+              …
+
+HISTORY = [
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    <span class="tk-k">if</span> prev <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">if</span> action <span class="tk-k">not</span> <span class="tk-k">in</span> MOVE_ACTIONS:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;level_prev&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> ctx.get(<span class="tk-s">&quot;level_next&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    t = target(prev, action)
+    hit = prev.at(t) == GOAL <span class="tk-k">and</span> enterable(prev, t)
+    up = ctx[<span class="tk-s">&quot;level_next&quot;</span>] == ctx[<span class="tk-s">&quot;level_prev&quot;</span>] + <span class="tk-n">1</span>
+    same = ctx[<span class="tk-s">&quot;level_next&quot;</span>] == ctx[<span class="tk-s">&quot;level_prev&quot;</span>]
+    <span class="tk-k">return</span> up <span class="tk-k">if</span> hit <span class="tk-k">else</span> same</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Board.Board
+<span class="tk-k">import</span> Obj.World
+
+<span class="tk-k">namespace</span> G50t
+
+<span class="tk-k">def</span> isGoal (b : Board) (s : World) : Bool :=
+  b.at s.me == .goal
+
+<span class="tk-k">end</span> G50t</code></pre></details></li><li id="rule-ghosts_never_outnumber_slots"><code class="rn">ghosts_never_outnumber_slots</code><span>The number of stand-ins always equals the slot number the cursor marks.</span></li><li id="rule-bar_ticks"><code class="rn">bar_ticks</code><span>The counter bar spends one cell every two beats; each step is one beat.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+              …
+              …
+              …
+              …
+
+HISTORY = [
+    …
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action == <span class="tk-s">&quot;RESET&quot;</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    h = ctx[<span class="tk-s">&quot;hist&quot;</span>]
+    t = h.ticks()
+    d = nxt.spent - prev.spent
+    last = <span class="tk-k">None</span>
+    <span class="tk-k">for</span> i, (p, _, n) <span class="tk-k">in</span> enumerate(h.steps):
+        <span class="tk-k">if</span> n.spent &gt; p.spent:
+            last = i + <span class="tk-n">1</span>
+    want = (t - last == <span class="tk-n">2</span>) <span class="tk-k">if</span> last <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">else</span> (t == <span class="tk-n">2</span> + <span class="tk-n">2</span> * nxt.bar_gap)
+    <span class="tk-k">return</span> d == (<span class="tk-n">1</span> <span class="tk-k">if</span> want <span class="tk-k">else</span> <span class="tk-n">0</span>)</code></pre></details></li><li id="rule-reset_restores_start"><code class="rn">reset_restores_start</code><span>The reset key restores this level&#x27;s opening position.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+
+<span class="tk-k">from</span> rule._common <span class="tk-k">import</span> common_skip
+
+…
+              …
+              …
+              …
+              …
+
+HISTORY = [
+    …
+    …
+    …
+]
+
+<span class="tk-k">def</span> scope_(prev, action, nxt, ctx):
+    s = common_skip(prev, nxt, ctx)
+    <span class="tk-k">if</span> s:
+        <span class="tk-k">return</span> s
+    <span class="tk-k">if</span> action != <span class="tk-s">&quot;RESET&quot;</span>:
+        …
+    <span class="tk-k">if</span> ctx.get(<span class="tk-s">&quot;hist&quot;</span>) <span class="tk-k">is</span> <span class="tk-k">None</span>:
+        …
+    <span class="tk-k">return</span> <span class="tk-k">None</span>
+
+<span class="tk-k">def</span> assert_(prev, action, nxt, ctx):
+    w0 = ctx[<span class="tk-s">&quot;hist&quot;</span>].start(prev)
+    <span class="tk-k">return</span> (nxt.me == w0.me <span class="tk-k">and</span> nxt.walker == w0.walker <span class="tk-k">and</span> nxt.carts == w0.carts
+            <span class="tk-k">and</span> <span class="tk-k">not</span> nxt.ghosts <span class="tk-k">and</span> nxt.hud == w0.hud <span class="tk-k">and</span> nxt.spent == <span class="tk-n">0</span>)</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are under Files.</p></section><section class="panel" id="p-proof" role="tabpanel" data-panel="proof"><h2 class="vh">Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : L0_acts.length = <span class="tk-n">17</span> ∧ Winnable board11 (L0_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : L1_acts.length = <span class="tk-n">31</span> ∧ Winnable board12 (L1_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : L2_acts.length = <span class="tk-n">64</span> ∧ Winnable board13 (L2_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : L3_acts.length = <span class="tk-n">31</span> ∧ Winnable board14 (L3_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : L4_acts.length = <span class="tk-n">52</span> ∧ Winnable board15 (L4_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : L5_acts.length = <span class="tk-n">49</span> ∧ Winnable board16 (L5_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : L6_acts.length = <span class="tk-n">43</span> ∧ Winnable board17 (L6_start : World) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are under Files.</p></section><section class="panel" id="p-files" role="tabpanel" data-panel="files"><h2 class="vh">Files</h2><p class="lede">The files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/g50t.zip" download>Download g50t.zip</a> <span class="note">0.4 MB · 72 files</span></p></section></main>
+<script src="../../assets/site.js"></script>
+<script>window.AWM_GAME="g50t";</script>
+<script src="../../assets/game.js"></script>
+</body>
+</html>
