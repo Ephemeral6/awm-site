@@ -348,7 +348,7 @@
       "<p>The two phase2 pilots each restarted the dialogue session once while keeping their workspace files, so they are not uninterrupted-session replications. " +
       "These versions, interruptions and verification statuses do not define a common sampling protocol or a pooled success rate (Appendix B.22).</p>" +
       (S.supplement ? '<p><a class="btn" href="' + S.supplement + '" target="_blank" rel="noopener">Supplementary material (PDF)</a></p>' : "") +
-      '<footer class="site">Source: <code>paper-revision/supplement/sec/92-appendix-c-sc25.tex</code>, §C.22 · ' + provenance() + ".</footer>";
+      '<footer class="site">Source: <code>paper-revision/supplement/sec/92-appendix-c-sc25.tex</code>, §B.22 · ' + provenance() + ".</footer>";
     window.scrollTo(0, 0);
   }
 
