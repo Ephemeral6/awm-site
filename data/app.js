@@ -337,7 +337,7 @@
     scrollTo(anchor && anchor !== "home" ? anchor : "");
   }
 
-  // ---------------------------------------------------------------- C9: autonomous repair (supplementary material, Appendix C.22)
+  // ---------------------------------------------------------------- C9: autonomous repair (supplementary material, Appendix B.22)
   function autorepair() {
     setNav("home");
     app.innerHTML = '<p class="crumb"><a href="#home">Paper</a> / Autonomous repair</p><h1>Autonomous repair (preliminary)</h1>' +
