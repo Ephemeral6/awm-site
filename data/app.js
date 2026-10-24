@@ -269,7 +269,7 @@
     var tiles = S.tiles.map(function (t) { return '<div class="stat"><div class="v">' + esc(t[0]) + '</div><div class="k">' + esc(t[1]) + "</div><p>" + esc(t[2]) + "</p></div>"; }).join("");
     var toc = '<a href="#results">Main result</a><a href="#paper.abstract">Abstract</a>' + secs.map(function (s) { return '<a href="#' + secId(s) + '">' + esc((s.number ? s.number + " " : "") + s.title) + "</a>"; }).join("") +
       (P.bib_html ? '<a href="#paper.references">References</a>' : "") + '<a href="#games">Appendix: the 25 games</a><a href="#data">Data and sources</a>' +
-      '<a href="#repro">Reproducibility</a><a href="#faq">Questions</a><a href="#autorepair">Autonomous repair (preliminary)</a><a href="#bibtex">BibTeX</a>';
+      '<a href="#repro">Reproducibility</a><a href="#faq">Questions</a><a href="#bibtex">BibTeX</a>';
     var T = S.tables || {};
     var results = '<section id="results"><h2>Main result: proving impossibility</h2>' +
       "<p>Two levels of <code>sc25</code> are sealed one unit below their minimum winning cost. The question is whether any legal winning sequence remains (§4 of the paper).</p>" +
@@ -314,7 +314,7 @@
       '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
       "<p>All figures on this site are those reported in the paper and its supplementary material (benchmark commit <code>" + esc((S.data || {}).commit) + "</code>).</p>" +
       table(["What", "From"], [
-        ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 15–16 (Appendix E)"],
+        ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 13–14 (Appendix E)"],
         ["Frames of every step", "<code>bench/runs/&lt;run&gt;/transitions.jsonl</code>; each frame pair is checked against the sealed <code>formal/abstract.jsonl</code> by tid = sha1(action, frame, next frame)"],
         ["Reasoning at each step", "<code>bench/runs/&lt;run&gt;/reasoning.jsonl</code>, sent with each action"],
         ["Bets and journal lines", "the timeline of <code>bench/archive/&lt;seal&gt;/report/index.html</code>, generated from the journal"],
@@ -327,7 +327,6 @@
         ["Paper", "<code>paper-revision/main.tex</code>, the <code>sec/*.tex</code> it inputs, <code>Reference.bib</code>, figures (git " + esc(P.source_commit || "—") + ")"],
         ["Colour palette", "<code>" + esc(S.palette_src) + "</code>"]
       ]) + "</section>" + repro() + faq() +
-      '<section id="autorepair-link"><h2>Autonomous repair (preliminary)</h2><p>Runs that build the audit into the method, with no external signal that a bound is wrong, are on <a href="#autorepair">their own page</a>. They are reported in the supplementary material, not in the six-run evaluation.</p></section>' +
       bibtex() +
       '<footer class="site">' + provenance() + ".</footer></article></div>";
     addExploreCards(document.getElementById("paper"));
@@ -335,21 +334,6 @@
     typeset(document.getElementById("paper"));
     heroAnim(); capInit(); bibInit();
     scrollTo(anchor && anchor !== "home" ? anchor : "");
-  }
-
-  // ---------------------------------------------------------------- C9: autonomous repair (supplementary material, Appendix B.22)
-  function autorepair() {
-    setNav("home");
-    app.innerHTML = '<p class="crumb"><a href="#home">Paper</a> / Autonomous repair</p><h1>Autonomous repair (preliminary)</h1>' +
-      '<p class="lede">Preliminary; reported in the supplementary material, not in the six-run evaluation.</p>' +
-      "<p>These pilots build the audit into the initial procedure, with no external signal that the bound is wrong. They are separate from both the six main runs and the four-attempt feedback repairs of §4.3. " +
-      "The table is Appendix B.22 of the supplementary material; it separates numerical outcomes, the subject's own proof reports and independent rebuilding.</p>" +
-      table(["Record", "Numerical outcome", "Proof verification"], (S.autorepair || []).map(function (r) { return r.map(esc); })) +
-      "<p>The two phase2 pilots each restarted the dialogue session once while keeping their workspace files, so they are not uninterrupted-session replications. " +
-      "These versions, interruptions and verification statuses do not define a common sampling protocol or a pooled success rate (Appendix B.22).</p>" +
-      (S.supplement ? '<p><a class="btn" href="' + S.supplement + '" target="_blank" rel="noopener">Supplementary material (PDF)</a></p>' : "") +
-      '<footer class="site">Source: <code>paper-revision/supplement/sec/92-appendix-c-sc25.tex</code>, §B.22 · ' + provenance() + ".</footer>";
-    window.scrollTo(0, 0);
   }
 
   // ---------------------------------------------------------------- C4: how eleven lp85 concepts became press_permutes (§2.5, Figure 3)
@@ -591,7 +575,7 @@
       '<figure style="margin:0"><figcaption class="note">Before the first recorded step</figcaption><img src="thumbs/' + g + '.png" alt="first frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '<figure style="margin:0"><figcaption class="note">After the last recorded step</figcaption><img src="thumbs/' + g + '-last.png" alt="last frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '</div><p><a class="btn primary" href="#' + g + '.replay">Open the replay</a></p></div></div>' +
-      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Table 2 (Appendix A) and Tables 15–16 (Appendix E).</p>" +
+      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Table 2 (Appendix A) and Tables 13–14 (Appendix E).</p>" +
       table(["", ""], D.stats.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
       "<h3>Official scores on this game (systems of Table 1)</h3>" + table(["System", "Official score"], D.official.map(function (r) { return [esc(r[0]), esc(Number(r[1]).toFixed(1))]; }), [1]) +
       (D.replays.length ? "<h3>Official replays</h3><p>" + D.replays.map(function (r) {
@@ -824,7 +808,7 @@
   window.addEventListener("resize", function () { if (RP) RP.resize(); });
 
   // ---------------------------------------------------------------- routing
-  var HOME_ANCHORS = ["home", "games", "compare", "data", "results", "repro", "faq", "bibtex", "autorepair-link"];
+  var HOME_ANCHORS = ["home", "games", "compare", "data", "results", "repro", "faq", "bibtex"];
   var current = "";
   function route() {
     var h = decodeURIComponent(location.hash.replace(/^#/, ""));
@@ -835,7 +819,6 @@
       return;
     }
     if (RP) { RP.stop(); RP = null; }
-    if (head === "autorepair") { current = "autorepair"; autorepair(); return; }
     if (head === "cert" && P2["cert-l4"]) { current = "cert"; certView(parts.slice(1).join(".")); return; }
     if (head === "repair") { current = "repair"; repairView(parts[1] || (P2["repair-l4"] ? "l4" : "l5")); return; }
     if (head === "unseen" && (P2["unseen-lp85"] || P2["unseen-ft09"])) { current = "unseen"; unseenView(parts[1] || (P2["unseen-lp85"] ? "lp85" : "ft09")); return; }
