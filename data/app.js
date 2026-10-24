@@ -306,7 +306,7 @@
       secs.map(function (s) { return '<section id="' + secId(s) + '"><h2>' + esc((s.number ? s.number + " " : "") + s.title) + "</h2>" + s.html + "</section>"; }).join("") +
       (P.bib_html ? '<section id="paper.references"><h2>References</h2><div class="bib">' + P.bib_html + "</div></section>" : "") +
       '<section id="games"><h2>Appendix: the 25 games</h2><p>Every public ARC-AGI-3 game, as the agent played it. Each game has the same five views: overview with the agent\'s own explanation, step-by-step replay, concept book, Lean proof, and its raw files.</p>' +
-      "<p class=\"note\">AWM's certified clears follow uncertified sessions of the same run in 22 games (Table 15 of the supplementary material).</p>" +
+      "<p class=\"note\">AWM's certified clears follow uncertified sessions of the same run in 22 games (Table 1 of the supplementary material).</p>" +
       '<div class="gallery">' + cards + "</div>" +
       '<h3 id="compare">Official results on the same 25 games</h3><p>' + (S.scores_note || "") + ":</p>" +
       ((S.tables || {})["tab:scores"] || (S.scores ? table(S.scores.head.map(esc), S.scores.rows.map(function (r) { return r.map(esc); }), [2, 3, 4, 5]) : "")) +
@@ -315,7 +315,7 @@
       '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
       "<p>All figures on this site are those reported in the paper and its supplementary material (benchmark commit <code>" + esc((S.data || {}).commit) + "</code>).</p>" +
       table(["What", "From"], [
-        ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 14–15 (Appendix E)"],
+        ["Per-game figures", "the supplementary material: Tables 1–2 (Appendix B.1)"],
         ["Frames of every step", "<code>bench/runs/&lt;run&gt;/transitions.jsonl</code>; each frame pair is checked against the sealed <code>formal/abstract.jsonl</code> by tid = sha1(action, frame, next frame)"],
         ["Reasoning at each step", "<code>bench/runs/&lt;run&gt;/reasoning.jsonl</code>, sent with each action"],
         ["Bets and journal lines", "the timeline of <code>bench/archive/&lt;seal&gt;/report/index.html</code>, generated from the journal"],
@@ -576,9 +576,9 @@
       '<figure style="margin:0"><figcaption class="note">Before the first recorded step</figcaption><img src="thumbs/' + g + '.png" alt="first frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '<figure style="margin:0"><figcaption class="note">After the last recorded step</figcaption><img src="thumbs/' + g + '-last.png" alt="last frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '</div><p><a class="btn primary" href="#' + g + '.replay">Open the replay</a></p></div></div>' +
-      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Table 2 (Appendix A) and Tables 14–15 (Appendix E).</p>" +
+      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Tables 1–2 (Appendix B.1).</p>" +
       table(["", ""], D.stats.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
-      "<h3>Official scores on this game (systems of Table 13 of the supplementary material)</h3>" + table(["System", "Official score"], D.official.map(function (r) { return [esc(r[0]), esc(Number(r[1]).toFixed(1))]; }), [1]) +
+      "<h3>Official scores on this game (systems of Table 2 of the supplementary material)</h3>" + table(["System", "Official score"], D.official.map(function (r) { return [esc(r[0]), esc(Number(r[1]).toFixed(1))]; }), [1]) +
       (D.replays.length ? "<h3>Official replays</h3><p>" + D.replays.map(function (r) {
         return '<a href="' + esc(r.url) + '" target="_blank" rel="noopener">arcprize.org replay ' + esc(r.url.split("/").pop().slice(0, 8)) + "… ↗</a>" + (r.cert ? ' <span class="chip ok">certified</span>' : "");
       }).join("<br>") + "</p>" : "") +
@@ -617,7 +617,7 @@
     }).join("");
     app.innerHTML = crumb(g, "Concept book") + "<h1>" + g + " · concept book</h1>" +
       '<p class="lede">Every concept the agent wrote while playing. Each is a Python hypothesis that judges every recorded transition TRUE, FALSE or NA (outside its scope). ' +
-      D.rules.length + " concepts written, " + (D.rules.length - alive) + " withdrawn (Appendix A of the supplementary material).</p>" +
+      D.rules.length + " concepts written, " + (D.rules.length - alive) + " withdrawn (Appendix B.1 of the supplementary material).</p>" +
       '<p class="note">This is the book in <code>bench/ledger/games/' + esc(g) + "/registry.json</code>, the one the paper counts. A version written in the run shown on the Replay tab links to its step.</p>" +
       gameNav(g, "rules") +
       '<div class="btns"><button class="btn" type="button" id="xall">Expand all</button><button class="btn" type="button" id="call">Collapse all</button></div>' + items +
@@ -635,7 +635,7 @@
     app.innerHTML = crumb(g, "Lean proof") + "<h1>" + g + " · Lean proof</h1>" +
       '<p class="lede">The learned rules are written as definitions in <code>stepRules</code>. The Lean kernel (<code>decide +kernel</code>) checks two theorems. <em>consistent</em>: every rule holds on every recorded transition; <em>faithful</em>: Lean replays the winning run. The replay starts at level 0 and computes each step with the rules, and every step must equal the recording.</p>' +
       gameNav(g, "proof") +
-      "<h2>Reported in the paper</h2><p class=\"note\">Table 2 of the supplementary material (Appendix A), counted over the game's Lean project in <code>bench/ledger/games/" + esc(g) + "/lean2/</code> (in this game's Raw files).</p>" +
+      "<h2>Reported in the paper</h2><p class=\"note\">Table 1 of the supplementary material (Appendix B.1), counted over the game's Lean project in <code>bench/ledger/games/" + esc(g) + "/lean2/</code> (in this game's Raw files).</p>" +
       table(["", ""], (P.paper || []).map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
       "<h2>The sealed run's Game.lean</h2>" + table(["", ""], P.rows.map(function (r) { return [esc(r[0]), r[0].indexOf("sha256") >= 0 ? "<code>" + esc(r[1]) + "</code>" : esc(r[1])]; })) +
       "<h2>Rules (" + P.names.length + ")</h2><p>" + P.names.map(function (n) {
