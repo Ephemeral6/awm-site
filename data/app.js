@@ -314,7 +314,7 @@
       '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
       "<p>All figures on this site are those reported in the paper and its supplementary material (benchmark commit <code>" + esc((S.data || {}).commit) + "</code>).</p>" +
       table(["What", "From"], [
-        ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 12–13 (Appendix E)"],
+        ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 15–16 (Appendix E)"],
         ["Frames of every step", "<code>bench/runs/&lt;run&gt;/transitions.jsonl</code>; each frame pair is checked against the sealed <code>formal/abstract.jsonl</code> by tid = sha1(action, frame, next frame)"],
         ["Reasoning at each step", "<code>bench/runs/&lt;run&gt;/reasoning.jsonl</code>, sent with each action"],
         ["Bets and journal lines", "the timeline of <code>bench/archive/&lt;seal&gt;/report/index.html</code>, generated from the journal"],
@@ -591,7 +591,7 @@
       '<figure style="margin:0"><figcaption class="note">Before the first recorded step</figcaption><img src="thumbs/' + g + '.png" alt="first frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '<figure style="margin:0"><figcaption class="note">After the last recorded step</figcaption><img src="thumbs/' + g + '-last.png" alt="last frame" style="width:100%;image-rendering:pixelated;border-radius:3px"></figure>' +
       '</div><p><a class="btn primary" href="#' + g + '.replay">Open the replay</a></p></div></div>' +
-      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Table 2 (Appendix A) and Tables 12–13 (Appendix E).</p>" +
+      "<h2>Reported in the paper</h2><p class=\"note\">From the supplementary material: Table 2 (Appendix A) and Tables 15–16 (Appendix E).</p>" +
       table(["", ""], D.stats.map(function (r) { return [esc(r[0]), esc(r[1])]; })) +
       "<h3>Official scores on this game (systems of Table 1)</h3>" + table(["System", "Official score"], D.official.map(function (r) { return [esc(r[0]), esc(Number(r[1]).toFixed(1))]; }), [1]) +
       (D.replays.length ? "<h3>Official replays</h3><p>" + D.replays.map(function (r) {
