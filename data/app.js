@@ -277,7 +277,7 @@
       '<figcaption class="paper-caption">Figure 4 of the paper. <a href="#paper.fig-l4attempts">Read its caption in the paper</a>.</figcaption></figure>' +
       ((S.p2 || {})["cert-l4"] ? '<div class="btns"><a class="btn primary" href="#cert">Inspect the certificate</a>' +
         ((S.p2 || {})["repair-l4"] || (S.p2 || {})["repair-l5"] ? '<a class="btn" href="#repair.' + ((S.p2 || {})["repair-l4"] ? "l4" : "l5") + '">Watch the repair</a>' : "") +
-        '<span class="note">from a new AWM run, not one of the six runs in Table 2</span></div>' : "") +
+        '<span class="note">from a new AWM run, not one of the six runs in Table 3</span></div>' : "") +
       capWidget() + (T["tab:verdicts"] || "") +
       '<p class="note">More: <a href="#faq">questions about the proofs</a>, the <a href="#sc25">sc25 game</a> as played, and how <a href="#lp85.merge">eleven lp85 concepts became one rule</a> (§2.5).</p></section>';
     var cards = S.games.map(function (i) {
@@ -308,11 +308,11 @@
       '<section id="games"><h2>Appendix: the 25 games</h2><p>Every public ARC-AGI-3 game, as the agent played it. Each game has the same five views: overview with the agent\'s own explanation, step-by-step replay, concept book, Lean proof, and its raw files.</p>' +
       "<p class=\"note\">AWM's certified clears follow uncertified sessions of the same run in 22 games (Table 15 of the supplementary material).</p>" +
       '<div class="gallery">' + cards + "</div>" +
-      '<h3 id="compare">Official results on the same 25 games</h3><p>Table 13 of the supplementary material (Appendix E):</p>' +
-      (S.scores ? table(S.scores.head.map(esc), S.scores.rows.map(function (r) { return r.map(esc); }), [2, 3, 4, 5]) : "") +
+      '<h3 id="compare">Official results on the same 25 games</h3><p>' + (S.scores_note || "") + ":</p>" +
+      ((S.tables || {})["tab:scores"] || (S.scores ? table(S.scores.head.map(esc), S.scores.rows.map(function (r) { return r.map(esc); }), [2, 3, 4, 5]) : "")) +
       "<p>Per game, from the supplementary material (" + esc(C.label) + "):</p>" +
       table(C.head.map(esc), crow, [1, 2, 3, 4, 5, 6, 7]) + "</section>" +
-      '<section id="data"><h2>Data and sources</h2><p>Table 1 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
+      '<section id="data"><h2>Data and sources</h2><p>Table 2 of the paper:</p>' + ((S.tables || {})["tab:lean"] || "") +
       "<p>All figures on this site are those reported in the paper and its supplementary material (benchmark commit <code>" + esc((S.data || {}).commit) + "</code>).</p>" +
       table(["What", "From"], [
         ["Per-game figures", "the supplementary material: Table 2 (Appendix A) and Tables 14–15 (Appendix E)"],
@@ -388,7 +388,7 @@
       '<p class="note">Paper ' + esc(sec) + ". " + src + "</p>";
   }
   function newRunNote(D) {
-    return "Data: a new AWM run, <code>" + esc(D.run) + "</code> (" + esc(D.batch || "") + "), not one of the six runs in Table 2 of the paper. Source: <code>" + esc(D.source) + "</code>.";
+    return "Data: a new AWM run, <code>" + esc(D.run) + "</code> (" + esc(D.batch || "") + "), not one of the six runs in Table 3 of the paper. Source: <code>" + esc(D.source) + "</code>.";
   }
 
   function certView(arg) {
@@ -541,7 +541,7 @@
     }
     if (P2["repair-l4"] || P2["repair-l5"])
       after(function (t) { return /Both repairs succeed within four additional attempts/.test(t); },
-        '<a href="#repair.' + (P2["repair-l4"] ? "l4" : "l5") + '">Watch the repair</a> (a new run, not one of Table 2).');
+        '<a href="#repair.' + (P2["repair-l4"] ? "l4" : "l5") + '">Watch the repair</a> (a new run, not one of Table 3).');
     if (P2["unseen-lp85"] || P2["unseen-ft09"])
       after(function (t) { return /frozen rules reject every resulting transition/.test(t); },
         '<a href="#unseen.' + (P2["unseen-lp85"] ? "lp85" : "ft09") + '">Try it</a>: draw transitions from the test sets.');
