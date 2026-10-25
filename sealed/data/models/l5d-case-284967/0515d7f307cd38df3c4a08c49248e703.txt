@@ -1,0 +1,22 @@
+"""ACTION1/2/3/4 never move the cursor in any direction other than up/down/left/right respectively, and never by more than its side length."""
+LEVEL = "L1"
+SCOPE = "ACTION1-4 only; same level only; NA if cursor not located in either frame or size changed"
+NOTE = ""
+EVIDENCE = ["3f5956007e12ca17"]
+from _lib import cursor, same_level
+DIRS = {"ACTION1": (-1, 0), "ACTION2": (1, 0), "ACTION3": (0, -1), "ACTION4": (0, 1)}
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or not same_level(ctx):
+        return "NA"
+    a, b = cursor(prev), cursor(nxt)
+    if not a or not b or a[2] != b[2]:
+        return "NA"
+    dy, dx = b[0] - a[0], b[1] - a[1]
+    uy, ux = DIRS[action]
+    if (dy, dx) == (0, 0):
+        return "TRUE"
+    k = dy * uy + dx * ux
+    ok = (dy, dx) == (uy * k, ux * k) and 0 < k <= a[2]
+    return "TRUE" if ok else "FALSE"

@@ -1,0 +1,13 @@
+"""完成匹配钥匙色 6 时，可动块位置、尺寸、朝向都不变。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION6 完成匹配且钥匙色 6；换关 NA"
+NOTE = "替代被撤的 grid_match_6；只断言块不动这一件事，6 框消失的条件另查"
+EVIDENCE = ["47e65ae39a9fe1d2", "39fb35d00fe80a8b"]
+from _lib import piece, facing, matched_key
+
+def assert_(prev, action, nxt, ctx=None):
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    if matched_key(prev, action) != 6: return "NA"
+    a, b = piece(prev), piece(nxt)
+    if a is None or b is None: return "NA"
+    return "TRUE" if a == b and facing(prev, a) == facing(nxt, b) else "FALSE"

@@ -1,0 +1,32 @@
+
+/-- the whole table passes the certificate check: chunks by `decide +kernel`, then the skeleton nodes. -/
+theorem tab_ok : tab.all (ok tab) = true := by
+  unfold tab
+  simp only [Tree.all, tabC0_ok, tabC1_ok, tabC2_ok, tabC3_ok, tabC4_ok, tabC5_ok, tabC6_ok, tabC7_ok,
+    tabC8_ok, tabC9_ok, tabC10_ok, tabC11_ok, tabC12_ok, tabC13_ok, tabC14_ok, tabC15_ok,
+    Bool.and_true, Bool.true_and]
+  decide +kernel
+
+theorem tab_s0 : tab.find s0 = some 37 := by decide +kernel
+
+/-- **Main theorem (self-audit corrected model).** In the level-5 model with the beam rule R-col',
+    every action sequence that wins costs at least 37 units, which is more than the 35-unit budget.
+    It quantifies over all action sequences (moves, plus, col, tele) from the level start; no hypotheses. -/
+theorem l5_impossible : ∀ (as : List Act) (C : Int), firstWin s0 as = some C → 35 < C := by
+  intro as C hw
+  have := lower_bound tab tab_ok as s0 37 C tab_s0 hw
+  omega
+
+/-- **Relaxed-model theorem.** Relax the budget by 2 (35 → 37): the same model has a winning route.
+    37 is the least budget at which it wins (by `l5_impossible` with the bound 37 from `tab_s0`). -/
+theorem witness_wins : firstWin s0 witness = some 37 := by decide +kernel
+
+theorem least_budget_is_37 : (∀ (as : List Act) (C : Int), firstWin s0 as = some C → 37 ≤ C) ∧
+    firstWin s0 witness = some 37 :=
+  ⟨fun as C hw => lower_bound tab tab_ok as s0 37 C tab_s0 hw, witness_wins⟩
+
+end L5
+
+#print axioms L5.l5_impossible
+#print axioms L5.witness_wins
+#print axioms L5.least_budget_is_37

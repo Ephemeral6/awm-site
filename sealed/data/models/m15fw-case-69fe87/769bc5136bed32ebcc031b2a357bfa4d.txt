@@ -1,0 +1,22 @@
+"""Clicking inside a 3x3 panel cell selects it (0 or 2 -> 14) or deselects it (14 -> 0 or 2, its base colour); other cells unchanged unless a pattern completes."""
+LEVEL = "L1"
+SCOPE = "ACTION6 inside a panel cell whose prev colour is 0 or 14; NA if level changes or if any other panel cell changes (pattern completion event)"
+NOTE = "v2: v1 said 14->0 only; tid 26b0449d218e46c0 (L3, cell (0,0) base 2) went 14->2. Cells of base 2 are also selectable."
+EVIDENCE = ["85ebbc06927b04fa", "d1f2c4cc384ea41e", "26b0449d218e46c0"]
+from _lib import click_cell, grid_state
+
+
+def assert_(prev, action, nxt, ctx=None):
+    k = click_cell(action)
+    if k is None or k == "outside":
+        return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"):
+        return "NA"
+    a, b = grid_state(prev), grid_state(nxt)
+    if a[k] not in (0, 2, 14):
+        return "NA"
+    if any(a[o] != b[o] for o in a if o != k):
+        return "NA"
+    if a[k] == 14:
+        return "TRUE" if b[k] in (0, 2) else "FALSE"
+    return "TRUE" if b[k] == 14 else "FALSE"

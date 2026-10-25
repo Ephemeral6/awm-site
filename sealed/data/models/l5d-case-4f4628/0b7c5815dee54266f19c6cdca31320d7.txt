@@ -1,0 +1,26 @@
+import L5CertTab
+
+namespace L5
+
+theorem C580_ok : (C580.toList).all chk = true := by decide +kernel
+theorem C581_ok : (C581.toList).all chk = true := by decide +kernel
+theorem C582_ok : (C582.toList).all chk = true := by decide +kernel
+theorem C583_ok : (C583.toList).all chk = true := by decide +kernel
+theorem C584_ok : (C584.toList).all chk = true := by decide +kernel
+theorem C585_ok : (C585.toList).all chk = true := by decide +kernel
+theorem C586_ok : (C586.toList).all chk = true := by decide +kernel
+theorem C587_ok : (C587.toList).all chk = true := by decide +kernel
+theorem C588_ok : (C588.toList).all chk = true := by decide +kernel
+theorem C589_ok : (C589.toList).all chk = true := by decide +kernel
+theorem C590_ok : (C590.toList).all chk = true := by decide +kernel
+theorem C591_ok : (C591.toList).all chk = true := by decide +kernel
+theorem C592_ok : (C592.toList).all chk = true := by decide +kernel
+theorem C593_ok : (C593.toList).all chk = true := by decide +kernel
+theorem C594_ok : (C594.toList).all chk = true := by decide +kernel
+theorem C595_ok : (C595.toList).all chk = true := by decide +kernel
+theorem C596_ok : (C596.toList).all chk = true := by decide +kernel
+theorem C597_ok : (C597.toList).all chk = true := by decide +kernel
+theorem C598_ok : (C598.toList).all chk = true := by decide +kernel
+theorem C599_ok : (C599.toList).all chk = true := by decide +kernel
+
+end L5

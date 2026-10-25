@@ -1,0 +1,23 @@
+# Game service
+
+You have HTTP access to a turn-based video game at the base URL you were given (for example `http://127.0.0.1:port`).
+Nothing about the game is documented beyond this file: what things on screen are and how they behave is for you to
+find out by playing.
+
+## Playing
+
+- `POST /reset` starts the game. Call it once; any later `reset` ends the whole game (see below).
+- `POST /action` with JSON body `{"action": n}`, `n` one of `1`, `2`, `3`, `4`, performs one action.
+- `POST /action` with JSON body `{"action": 6, "x": X, "y": Y}` performs one action at a screen position:
+  `X` is the column and `Y` the row of the 64×64 frame (integers 0–63; `frame[Y][X]` is the cell at that position).
+
+Both return JSON:
+
+- `frames`: the frames rendered while the action played out (one or more), each a 64×64 grid
+  (a list of 64 rows, each a list of 64 integers 0–15; each integer is a colour). The last one is the current screen.
+- `state`: `NOT_FINISHED`, `GAME_OVER` (the game has ended without a win), or `WIN` (you have beaten the last level).
+- `level`: the level you are on (1-based); `levels_completed`; `levels_total`.
+
+Beating a level takes you to the next one.
+
+This copy has no retries: any game over, or calling reset, ends the whole game. After that the service refuses all requests.

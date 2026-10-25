@@ -1,0 +1,63 @@
+"""Cost fit over ALL recorded readings (attempt 1: tr 0-86, attempt 2: tr 87-113).
+Params: display granularity g (1|2 rows), rounding (floor|round|ceil), ordinary cost 1 (unit),
+completing-click cost k (1/4 steps), first-action-after-game-reset counted c0, per-segment budget B (1/4 steps),
+refund form at the pad event (tr 103): 'sub R' or 'set R' (R in 1/4 steps 0..20)."""
+import json, math
+from fractions import Fraction as F
+L=[json.loads(l) for l in open('transitions.jsonl')]
+def kind(i,r):
+    if r['ctx']['level_prev']!=r['ctx']['level_next']: return 'entry'
+    a=r['action']
+    if a.startswith('ACTION6'):
+        x,y=map(int,a.split(':')[1].split(','))
+        incell=any(49+5*i<=y<52+5*i and 24+5*j<=x<27+5*j for i in range(3) for j in range(3))
+        if not incell: return 'free'
+        p,n=r['prev'],r['nxt']
+        sel_b=sum(1 for yy in range(47,64) for xx in range(22,39) if p[yy][xx]==14)
+        sel_a=sum(1 for yy in range(47,64) for xx in range(22,39) if n[yy][xx]==14)
+        return 'cast' if (sel_a==0 and sel_b>=18) else 'ord'
+    return 'ord'
+segs={}
+for i,r in enumerate(L):
+    seg=('a2' if i>=87 else 'a1')+'L'+str(r['ctx']['level_next'])
+    segs.setdefault(seg,[]).append((i,kind(i,r),sum(1 for y in range(64) if r['nxt'][y][62]==0),r['ctx']['state_next']))
+rnd={'floor':math.floor,'round':lambda x: math.floor(x+F(1,2)),'ceil':math.ceil}
+PAD=103
+sols=[]
+def fitseg(v,g,f,k,c0,form,R):
+    good=[]
+    for B4 in range(32,321):
+        B=F(B4,4); u=F(0); fine=True
+        for i,kd,obs,st in v:
+            if kd=='entry': u=F(0); continue
+            if kd=='free': pass
+            elif kd=='ord': u+= (c0 if i==0 else 1)
+            else: u+=k
+            if i==PAD and form: u = (u-R) if form=='sub' else R
+            cells=F(64,g)
+            if st=='GAME_OVER':
+                if not u>B: fine=False;break
+                continue
+            if u>B or g*min(int(cells),f(max(u,0)*cells/B))!=obs: fine=False;break
+        if fine: good.append(B)
+    return good
+for g in (1,2):
+ for rn,f in rnd.items():
+  for k in [F(j,4) for j in range(4,41)]:
+   for c0 in (0,1):
+    per={}; ok=True
+    for sg,v in segs.items():
+      if sg=='a2L4': continue
+      gd=fitseg(v,g,f,k,c0,None,0)
+      if not gd: ok=False;break
+      per[sg]=gd
+    if not ok: continue
+    for form in ('sub','set'):
+     for R in [F(j,4) for j in range(0,81)]:
+      if form=='sub' and R==0: continue
+      gd=fitseg(segs['a2L4'],g,f,k,c0,form,R)
+      com=sorted(set(gd)&set(per['a1L4']))
+      if com:
+        sols.append((g,rn,str(k),c0,form,str(R),[str(b) for b in com],{s2:(str(min(v)),str(max(v))) for s2,v in per.items()}))
+print(len(sols))
+for x in sols: print(x)

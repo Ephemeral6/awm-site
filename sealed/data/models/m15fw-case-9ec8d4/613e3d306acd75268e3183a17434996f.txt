@@ -1,0 +1,32 @@
+"""光标移动后若其足迹与目标框（>16 格的 9/10 连通块）重叠，本关立即判过（level +1）；不重叠则关号不变。"""
+LEVEL = "L5"
+SCOPE = "跨服务端重开（关号回退 / prev 预算条空）NA；只看 ACTION1-4；prev 中光标与目标框都要定位得到；按 prev 框 + move_step4 的预测位移算足迹"
+NOTE = ""
+EVIDENCE = ["fc553f9f69728a9b", "c4621ed629f2ce2c"]
+from _lib import DIRS, cursor_box
+from geo import components
+
+
+def goal_cells(g):
+    cells = [(r, c) for r in range(0, 47) for c in range(64) if g[r][c] in (9, 10)]
+    big = [set(cp) for cp in components(cells) if len(cp) > 16]
+    return big[0] if len(big) == 1 else None
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or not ctx:
+        return "NA"
+    if (ctx.get("level_next") or 0) < (ctx.get("level_prev") or 0):
+        return "NA"   # service restart back to level 1 (c4621ed629f2ce2c): not a win
+    if not any(prev[r][62] == 14 for r in range(64)):
+        return "NA"   # prev frame is a GAME_OVER frame (restart in between)
+    import importlib
+    ms = importlib.import_module("move_step4")
+    b = cursor_box(prev); G = goal_cells(prev)
+    if b is None or G is None:
+        return "NA"
+    k = ms.predict_k(prev, (b[0], b[1]), action)
+    dr, dc = DIRS[action]
+    foot = {(b[0] + r + dr * k, b[1] + c + dc * k) for r in range(b[2]) for c in range(b[3])}
+    won = ctx.get("level_next") != ctx.get("level_prev") or ctx.get("state_next") == "WIN"
+    return "TRUE" if won == bool(foot & G) else "FALSE"

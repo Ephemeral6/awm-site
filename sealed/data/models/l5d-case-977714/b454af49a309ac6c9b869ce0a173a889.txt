@@ -1,0 +1,21 @@
+"""Budget-pruned cheapest plan from a given state in the L5 model (work/l5_table.py), T from argv."""
+import sys, heapq, importlib.util
+T = int(sys.argv[1]); r, c, s, bc, bd, tile, u0 = [int(x) for x in sys.argv[2:9]]
+B = int(sys.argv[9]) if len(sys.argv) > 9 else 35
+spec = importlib.util.spec_from_file_location('m', 'work/l5_table.py'); m = importlib.util.module_from_spec(spec)
+sys.argv = ['x', str(T)]; spec.loader.exec_module(m); m.T = T
+start = (r, c, s, bool(bc), bool(bd), bool(tile))
+best = {start: u0}; pq = [(u0, 0, start, ())]; win = None; n = 0
+while pq:
+    u, _, st, path = heapq.heappop(pq)
+    if best.get(st, 1e9) < u: continue
+    for a in m.ACTS:
+        ns, cost, w = m.step(st, a); nu = u + cost
+        if u + 1 > B: continue           # any accepted action beyond the budget = game over
+        if cost > 0 and nu > B: continue
+        if w:
+            if win is None or nu < win[0]: win = (nu, path + (a,))
+            continue
+        if nu < best.get(ns, 1e9):
+            best[ns] = nu; n += 1; heapq.heappush(pq, (nu, n, ns, path + (a,)))
+print('T', T, 'from', start, 'u0', u0, '->', win)

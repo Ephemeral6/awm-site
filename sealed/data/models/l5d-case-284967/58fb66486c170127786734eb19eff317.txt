@@ -1,0 +1,10 @@
+import json,sys
+sys.path.insert(0,'.')
+from geo import diff, diff_sum
+L=[json.loads(l) for l in open('transitions.jsonl')]
+n=int(sys.argv[1]) if len(sys.argv)>1 else 1
+for r in L[-n:]:
+    d=diff(r['prev'],r['nxt'])
+    print(r['action'], r['ctx'], 'ndiff',len(d), diff_sum(r['prev'],r['nxt'])[:10])
+    from collections import Counter
+    print(Counter((u,v) for _,_,u,v in d))

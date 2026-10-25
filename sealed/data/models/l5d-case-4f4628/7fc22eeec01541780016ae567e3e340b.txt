@@ -1,0 +1,37 @@
+"""Turn lean/L5Cert.lean (gen_cert.py output) into L5CertTab.lean + L5CertChk*.lean, and patch L5Bound.lean.
+Run from lean/."""
+import re, glob, os
+
+s = open('L5Cert.lean', encoding='utf-8').read()
+s = s.replace("""   .growAt .c0, .growAt .c1, .growAt .c2, .growAt .c3]""",
+              """   .growAt .o0 .o0, .growAt .o0 .o1, .growAt .o0 .o2, .growAt .o1 .o0, .growAt .o1 .o1,
+   .growAt .o1 .o2, .growAt .o2 .o0, .growAt .o2 .o1, .growAt .o2 .o2]""")
+s = s.replace("""  [.mv .U, .mv .D, .mv .L, .mv .R,""", """  [.mv .U, .mv .D, .mv .L, .mv .R,
+   .mvk .U .k1, .mvk .U .k2, .mvk .U .k3, .mvk .U .k4, .mvk .D .k1, .mvk .D .k2, .mvk .D .k3, .mvk .D .k4,
+   .mvk .L .k1, .mvk .L .k2, .mvk .L .k3, .mvk .L .k4, .mvk .R .k1, .mvk .R .k2, .mvk .R .k3, .mvk .R .k4,""")
+s = s.replace("""  | mv d => cases d <;> simp [allActs]""", """  | mv d => cases d <;> simp [allActs]
+  | mvk d k => cases d <;> cases k <;> simp [allActs]""")
+s = s.replace("""  | growAt c => cases c <;> simp [allActs]""",
+              """  | growAt a b => cases a <;> cases b <;> simp [allActs]""")
+ct = re.search(r'def ctop : CTree := (.*)\n', s).group(1)
+names = re.findall(r'theorem (C\d+)_ok', s)
+i = s.index('theorem C0_ok')
+j = s.index('end L5')
+open('L5CertTab.lean', 'w', encoding='utf-8').write(s[:i] + s[j:])
+for f in glob.glob('L5CertChk*'):
+    os.remove(f)
+files = []
+for g in range(0, len(names), 20):
+    fn = 'L5CertChk%d' % (g // 20)
+    files.append(fn)
+    body = '\n'.join('theorem %s_ok : (%s.toList).all chk = true := by decide +kernel' % (n, n)
+                     for n in names[g:g + 20])
+    open(fn + '.lean', 'w', encoding='utf-8').write('import L5CertTab\n\nnamespace L5\n\n' + body + '\n\nend L5\n')
+b = open('L5Bound.lean', encoding='utf-8').read()
+b = re.sub(r'(import L5CertChk\d+\n)+', '\n'.join('import ' + f for f in files) + '\n', b)
+term = re.sub(r'\(\.leaf (C\d+)\)', r'(leaf_ok \1_ok)', ct)
+term = re.sub(r'\(\.node \d+ ', '(node_ok ', term)
+b = re.sub(r'  unfold ctop\n  exact .*\n', lambda _: '  unfold ctop\n  exact ' + term + '\n', b)
+open('L5Bound.lean', 'w', encoding='utf-8').write(b)
+os.remove('L5Cert.lean')
+print(len(names), 'chunks', len(files), 'files')

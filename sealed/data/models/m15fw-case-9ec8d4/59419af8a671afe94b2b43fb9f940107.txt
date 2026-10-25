@@ -1,0 +1,144 @@
+"""Full-evidence level-4 model with per-rule relaxation flags, and an exact search for
+L = least budget B at which some action list wins (bottleneck Dijkstra on peak spent).
+
+State: (s, r, c, f, op, it, marks, spent); f = facing 0 up 1 down 2 left 3 right.
+Marks are restricted to the recipe cells {1,3,4,5,7} (clicking any other cell can only delay a
+completion; with superset completion an extra cell never helps either, it only costs a click).
+"""
+import heapq
+
+def inR(r0, r1, c0, c1, r, c): return r0 <= r <= r1 and c0 <= c <= c1
+
+DEFAULT = dict(
+    order_permissive=False,   # R6: winning action may overdraw (win checked before budget)
+    superset=False,           # R7.1: marks containing a recipe + extra cells complete it
+    double=False,             # R7.2: marks containing both recipes fire both effects (grow first or switch first)
+    grow_alt=False,           # R9: grow next to walls may land on other free quadrants
+    fire_cols=(31, 32),       # R10.1: columns where the switch can fire
+    fire_facings=(0,),        # R10.2: facings that can fire
+    fire_sizes=(2, 4),        # R10.3
+    refill_4x4_partial=False, # R12.1: a 4x4 partly overlapping the item refills
+    refill_4x4_grow=False,    # R12.4: a 4x4 produced by a grow click that overlaps the item (partly or fully) refills
+    refill_4x4_anyclick=False,# R12.6: a 4x4 overlapping the item refills after ANY panel click
+    refill_offclick=False,    # R12.7: ... also after a (free) off-panel click
+    refill_anchor=False,      # R12.8: refill iff the item overlaps the cursor's top-left 2x2 block, after any action
+    refill_on_click=True,     # R12.2: a 2x2 that comes to overlap the item by shrink/grow (no move) refills
+    refill_adjacent=False,    # R12.3: a 2x2 touching (not overlapping) the item refills
+    refund=10,                # R13
+    uncapped=True,            # R13.1: spent may go below 0 after a refund
+    win_adjacent=False,       # R16: touching the goal wins
+    blocked_turn=False,       # R17: a blocked move still turns the cursor
+    stalk=True,               # R2.x: stalk passable (observed)
+    move_cost=1, click_cost=1, complete_cost=2,
+)
+
+goal = lambda r, c: inR(28, 33, 57, 61, r, c)
+item = lambda r, c: inR(34, 35, 23, 24, r, c)
+
+class M:
+    def __init__(self, **kw):
+        self.o = dict(DEFAULT); self.o.update(kw)
+    def passc(self, op, r, c):
+        return (inR(21,36,21,44,r,c) or (op and inR(29,32,45,47,r,c)) or inR(29,32,48,56,r,c)
+                or inR(28,33,57,61,r,c) or (self.o['stalk'] and inR(9,20,31,32,r,c))
+                or (op and inR(5,8,30,33,r,c)))
+    def foot_ok(self, op, r, c, s):
+        return r >= 0 and c >= 0 and all(self.passc(op, r+i, c+j) for i in range(s) for j in range(s))
+    def overlap(self, f, r, c, s): return any(f(r+i, c+j) for i in range(s) for j in range(s))
+    def touch(self, f, r, c, s):
+        return any(f(r+i, c+j) for i in range(-1, s+1) for j in range(-1, s+1)
+                   if (i in (-1, s)) != (j in (-1, s)))
+    def wins(self, s, r, c):
+        return self.overlap(goal, r, c, s) or (self.o['win_adjacent'] and self.touch(goal, r, c, s))
+    def move(self, q, d):
+        s, r, c, f, op, it = q
+        dr, dc = [(-1,0),(1,0),(0,-1),(0,1)][d]; k = 0
+        for j in range(1, s+1):
+            if self.foot_ok(op, r+dr*j, c+dc*j, s): k = j
+            else: break
+        if k == 0:
+            return (s, r, c, d if self.o['blocked_turn'] else f, op, it)
+        return (s, r+dr*k, c+dc*k, d, op, it)
+    def shrink_res(self, q):
+        s, r, c, f, op, it = q
+        if s == 4: return [(2, r, c, f, op, it)]
+        if self.foot_ok(op, r-2, c-2, 4): return [(4, r-2, c-2, f, op, it)]
+        out = [q]
+        if self.o['grow_alt']:
+            for r2, c2 in ((r-2, c), (r, c-2), (r, c)):
+                if self.foot_ok(op, r2, c2, 4): out.append((4, r2, c2, f, op, it))
+        return out
+    def switch_res(self, q):
+        s, r, c, f, op, it = q
+        fire = c in self.o['fire_cols'] and f in self.o['fire_facings'] and s in self.o['fire_sizes']
+        return [(s, r, c, f, True, it)] if fire else [q]
+    def refill_ok(self, q, kind):
+        """kind: 'move', 'click' (ordinary panel click), 'shrink', 'grow', 'switch', 'off' (off-panel)."""
+        s, r, c, f, op, it = q
+        if not it: return False
+        if self.o['refill_anchor']:
+            return self.overlap(item, r, c, 2)
+        if s == 2:
+            if kind == 'off': return False
+            if kind != 'move' and not self.o['refill_on_click']: return False
+            return self.overlap(item, r, c, 2) or (self.o['refill_adjacent'] and self.touch(item, r, c, 2))
+        if not self.overlap(item, r, c, 4): return False
+        if self.o['refill_4x4_grow'] and kind == 'grow': return True
+        if self.o['refill_4x4_anyclick'] and kind in ('click', 'shrink', 'grow', 'switch'): return True
+        if self.o['refill_offclick'] and kind == 'off': return True
+        return self.o['refill_4x4_partial'] and kind == 'move' and not (
+            all(self.overlap(lambda rr, cc: rr == i and cc == j, r, c, 4) for i in (34, 35) for j in (23, 24)))
+SHR = frozenset({1, 3, 5, 7}); SW = frozenset({1, 4, 7})
+
+def least_budget(m, start=(4, 25, 37, 1, False, True), Bmax=26, want_path=False):
+    """min over winning action lists of the peak spent; returns (L, path) or (None, None)."""
+    o = m.o
+    s0 = (start, frozenset(), 0)
+    pq = [(0, 0, s0, ())]; best = {}; n = 0
+    while pq:
+        peak, _, st, path = heapq.heappop(pq)
+        if st == ('WIN',): return peak, path
+        if best.get(st, 999) <= peak: continue
+        best[st] = peak
+        q, mk, sp = st
+        succ = []   # (q2, mk2, sp_after_cost, won, by_move, label)
+        for d in range(4):
+            q2 = m.move(q, d)
+            succ.append((q2, mk, sp + o['move_cost'], m.wins(q2[0], q2[1], q2[2]), 'move', 'UDLR'[d]))
+        for k in (1, 3, 4, 5, 7):
+            m2 = mk ^ {k}
+            exS, exW = m2 == SHR, m2 == SW
+            supS, supW = SHR <= m2, SW <= m2
+            doS = exS or (o['superset'] and supS); doW = exW or (o['superset'] and supW)
+            outs = []
+            if doS and doW and o['double']:
+                for q1 in m.shrink_res(q):
+                    outs += [(q3, 'S+W') for q3 in m.switch_res(q1)]
+                for q1 in m.switch_res(q):
+                    outs += [(q3, 'W+S') for q3 in m.shrink_res(q1)]
+            if doS: outs += [(q2, 'S') for q2 in m.shrink_res(q)]
+            if doW: outs += [(q2, 'W') for q2 in m.switch_res(q)]
+            if outs:
+                for q2, tag in outs:
+                    kind = 'switch' if tag == 'W' else ('grow' if q[0] == 2 else 'shrink')
+                    succ.append((q2, frozenset(), sp + o['complete_cost'], m.wins(q2[0], q2[1], q2[2]), kind, 'c%d%s' % (k, tag)))
+            else:
+                succ.append((q, frozenset(m2), sp + o['click_cost'], False, 'click', 'c%d' % k))
+        if o['refill_offclick'] or o['refill_anchor']:
+            succ.append((q, mk, sp, False, 'off', 'off'))
+        for q2, mk2, sp2, won, kind, lab in succ:
+            if won:
+                p2 = peak if o['order_permissive'] else max(peak, sp2)
+                if p2 <= Bmax:
+                    heapq.heappush(pq, (p2, -1, ('WIN',), path + (lab,) if want_path else ()))
+                continue
+            sp3 = sp2
+            if m.refill_ok(q2, kind):
+                q2 = q2[:5] + (False,)
+                sp3 = sp2 - o['refund'] if o['uncapped'] else max(0, sp2 - o['refund'])
+                lab = lab + '*'
+            p2 = max(peak, sp3)   # refill applied before the check (observed, attempt 6)
+            if p2 > Bmax: continue
+            n += 1
+            heapq.heappush(pq, (p2, n, (q2, mk2, sp3), path + (lab,) if want_path else ()))
+    return None, None

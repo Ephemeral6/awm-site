@@ -1,0 +1,72 @@
+"""Step 1 of METHOD_selfaudit: per-situation relaxations, admissibility by replay, and L."""
+import sys, json, time
+sys.path[:0] = ['.', 'concepts', 'work/selfaudit']
+import engine as E
+from replay import replay
+
+BASE = dict(refill_on_click=False, uncapped=False)   # full-evidence model (current)
+ALLF = (0, 1, 2, 3)
+ROWS = [
+  # id, class, description small, kwargs small, description widest, kwargs widest
+  ('R6', 'termination/order', 'a winning action may overdraw (win checked before budget)', dict(order_permissive=True),
+         'same', dict(order_permissive=True)),
+  ('R7.1', 'precondition (panel)', 'marks = recipe + extra cells complete the recipe (superset)', dict(superset=True),
+         'same', dict(superset=True)),
+  ('R7.2', 'effect/order (panel)', 'marks containing both recipes: both effects fire (either order)', dict(superset=True, double=True),
+         'same', dict(superset=True, double=True)),
+  ('R9', 'effect (grow)', 'grow next to a wall may land on the free quadrant (r-2,c)', dict(grow_alt=True),
+         'grow next to walls: any free quadrant', dict(grow_alt=True)),
+  ('R10.1', 'precondition (switch column)', 'switch also fires for a 2x2 at col 33 facing up', dict(fire_cols=(31, 32, 33)),
+         'switch fires at every column except the recorded failures', 'COLS_WIDE'),
+  ('R10.2', 'precondition (switch facing)', 'switch at col 31 also fires facing down', dict(fire_facings=(0, 1)),
+         'switch at col 31 fires in any facing except (2x2, left)', 'FACING_WIDE'),
+  ('R12.1', 'precondition (refill, 4x4)', 'a 4x4 PARTLY overlapping the item refills', dict(refill_4x4_partial=True),
+         'same', dict(refill_4x4_partial=True)),
+  ('R12.2', 'precondition (refill, by click)', 'a 2x2 made to overlap the item by a shrink/grow click refills', dict(refill_on_click=True),
+         'same', dict(refill_on_click=True)),
+  ('R12.3', 'precondition (refill, touch)', 'a 2x2 touching the item refills', dict(refill_adjacent=True),
+         'same', dict(refill_adjacent=True)),
+  ('R13.1', 'charge (refund floor)', 'spent may go below 0 after the refund', dict(uncapped=True),
+         'same', dict(uncapped=True)),
+  ('R13', 'constant (refund)', 'refund 11', dict(refund=11), 'refund 11', dict(refund=11)),
+  ('R16', 'termination (win)', 'touching the goal wins', dict(win_adjacent=True), 'same', dict(win_adjacent=True)),
+  ('R17', 'effect (blocked move)', 'a blocked move still turns the cursor', dict(blocked_turn=True), 'same', dict(blocked_turn=True)),
+  ('R3', 'charge (move)', 'a move costs 0 when ... (one unit less)', dict(move_cost=0), 'same', dict(move_cost=0)),
+  ('R4.1', 'charge (click)', 'an ordinary panel click costs 0', dict(click_cost=0), 'same', dict(click_cost=0)),
+  ('R4.2', 'charge (completion)', 'a completing click costs 1', dict(complete_cost=1), 'same', dict(complete_cost=1)),
+]
+class WideFire(E.M):
+    """switch fires everywhere except the recorded failing (size, col, facing) situations on L4."""
+    FAIL = {(4, 29, 2), (4, 29, 0), (4, 33, 0), (4, 41, 3), (2, 43, 3), (2, 31, 2)}
+    def __init__(self, facing_only=False, **kw):
+        super().__init__(**kw); self.facing_only = facing_only
+    def switch_res(self, q):
+        s, r, c, f, op, it = q
+        if self.facing_only:
+            fire = c in (31, 32) and (s, c, f) not in self.FAIL
+        else:
+            fire = (s, c, f) not in self.FAIL
+        return [(s, r, c, f, True, it)] if fire else [q]
+def model(kw):
+    if kw == 'COLS_WIDE': return WideFire(**BASE)
+    if kw == 'FACING_WIDE': return WideFire(facing_only=True, **BASE)
+    d = dict(BASE); d.update(kw); return E.M(**d)
+if __name__ == '__main__':
+    out = []
+    t = time.time()
+    L0, path0 = E.least_budget(model({}), want_path=True)
+    n, ok, bad = replay(model({}))
+    print('BASE L', L0, 'replay %d/%d' % (ok, n), path0, flush=True)
+    for rid, cls, ds, ks, dw, kw in ROWS:
+        res = []
+        for kwx in (ks, kw):
+            m = model(kwx)
+            n, ok, bad = replay(m)
+            adm = (ok == n)
+            L, path = E.least_budget(m, want_path=True)
+            res.append((adm, ok, n, L, path, [b[:2] for b in bad[:3]]))
+        out.append((rid, cls, ds, dw, res))
+        print(rid, cls, '| small:', res[0][0], '%d/%d' % (res[0][1], res[0][2]), 'L', res[0][3],
+              '| widest:', res[1][0], '%d/%d' % (res[1][1], res[1][2]), 'L', res[1][3], res[1][5], flush=True)
+    json.dump({'L0': L0, 'path0': path0, 'rows': out}, open('work/selfaudit/sensitivity.json', 'w'), default=str)
+    print('secs', round(time.time() - t))

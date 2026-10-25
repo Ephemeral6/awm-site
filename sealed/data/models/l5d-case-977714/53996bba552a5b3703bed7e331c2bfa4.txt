@@ -1,0 +1,9 @@
+import json,sys
+from collections import Counter
+d=json.load(open('.last_frame.json'))
+g=d['frame']
+print('level',d['level'])
+H='0123456789abcdef'
+for i,row in enumerate(g):
+    print('%2d '%i+''.join(H[v] for v in row))
+print(Counter(v for r in g for v in r))

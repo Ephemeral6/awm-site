@@ -1,0 +1,23 @@
+"""点中部面板里颜色为 0 的格子，该格（3x3）变成 14，其余面板格不变。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION6 点中面板格且该格原为 0；若点完后面板里没有任何 14（图样完成后整板重置）则 NA"
+NOTE = ""
+EVIDENCE = ["3fe50102c2776f62"]
+from _lib import panel, panel_hit
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not action.startswith("ACTION6:"):
+        return "NA"
+    x, y = map(int, action.split(":")[1].split(","))
+    h = panel_hit(x, y)
+    if h is None:
+        return "NA"
+    a, b = panel(prev), panel(nxt)
+    if a[h[0]][h[1]] != 0:
+        return "NA"
+    if not any(v == 14 for row in b for v in row):
+        return "NA"
+    exp = [row[:] for row in a]
+    exp[h[0]][h[1]] = 14
+    return "TRUE" if b == exp else "FALSE"

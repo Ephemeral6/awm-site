@@ -1,0 +1,9 @@
+import json,sys
+sys.path.insert(0,'.')
+from geo import diff_groups, diff_sum
+L=[json.loads(l) for l in open('transitions.jsonl') if l.strip()]
+r=L[-1]
+print('action',r['action'],r['ctx'])
+for k,v in diff_groups(r['prev'],r['nxt']).items():
+    rs=[a for a,b in v]; cs=[b for a,b in v]
+    print(k,len(v),'rows',min(rs),max(rs),'cols',min(cs),max(cs))

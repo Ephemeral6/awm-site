@@ -1,0 +1,72 @@
+"""Level-5 recipe-level model, mirrors lean/L5Model.lean exactly. Builds reachable states + potential h."""
+import json, sys
+T = int(sys.argv[1]) if len(sys.argv) > 1 else 9
+STATIC = [(25,40,13,28),(13,24,21,22),(33,36,32,36),(25,40,37,52),(21,24,45,46),
+          (15,16,41,54),(17,20,41,48),(5,10,33,36),(14,20,33,36),(1,4,33,36)]
+CB = [(9,12,20,23),(33,36,29,31)]; DB = [(14,17,55,58),(11,13,33,36)]
+CBOX, DBOX = (9,12,20,23), (14,17,55,58)
+TILE = (37,38,49,50); GOAL = (1,4,33,36)
+def inr(r,c,R): return R[0]<=r<=R[1] and R[2]<=c<=R[3]
+def floor(bc,bd,r,c):
+    return any(inr(r,c,R) for R in STATIC) or (not bc and any(inr(r,c,R) for R in CB)) or (not bd and any(inr(r,c,R) for R in DB))
+def free(bc,bd,r,c,s): return all(floor(bc,bd,r+i,c+j) for i in range(s) for j in range(s))
+def hits(r,c,s,R): return any(inr(r+i,c+j,R) for i in range(s) for j in range(s))
+def gap(r,c,s,R):
+    # attempt 3: near needs alignment (zero gap on one axis); otherwise infinitely far
+    vg = R[0]-(r+s) if R[0] >= r+s else (r-R[1]-1 if r > R[1] else 0)
+    hg = R[2]-(c+s) if R[2] >= c+s else (c-R[3]-1 if c > R[3] else 0)
+    return vg+hg if (vg == 0 or hg == 0) else 1000
+ACTS = ['U','D','L','R','PLUS','COL','TELE','TELEF','GROW_A','GROW_B']
+def step(st, a):
+    r,c,s,bc,bd,tile = st
+    if a in 'UDLR':
+        dy,dx = {'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}[a]
+        k = s   # attempt 3: clamp shortens by even steps only (4 -> 2 -> 0; 2 -> 0)
+        while k > 0:
+            nr, nc = r+dy*k, c+dx*k
+            if nr >= 0 and nc >= 0 and free(bc,bd,nr,nc,s): break
+            k -= 2
+        nr, nc = r+dy*k, c+dx*k
+        cost = 1; nt = tile
+        if tile and (nr,nc) == (37,49): cost = -9; nt = False   # attempt 7: top-left must land on the tile
+        return (nr,nc,s,bc,bd,nt), cost, hits(nr,nc,s,GOAL)
+    if a == 'PLUS':
+        if s == 4: return (r,c,2,bc,bd,tile), 5, False
+        # attempt 3/4: grow puts the 4x4 at (r-2,c-2) if free, else (r,c-2) (both observed)
+        if r >= 2 and c >= 2 and free(bc,bd,r-2,c-2,4): return (r-2,c-2,4,bc,bd,tile), 5, False
+        if c >= 2 and free(bc,bd,r,c-2,4): return (r,c-2,4,bc,bd,tile), 5, False
+        return st, 5, False
+    if a.startswith('GROW'):
+        # looser: any other free 4x4 placement containing the 2x2 (unobserved fallbacks)
+        if s != 2: return st, 5, False
+        dr, dc = {'GROW_A':(-2,0),'GROW_B':(0,0)}[a]
+        if r+dr >= 0 and free(bc,bd,r+dr,c+dc,4): return (r+dr,c+dc,4,bc,bd,tile), 5, False
+        return st, 5, False
+    if a == 'TELEF':
+        # attempt 4: a 2x2 teleported to the colour-15 tile (37,15); looser: allowed from anywhere
+        return (((37,15) if s == 2 else (17,33)) + (s,bc,bd,tile)), 4, False
+    if a == 'COL':
+        return (r,c,s, bc and not gap(r,c,s,CBOX) <= T, bd and not gap(r,c,s,DBOX) <= T, tile), 4, False
+    return (((37,15) if s == 2 else (17,33)) + (s,bc,bd,tile)), 4, False   # attempt 5: 2x2 -> colour-15 tile
+s0 = (29,17,4,True,True,True)
+if __name__ == '__main__':
+    # check floor against the frame
+    g = json.load(open('work/l5_start.json'))
+    fr = {(r,c) for r in range(46) for c in range(10,62) if g[r][c] in (2,14,15) or (g[r][c]==11 and 33<=c<=36) or (29<=r<=32 and 17<=c<=20) or inr(r,c,GOAL)}
+    md = {(r,c) for r in range(46) for c in range(10,62) if floor(True,True,r,c)}
+    print('floor mismatch', sorted(fr ^ md)[:10], len(fr ^ md))
+    seen = {s0}; todo = [s0]; edges = []
+    while todo:
+        s = todo.pop()
+        for a in ACTS:
+            n, cst, w = step(s, a); edges.append((s,a,n,cst,w))
+            if not w and n not in seen: seen.add(n); todo.append(n)
+    INF = 10**6; h = {s: INF for s in seen}
+    for _ in range(len(seen)+1):
+        ch = False
+        for s,a,n,cst,w in edges:
+            v = cst if w else cst + h[n]
+            if v < h[s]: h[s] = v; ch = True
+        if not ch: break
+    print('T', T, 'states', len(seen), 'h(s0)', h[s0], 'unwinnable states', sum(1 for v in h.values() if v >= INF))
+    json.dump([[list(s), h[s]] for s in seen], open('work/l5_h_T%d.json' % T, 'w'))

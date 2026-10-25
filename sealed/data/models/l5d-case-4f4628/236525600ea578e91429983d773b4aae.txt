@@ -1,0 +1,1 @@
+- attempt 2: settle.py wrote settled_through = deduped count while play.py gate compares raw line count; a byte-identical replayed transition (L5 restart) locked gate 2 forever. Fixed settle.py to write the raw count. No judgement logic changed.

@@ -1,0 +1,807 @@
+import L5Bound
+/-!
+# L5, click-level model (budget-fix)
+
+This file corrects R-budget. The earlier model (attempts 1-8) read the bar as 4 cells = 1 unit, with start 34,
+shrink 4, cast6 3, tele 4, grow 5 and pad +8. A fit over all 11 recorded L5 segments, and the two experiments E1
+and E2, show:
+
+* the budget is a hidden step counter `bud`, start 35 on L5;
+* the bar shows `barCells bud = 4 * ceil(32 * bud / 35)` cells, so some steps are invisible;
+* every move costs 1, blocked or not. E2 showed this: two blocked moves cost 2 steps although the cursor did not
+  move;
+* every right-panel click costs 1, and the click that completes a spell pattern costs 2 (E1: death on click 27);
+* hint clicks on the left panels and clicks on the board cost 0;
+* the pad adds 10 steps;
+* an action is refused, i.e. the game is over, when its cost exceeds `bud`.
+
+Objects: `PS` = world `L5.St` (cursor r c s f, doors cc dd, pad, bud, won) + `sel`, the right-panel
+selection as a 9-bit mask (bit 3*row+col). Every slot is read by some rule: `sel` decides when a spell fires.
+Rules: `pstep`. A completed pattern performs the atomic `L5.apply` of that spell:
+f → shrink/grow by size, 6 → cast6, b → tele.
+Not in the model: the hint overlay of 0-marks, which is display only (casting after a hint cost the same, attempt
+5); pad refill above 35, which is never reached.
+-/
+namespace L5P
+open L5 L5B
+
+inductive PAct where
+  | mv (d : Nat) | click (i : Nat) | free
+deriving Repr, DecidableEq
+
+structure PS where
+  w : St
+  sel : Nat
+deriving Repr, DecidableEq
+
+def patF : Nat := 170   -- cells (0,1),(1,0),(1,2),(2,1)
+def pat6 : Nat := 146   -- cells (0,1),(1,1),(2,1)
+def patB : Nat := 19    -- cells (0,0),(0,1),(1,1)
+
+def isPat (s : Nat) : Bool := s == patF || s == pat6 || s == patB
+
+def fireAct (s2 : Nat) (size : Int) : Option Act :=
+  if s2 = patF then some (if size = 4 then .shrink else .grow)
+  else if s2 = pat6 then some .cast6
+  else if s2 = patB then some .tele
+  else none
+
+/-- R-budget (corrected), click level. -/
+def pstep (p : PS) (a : PAct) : Option PS :=
+  if p.w.won then some p else
+  match a with
+  | .free => some p
+  | .mv d => if 1 ≤ p.w.bud then some ⟨apply { p.w with bud := p.w.bud - 1 } (.mv d), p.sel⟩ else none
+  | .click i =>
+    match fireAct (p.sel ^^^ 2 ^ i) p.w.s with
+    | some x => if 2 ≤ p.w.bud then some ⟨apply { p.w with bud := p.w.bud - 2 } x, 0⟩ else none
+    | none => if 1 ≤ p.w.bud then some ⟨{ p.w with bud := p.w.bud - 1 }, p.sel ^^^ 2 ^ i⟩ else none
+
+def prun : PS → List PAct → Option PS
+  | p, [] => some p
+  | p, a :: as => match pstep p a with
+    | none => none
+    | some p' => prun p' as
+
+def startP (b : Nat) : PS := ⟨start b, 0⟩
+
+def winsP (b : Nat) (as : List PAct) : Bool :=
+  match prun (startP b) as with
+  | some p => p.w.won
+  | none => false
+
+/-- the only hypothesis on action sequences: the service accepts moves 1-4 and clicks; cells 0..8. -/
+def legalP : PAct → Bool
+  | .mv d => d < 4
+  | .click i => i < 9
+  | .free => true
+
+/-! ## observation (bar display) and replay of every recorded L5 transition -/
+
+def barCells (n : Nat) : Nat := 4 * min 32 ((32 * n + 34) / 35)
+
+structure Obs where
+  alive : Bool
+  bar : Nat
+  sel : Nat
+  cur : Option (Int × Int × Int × Nat)
+  cc : Option Bool
+  dd : Option Bool
+deriving Repr, DecidableEq
+
+def obsOK (p : PS) (o : Obs) : Bool :=
+  o.alive && barCells p.w.bud == o.bar && p.sel == o.sel &&
+  (match o.cur with
+   | none => true
+   | some (r, c, s, f) => p.w.r == r && p.w.c == c && p.w.s == s && p.w.f == f) &&
+  (match o.cc with | none => true | some b => p.w.cc == b) &&
+  (match o.dd with | none => true | some b => p.w.dd == b)
+
+def replayOK : PS → List (PAct × Obs) → Bool
+  | _, [] => true
+  | p, (a, o) :: rest => match pstep p a with
+    | none => !o.alive && rest.isEmpty
+    | some p' => obsOK p' o && replayOK p' rest
+
+/-! ## potential: atomic cost-to-win minus the credit of a partial selection -/
+
+def popc (n : Nat) : Nat := (List.range 9).foldl (fun a i => a + (n >>> i) % 2) 0
+
+def credit (s : Nat) : Int :=
+  max 0 (max (4 - (popc (s ^^^ patF) : Int)) (max (3 - (popc (s ^^^ pat6) : Int)) (3 - (popc (s ^^^ patB) : Int))))
+
+def creditTab : Bool :=
+  (List.range 512).all fun s => (List.range 9).all fun i =>
+    decide (s ^^^ 2 ^ i < 512) &&
+    (if isPat (s ^^^ 2 ^ i) then
+      (!(s ^^^ 2 ^ i == patF) || decide (5 ≤ credit s + 2)) && (!(s ^^^ 2 ^ i == pat6) || decide (4 ≤ credit s + 2)) &&
+      (!(s ^^^ 2 ^ i == patB) || decide (4 ≤ credit s + 2))
+     else decide (credit (s ^^^ 2 ^ i) ≤ credit s + 1))
+
+theorem creditTab_ok : creditTab = true := by decide +kernel
+theorem credit_zero : credit 0 = 0 := by decide
+theorem credit_nonneg (s : Nat) : 0 ≤ credit s := by
+  unfold credit; exact Int.le_max_left _ _
+
+theorem tab_at (s i : Nat) (hs : s < 512) (hi : i < 9) :
+    (decide (s ^^^ 2 ^ i < 512) &&
+    (if isPat (s ^^^ 2 ^ i) then
+      (!(s ^^^ 2 ^ i == patF) || decide (5 ≤ credit s + 2)) && (!(s ^^^ 2 ^ i == pat6) || decide (4 ≤ credit s + 2)) &&
+      (!(s ^^^ 2 ^ i == patB) || decide (4 ≤ credit s + 2))
+     else decide (credit (s ^^^ 2 ^ i) ≤ credit s + 1))) = true := by
+  have h := creditTab_ok
+  simp only [creditTab, List.all_eq_true, List.mem_range] at h
+  exact h s hs i hi
+
+theorem fireAct_none (s2 : Nat) (z : Int) (h : fireAct s2 z = none) : isPat s2 = false := by
+  unfold fireAct at h
+  unfold isPat
+  split at h
+  · simp at h
+  · split at h
+    · simp at h
+    · split at h
+      · simp at h
+      · rename_i h1 h2 h3
+        simp [h1, h2, h3]
+
+theorem fireAct_some (s2 : Nat) (z : Int) (x : Act) (h : fireAct s2 z = some x) :
+    x ∈ acts ∧ isPat s2 = true ∧
+    ((s2 = patF ∧ cost x = 5) ∨ (s2 = pat6 ∧ cost x = 4) ∨ (s2 = patB ∧ cost x = 4)) := by
+  unfold fireAct at h
+  split at h
+  · rename_i h1
+    simp only [Option.some.injEq] at h
+    subst h1
+    split at h <;> subst h <;> simp [acts, isPat, cost, patF]
+  · split at h
+    · rename_i h1 h2
+      simp only [Option.some.injEq] at h
+      subst h2; subst h; simp [acts, isPat, cost, pat6, patF]
+    · split at h
+      · rename_i h1 h2 h3
+        simp only [Option.some.injEq] at h
+        subst h3; subst h; simp [acts, isPat, cost, patB, pat6, patF]
+      · simp at h
+
+theorem fire_cost (s i : Nat) (hs : s < 512) (hi : i < 9) (z : Int) (x : Act)
+    (h : fireAct (s ^^^ 2 ^ i) z = some x) : (cost x : Int) ≤ credit s + 2 ∧ x ∈ acts := by
+  obtain ⟨hm, hp, hc⟩ := fireAct_some _ z x h
+  have t := tab_at s i hs hi
+  rw [hp] at t
+  simp only [↓reduceIte, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true', beq_eq_false_iff_ne,
+    decide_eq_true_eq, ne_eq] at t
+  refine ⟨?_, hm⟩
+  rcases hc with ⟨e, c⟩ | ⟨e, c⟩ | ⟨e, c⟩ <;> rw [c] <;> simp [e, patF, pat6, patB] at t <;> omega
+
+theorem click_credit (s i : Nat) (hs : s < 512) (hi : i < 9) (hp : isPat (s ^^^ 2 ^ i) = false) :
+    credit (s ^^^ 2 ^ i) ≤ credit s + 1 ∧ s ^^^ 2 ^ i < 512 := by
+  have t := tab_at s i hs hi
+  rw [hp] at t
+  simp only [Bool.false_eq_true, ↓reduceIte, Bool.and_eq_true, decide_eq_true_eq] at t
+  exact ⟨t.2, t.1⟩
+
+/-- transfer of the kernel-checked atomic table (`L5B.rowOK`) to one atomic action. -/
+theorem atomic_step (w : St) (a : Act) (ha : a ∈ acts) (hok : okB w = true) (hw : w.won = false)
+    (hin : inR (key w) = true) :
+    ((apply { w with bud := 0 } a).won = true → phi (key w) ≤ (cost a : Int) - (apply { w with bud := 0 } a).bud) ∧
+    ((apply { w with bud := 0 } a).won = false →
+      okB (apply { w with bud := 0 } a) = true ∧ inR (key (apply { w with bud := 0 } a)) = true ∧
+      phi (key w) ≤ (cost a : Int) - (apply { w with bud := 0 } a).bud + phi (key (apply { w with bud := 0 } a))) := by
+  have hc := check_of all_rows (key w) (key_lt w hok) hin
+  simp only [checkKey, List.all_eq_true] at hc
+  have h := hc a ha
+  rw [decode_key w hok hw] at h
+  generalize apply { w with bud := 0 } a = t at h ⊢
+  cases hwt : t.won
+  · simp only [hwt, Bool.false_eq_true, ↓reduceIte, Bool.and_eq_true, decide_eq_true_eq] at h
+    exact ⟨fun h' => absurd h' (by simp), fun _ => ⟨h.1.1, h.1.2, h.2⟩⟩
+  · simp only [hwt, ↓reduceIte, decide_eq_true_eq] at h
+    exact ⟨fun _ => h, fun h' => absurd h' (by simp)⟩
+
+def InvP (p : PS) : Prop :=
+  okB p.w = true ∧ p.w.won = false ∧ inR (key p.w) = true ∧
+  (p.w.bud : Int) + credit p.sel < phi (key p.w) ∧ p.sel < 512
+
+theorem pstep_inv (p : PS) (a : PAct) (hl : legalP a = true) (hi : InvP p) :
+    ∀ p', pstep p a = some p' → InvP p' := by
+  intro p' hs
+  obtain ⟨hok, hw, hin, hb, hsel⟩ := hi
+  have hcr := credit_nonneg p.sel
+  cases a with
+  | free =>
+    simp only [pstep, hw, Bool.false_eq_true, ↓reduceIte, Option.some.injEq] at hs
+    subst hs; exact ⟨hok, hw, hin, hb, hsel⟩
+  | mv d =>
+    simp only [pstep, hw, Bool.false_eq_true, ↓reduceIte] at hs
+    split at hs
+    · rename_i hle
+      simp only [Option.some.injEq] at hs; subst hs
+      have hm : Act.mv d ∈ acts := by
+        simp only [legalP, decide_eq_true_eq] at hl
+        have : d = 0 ∨ d = 1 ∨ d = 2 ∨ d = 3 := by omega
+        rcases this with h | h | h | h <;> subst h <;> simp [acts]
+      obtain ⟨hA, hB⟩ := atomic_step p.w (.mv d) hm hok hw hin
+      unfold InvP
+      simp only [hw] at hA hB
+      rw [apply_split']
+      generalize ht : apply ({ r := p.w.r, c := p.w.c, s := p.w.s, f := p.w.f, cc := p.w.cc, dd := p.w.dd, pad := p.w.pad, bud := 0, won := false } : St) (Act.mv d) = t at hA hB ⊢
+      cases hwt : t.won
+      · obtain ⟨h1, h2, h3⟩ := hB hwt
+        refine ⟨by rw [okB_bud]; exact h1, by simp [hwt], by rw [key_bud]; exact h2, ?_, hsel⟩
+        rw [key_bud]
+        show ((p.w.bud - 1 + t.bud : Nat) : Int) + credit p.sel < phi (key t)
+        simp only [cost] at h3
+        omega
+      · have h3 := hA hwt
+        simp only [cost] at h3
+        omega
+    · simp at hs
+  | click i =>
+    simp only [legalP, decide_eq_true_eq] at hl
+    simp only [pstep, hw, Bool.false_eq_true, ↓reduceIte] at hs
+    split at hs
+    · rename_i x hx
+      split at hs
+      · rename_i hle
+        simp only [Option.some.injEq] at hs; subst hs
+        obtain ⟨hcost, hm⟩ := fire_cost p.sel i hsel hl p.w.s x hx
+        obtain ⟨hA, hB⟩ := atomic_step p.w x hm hok hw hin
+        unfold InvP
+        simp only [hw] at hA hB
+        rw [apply_split']
+        generalize ht : apply ({ r := p.w.r, c := p.w.c, s := p.w.s, f := p.w.f, cc := p.w.cc, dd := p.w.dd, pad := p.w.pad, bud := 0, won := false } : St) x = t at hA hB ⊢
+        cases hwt : t.won
+        · obtain ⟨h1, h2, h3⟩ := hB hwt
+          refine ⟨by rw [okB_bud]; exact h1, by simp [hwt], by rw [key_bud]; exact h2, ?_, by simp⟩
+          rw [key_bud, credit_zero]
+          show ((p.w.bud - 2 + t.bud : Nat) : Int) + 0 < phi (key t)
+          omega
+        · have h3 := hA hwt
+          omega
+      · simp at hs
+    · rename_i hx
+      split at hs
+      · rename_i hle
+        simp only [Option.some.injEq] at hs; subst hs
+        obtain ⟨hc1, hc2⟩ := click_credit p.sel i hsel hl (fireAct_none _ _ hx)
+        unfold InvP
+        exact ⟨hok, by simp [hw], hin,
+          by show ((p.w.bud - 1 : Nat) : Int) + credit (p.sel ^^^ 2 ^ i) < phi (key p.w); omega, hc2⟩
+      · simp at hs
+
+theorem prun_inv : ∀ (as : List PAct) (p : PS), InvP p → (∀ a ∈ as, legalP a = true) →
+    ∀ p', prun p as = some p' → p'.w.won = false := by
+  intro as
+  induction as with
+  | nil => intro p hi _ p' h; simp [prun] at h; subst h; exact hi.2.1
+  | cons a as ih =>
+    intro p hi hl p' h
+    simp only [prun] at h
+    split at h
+    · simp at h
+    · rename_i p1 hp1
+      exact ih p1 (pstep_inv p a (hl a (by simp)) hi p1 hp1) (fun x hx => hl x (by simp [hx])) p' h
+
+/-- MAIN: in the corrected click-level model, from the L5 start with any budget b < 37, no sequence of legal
+    actions (moves, right-panel clicks, free clicks) wins. The measured budget is 35. -/
+theorem l5p_unwinnable (b : Nat) (hb : b < 37) (as : List PAct) (hl : ∀ a ∈ as, legalP a = true) :
+    winsP b as = false := by
+  have hs := start_facts
+  have hi : InvP (startP b) := ⟨hs.1, rfl, hs.2.1, by
+    have e : key (startP b).w = key (start 0) := rfl
+    rw [e, hs.2.2, show (startP b).sel = 0 from rfl, credit_zero]
+    show ((b : Nat) : Int) + 0 < 37; omega, show (0 : Nat) < 512 by decide⟩
+  unfold winsP
+  split
+  · rename_i p h; exact prun_inv as (startP b) hi hl p h
+  · rfl
+
+theorem l5p_unwinnable_at_35 (as : List PAct) (hl : ∀ a ∈ as, legalP a = true) : winsP 35 as = false :=
+  l5p_unwinnable 35 (by decide) as hl
+
+/-- Relaxed model (budget raised from the measured 35 to 37, i.e. by 2 steps): a legal sequence wins.
+    So 37 is the least start budget admitting a win, and the main theorem is not vacuous. -/
+def routeP : List PAct :=
+  [.mv 1, .mv 1, .mv 3, .mv 0, .click 1, .click 4, .click 7,
+   .mv 3, .mv 3, .mv 3, .mv 3, .mv 1, .mv 3, .mv 3, .mv 3, .mv 0, .mv 0, .mv 0, .mv 2,
+   .click 1, .click 3, .click 5, .click 7,
+   .mv 0, .mv 0, .mv 0, .mv 0, .mv 3,
+   .click 1, .click 3, .click 5, .click 7,
+   .click 1, .click 4, .click 7,
+   .click 0, .click 1, .click 4,
+   .mv 0, .mv 0, .mv 0, .mv 0]
+
+theorem routeP_legal : routeP.all legalP = true := by decide
+theorem routeP_wins_37 : winsP 37 routeP = true := by decide +kernel
+theorem routeP_fails_36 : winsP 36 routeP = false := by decide +kernel
+
+/-! ## replays: every recorded L5 transition (11 segments, 427 transitions) from start budget 35 -/
+def seg0 : List (PAct × Obs) := [
+  (.click 1, ⟨true, 128, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 124, 10, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 120, 42, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 112, 0, some (29, 17, 2, 1), some false, some false⟩),
+  (.mv 3, ⟨true, 108, 0, some (29, 19, 2, 3), some false, some false⟩),
+  (.mv 3, ⟨true, 104, 0, some (29, 21, 2, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 100, 0, some (27, 21, 2, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 96, 0, some (25, 21, 2, 0), some false, some false⟩),
+  (.click 1, ⟨true, 92, 2, some (25, 21, 2, 0), some false, some false⟩),
+  (.click 4, ⟨true, 88, 18, some (25, 21, 2, 0), some false, some false⟩),
+  (.click 7, ⟨true, 84, 0, some (25, 21, 2, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 80, 0, some (27, 21, 2, 1), some true, some false⟩),
+  (.mv 1, ⟨true, 76, 0, some (29, 21, 2, 1), some true, some false⟩),
+  (.mv 1, ⟨true, 72, 0, some (31, 21, 2, 1), some true, some false⟩),
+  (.mv 1, ⟨true, 68, 0, some (33, 21, 2, 1), some true, some false⟩),
+  (.mv 1, ⟨true, 64, 0, some (35, 21, 2, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 60, 0, some (35, 23, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 56, 0, some (35, 25, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 52, 0, some (35, 27, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 48, 0, some (35, 29, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 44, 0, some (35, 31, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 44, 0, some (35, 33, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 40, 0, some (35, 35, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 36, 0, some (35, 37, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 32, 0, some (35, 39, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 28, 0, some (35, 41, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 24, 0, some (35, 43, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 20, 0, some (35, 45, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 16, 0, some (35, 47, 2, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 12, 0, some (35, 49, 2, 3), some true, some false⟩),
+  (.mv 1, ⟨true, 44, 0, some (37, 49, 2, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 44, 0, some (35, 49, 2, 0), some true, some false⟩),
+  (.mv 2, ⟨true, 40, 0, some (35, 47, 2, 2), some true, some false⟩),
+  (.mv 2, ⟨true, 36, 0, some (35, 45, 2, 2), some true, some false⟩),
+  (.mv 0, ⟨true, 32, 0, some (33, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 28, 0, some (31, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 24, 0, some (29, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 20, 0, some (27, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 16, 0, some (25, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 12, 0, some (23, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 8, 0, some (21, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 4, 0, some (19, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 0, 0, some (17, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨false, 0, 0, some (15, 45, 2, 0), some true, some false⟩)]
+
+theorem seg0_replay : replayOK (startP 35) seg0 = true := by decide +kernel
+
+def seg1 : List (PAct × Obs) := [
+  (.mv 3, ⟨true, 128, 0, some (29, 21, 4, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 124, 0, some (25, 21, 4, 0), some false, some false⟩),
+  (.click 1, ⟨true, 120, 2, some (25, 21, 4, 0), some false, some false⟩),
+  (.click 4, ⟨true, 116, 18, some (25, 21, 4, 0), some false, some false⟩),
+  (.click 7, ⟨true, 108, 0, some (25, 21, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 104, 0, some (29, 21, 4, 1), some true, some false⟩),
+  (.mv 1, ⟨true, 100, 0, some (33, 21, 4, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 96, 0, some (33, 25, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 92, 0, some (33, 29, 4, 3), none, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 33, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 37, 4, 3), some true, some false⟩),
+  (.mv 1, ⟨true, 84, 0, some (37, 37, 4, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 80, 0, some (37, 41, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 76, 0, some (37, 45, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 108, 0, some (37, 49, 4, 3), some true, some false⟩),
+  (.mv 0, ⟨true, 104, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 100, 0, some (29, 49, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 96, 0, some (25, 49, 4, 0), some true, some false⟩),
+  (.mv 2, ⟨true, 92, 0, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 1, ⟨true, 88, 2, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 3, ⟨true, 88, 10, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 5, ⟨true, 84, 42, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 7, ⟨true, 76, 0, some (25, 45, 2, 2), some true, some false⟩),
+  (.mv 0, ⟨true, 72, 0, some (23, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 68, 0, some (21, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 64, 0, some (19, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 60, 0, some (17, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 56, 0, some (15, 45, 2, 0), some true, some false⟩),
+  (.mv 3, ⟨true, 52, 0, some (15, 47, 2, 3), some true, some false⟩),
+  (.click 1, ⟨true, 48, 2, some (15, 47, 2, 3), some true, some false⟩),
+  (.click 4, ⟨true, 44, 18, some (15, 47, 2, 3), some true, some false⟩),
+  (.click 7, ⟨true, 40, 0, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 0, ⟨true, 36, 1, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 1, ⟨true, 32, 3, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 4, ⟨true, 24, 0, some (37, 15, 2, 3), some true, some true⟩),
+  (.click 0, ⟨true, 20, 1, some (37, 15, 2, 3), some true, some true⟩),
+  (.click 1, ⟨true, 16, 3, some (37, 15, 2, 3), some true, some true⟩),
+  (.click 4, ⟨true, 8, 0, some (37, 15, 2, 3), some true, some true⟩),
+  (.mv 3, ⟨true, 4, 0, some (37, 17, 2, 3), some true, some true⟩),
+  (.click 1, ⟨true, 0, 2, some (37, 17, 2, 3), some true, some true⟩),
+  (.click 3, ⟨false, 0, 10, some (37, 17, 2, 3), some true, some true⟩)]
+
+theorem seg1_replay : replayOK (startP 35) seg1 = true := by decide +kernel
+
+def seg2 : List (PAct × Obs) := [
+  (.mv 3, ⟨true, 128, 0, some (29, 21, 4, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 124, 0, some (25, 21, 4, 0), some false, some false⟩),
+  (.click 1, ⟨true, 120, 2, some (25, 21, 4, 0), some false, some false⟩),
+  (.click 4, ⟨true, 116, 18, some (25, 21, 4, 0), some false, some false⟩),
+  (.click 7, ⟨true, 108, 0, some (25, 21, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 104, 0, some (29, 21, 4, 1), some true, some false⟩),
+  (.mv 1, ⟨true, 100, 0, some (33, 21, 4, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 96, 0, some (33, 25, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 92, 0, some (33, 29, 4, 3), none, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 33, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 37, 4, 3), some true, some false⟩),
+  (.mv 1, ⟨true, 84, 0, some (37, 37, 4, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 80, 0, some (37, 41, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 76, 0, some (37, 45, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 108, 0, some (37, 49, 4, 3), some true, some false⟩),
+  (.mv 0, ⟨true, 104, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 100, 0, some (29, 49, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 96, 0, some (25, 49, 4, 0), some true, some false⟩),
+  (.mv 2, ⟨true, 92, 0, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 1, ⟨true, 88, 2, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 3, ⟨true, 88, 10, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 5, ⟨true, 84, 42, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 7, ⟨true, 76, 0, some (25, 45, 2, 2), some true, some false⟩),
+  (.mv 0, ⟨true, 72, 0, some (23, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 68, 0, some (21, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 64, 0, some (19, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 60, 0, some (17, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 56, 0, some (15, 45, 2, 0), some true, some false⟩),
+  (.mv 3, ⟨true, 52, 0, some (15, 47, 2, 3), some true, some false⟩),
+  (.click 1, ⟨true, 48, 2, some (15, 47, 2, 3), some true, some false⟩),
+  (.click 4, ⟨true, 44, 18, some (15, 47, 2, 3), some true, some false⟩),
+  (.click 7, ⟨true, 40, 0, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 1, ⟨true, 36, 2, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 3, ⟨true, 32, 10, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 5, ⟨true, 28, 42, some (15, 47, 2, 3), some true, some true⟩),
+  (.click 7, ⟨true, 20, 0, some (15, 45, 4, 3), some true, some true⟩),
+  (.click 0, ⟨true, 16, 1, some (15, 45, 4, 3), some true, some true⟩),
+  (.click 1, ⟨true, 12, 3, some (15, 45, 4, 3), some true, some true⟩),
+  (.click 4, ⟨true, 4, 0, some (17, 33, 4, 3), some true, some true⟩),
+  (.mv 0, ⟨true, 0, 0, some (13, 33, 4, 0), some true, some true⟩),
+  (.mv 0, ⟨false, 0, 0, some (9, 33, 4, 0), some true, none⟩)]
+
+theorem seg2_replay : replayOK (startP 35) seg2 = true := by decide +kernel
+
+def seg3 : List (PAct × Obs) := [
+  (.mv 1, ⟨true, 128, 0, some (33, 17, 4, 1), some false, some false⟩),
+  (.mv 1, ⟨true, 124, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.mv 3, ⟨true, 120, 0, some (37, 21, 4, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 116, 0, some (33, 21, 4, 0), some false, some false⟩),
+  (.click 1, ⟨true, 112, 2, some (33, 21, 4, 0), some false, some false⟩),
+  (.click 4, ⟨true, 108, 18, some (33, 21, 4, 0), some false, some false⟩),
+  (.click 7, ⟨true, 100, 0, some (33, 21, 4, 0), some true, some false⟩),
+  (.mv 3, ⟨true, 96, 0, some (33, 25, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 92, 0, some (33, 29, 4, 3), none, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 33, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 37, 4, 3), some true, some false⟩),
+  (.mv 1, ⟨true, 84, 0, some (37, 37, 4, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 80, 0, some (37, 41, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 76, 0, some (37, 45, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 108, 0, some (37, 49, 4, 3), some true, some false⟩),
+  (.mv 0, ⟨true, 104, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 100, 0, some (29, 49, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 96, 0, some (25, 49, 4, 0), some true, some false⟩),
+  (.mv 2, ⟨true, 92, 0, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 1, ⟨true, 88, 2, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 3, ⟨true, 88, 10, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 5, ⟨true, 84, 42, some (25, 45, 4, 2), some true, some false⟩),
+  (.click 7, ⟨true, 76, 0, some (25, 45, 2, 2), some true, some false⟩),
+  (.mv 0, ⟨true, 72, 0, some (23, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 68, 0, some (21, 45, 2, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 64, 0, some (19, 45, 2, 0), some true, some false⟩),
+  (.click 1, ⟨true, 60, 2, some (19, 45, 2, 0), some true, some false⟩),
+  (.click 3, ⟨true, 56, 10, some (19, 45, 2, 0), some true, some false⟩),
+  (.click 5, ⟨true, 52, 42, some (19, 45, 2, 0), some true, some false⟩),
+  (.click 7, ⟨true, 44, 0, some (17, 43, 4, 0), some true, some false⟩),
+  (.mv 0, ⟨true, 44, 0, some (15, 43, 4, 0), some true, some false⟩),
+  (.mv 3, ⟨true, 40, 0, some (15, 45, 4, 3), some true, some false⟩),
+  (.click 1, ⟨true, 36, 2, some (15, 45, 4, 3), some true, some false⟩),
+  (.click 4, ⟨true, 32, 18, some (15, 45, 4, 3), some true, some false⟩),
+  (.click 7, ⟨true, 24, 0, some (15, 45, 4, 3), some true, some true⟩),
+  (.click 0, ⟨true, 20, 1, some (15, 45, 4, 3), some true, some true⟩),
+  (.click 1, ⟨true, 16, 3, some (15, 45, 4, 3), some true, some true⟩),
+  (.click 4, ⟨true, 8, 0, some (17, 33, 4, 3), some true, some true⟩),
+  (.mv 0, ⟨true, 4, 0, some (13, 33, 4, 0), some true, some true⟩),
+  (.mv 0, ⟨true, 0, 0, some (9, 33, 4, 0), some true, none⟩),
+  (.mv 0, ⟨false, 0, 0, none, none, none⟩)]
+
+theorem seg3_replay : replayOK (startP 35) seg3 = true := by decide +kernel
+
+def seg4 : List (PAct × Obs) := [
+  (.free, ⟨true, 128, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.mv 1, ⟨true, 128, 0, some (33, 17, 4, 1), some false, some false⟩),
+  (.mv 1, ⟨true, 124, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.mv 2, ⟨true, 120, 0, some (37, 13, 4, 2), some false, some false⟩),
+  (.click 1, ⟨true, 116, 2, some (37, 13, 4, 2), some false, some false⟩),
+  (.click 3, ⟨true, 112, 10, some (37, 13, 4, 2), some false, some false⟩),
+  (.click 5, ⟨true, 108, 42, some (37, 13, 4, 2), some false, some false⟩),
+  (.click 7, ⟨true, 100, 0, some (37, 13, 2, 2), some false, some false⟩),
+  (.mv 3, ⟨true, 96, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 4, ⟨true, 92, 16, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 0, ⟨true, 88, 17, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 2, ⟨true, 88, 21, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 6, ⟨true, 84, 85, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 8, ⟨true, 80, 341, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 3, ⟨true, 76, 349, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 5, ⟨true, 72, 381, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 1, ⟨true, 68, 383, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 7, ⟨true, 64, 511, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 1, ⟨true, 60, 509, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 3, ⟨true, 56, 501, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 5, ⟨true, 52, 469, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 7, ⟨true, 48, 341, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 4, ⟨true, 44, 325, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 0, ⟨true, 44, 324, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 8, ⟨true, 40, 68, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 2, ⟨true, 36, 64, some (37, 15, 2, 3), some false, some false⟩),
+  (.click 6, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.free, ⟨true, 32, 0, some (37, 15, 2, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 28, 0, some (35, 15, 2, 0), some false, some false⟩),
+  (.mv 1, ⟨true, 24, 0, some (37, 15, 2, 1), some false, some false⟩),
+  (.mv 0, ⟨true, 20, 0, some (35, 15, 2, 0), some false, some false⟩),
+  (.mv 1, ⟨true, 16, 0, some (37, 15, 2, 1), some false, some false⟩),
+  (.mv 0, ⟨true, 12, 0, some (35, 15, 2, 0), some false, some false⟩),
+  (.mv 1, ⟨true, 8, 0, some (37, 15, 2, 1), some false, some false⟩),
+  (.mv 0, ⟨true, 4, 0, some (35, 15, 2, 0), some false, some false⟩),
+  (.mv 1, ⟨true, 0, 0, some (37, 15, 2, 1), some false, some false⟩),
+  (.mv 0, ⟨false, 0, 0, some (35, 15, 2, 0), some false, some false⟩)]
+
+theorem seg4_replay : replayOK (startP 35) seg4 = true := by decide +kernel
+
+def seg5 : List (PAct × Obs) := [
+  (.click 5, ⟨true, 128, 32, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 124, 36, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 120, 37, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 116, 39, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 112, 47, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 108, 63, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 104, 62, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 100, 60, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 96, 56, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 92, 57, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 88, 41, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 6, ⟨true, 88, 105, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 84, 104, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 80, 108, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 76, 110, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 72, 102, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 68, 98, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 64, 99, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 60, 115, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 56, 113, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 52, 112, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 48, 116, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 44, 244, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 44, 246, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 40, 247, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 36, 231, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 32, 229, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 28, 225, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 24, 224, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 8, ⟨true, 20, 480, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 16, 482, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 12, 483, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 8, 491, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 4, 489, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 0, 457, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨false, 0, 456, some (29, 17, 4, 1), some false, some false⟩)]
+
+theorem seg5_replay : replayOK (startP 35) seg5 = true := by decide +kernel
+
+def seg6 : List (PAct × Obs) := [
+  (.click 7, ⟨true, 128, 128, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 124, 132, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 120, 133, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 116, 135, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 112, 143, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 108, 142, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 104, 158, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 100, 156, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 96, 157, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 92, 153, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 88, 155, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 88, 187, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 84, 179, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 80, 177, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 76, 176, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 8, ⟨true, 72, 432, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 68, 434, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 64, 438, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 60, 439, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 56, 423, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 52, 421, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 48, 420, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 44, 428, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 44, 430, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 6, ⟨true, 40, 494, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 36, 462, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 32, 463, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 28, 455, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 24, 454, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 20, 470, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 16, 466, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 12, 467, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 8, 475, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 4, 347, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 0, 346, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨false, 0, 344, some (29, 17, 4, 1), some false, some false⟩)]
+
+theorem seg6_replay : replayOK (startP 35) seg6 = true := by decide +kernel
+
+def seg7 : List (PAct × Obs) := [
+  (.click 8, ⟨true, 128, 256, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 124, 264, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 120, 265, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 116, 267, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 112, 271, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 108, 270, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 104, 262, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 100, 278, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 96, 279, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 92, 275, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 88, 307, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 88, 305, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 84, 309, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 80, 308, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 76, 316, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 72, 284, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 68, 285, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 64, 281, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 60, 409, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 56, 408, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 52, 410, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 48, 394, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 44, 386, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 44, 387, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 40, 385, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 36, 401, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨true, 32, 405, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 28, 404, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 24, 388, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 3, ⟨true, 20, 396, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 16, 397, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 5, ⟨true, 12, 429, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 8, 301, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 6, ⟨true, 4, 365, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 0, ⟨true, 0, 364, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 2, ⟨false, 0, 360, some (29, 17, 4, 1), some false, some false⟩)]
+
+theorem seg7_replay : replayOK (startP 35) seg7 = true := by decide +kernel
+
+def seg8 : List (PAct × Obs) := [
+  (.click 1, ⟨true, 128, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 124, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 116, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 112, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 108, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 100, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 96, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 92, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 88, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 84, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 80, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 72, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 68, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 64, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 56, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 52, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 48, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 44, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 40, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 36, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 28, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 24, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 20, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨true, 12, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 1, ⟨true, 8, 2, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 4, ⟨true, 4, 18, some (29, 17, 4, 1), some false, some false⟩),
+  (.click 7, ⟨false, 0, 0, some (29, 17, 4, 1), some false, some false⟩)]
+
+theorem seg8_replay : replayOK (startP 35) seg8 = true := by decide +kernel
+
+def seg9 : List (PAct × Obs) := [
+  (.mv 0, ⟨true, 128, 0, some (25, 17, 4, 0), some false, some false⟩),
+  (.mv 1, ⟨true, 124, 0, some (29, 17, 4, 1), some false, some false⟩),
+  (.mv 2, ⟨true, 120, 0, some (29, 13, 4, 2), some false, some false⟩),
+  (.mv 3, ⟨true, 116, 0, some (29, 17, 4, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 112, 0, some (25, 17, 4, 0), some false, some false⟩),
+  (.mv 2, ⟨true, 108, 0, some (25, 13, 4, 2), some false, some false⟩),
+  (.mv 2, ⟨true, 104, 0, some (25, 13, 4, 2), some false, some false⟩),
+  (.mv 0, ⟨true, 100, 0, some (25, 13, 4, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 96, 0, some (25, 13, 4, 0), some false, some false⟩),
+  (.mv 2, ⟨true, 92, 0, some (25, 13, 4, 2), some false, some false⟩),
+  (.mv 0, ⟨true, 88, 0, some (25, 13, 4, 0), some false, some false⟩),
+  (.click 4, ⟨true, 88, 16, some (25, 13, 4, 0), some false, some false⟩),
+  (.click 4, ⟨true, 84, 0, some (25, 13, 4, 0), some false, some false⟩),
+  (.click 1, ⟨true, 80, 2, some (25, 13, 4, 0), some false, some false⟩),
+  (.click 3, ⟨true, 76, 10, some (25, 13, 4, 0), some false, some false⟩),
+  (.click 5, ⟨true, 72, 42, some (25, 13, 4, 0), some false, some false⟩),
+  (.click 7, ⟨true, 64, 0, some (25, 13, 2, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 60, 0, some (25, 13, 2, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 56, 0, some (25, 13, 2, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 52, 0, some (25, 13, 2, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 48, 0, some (25, 13, 2, 0), some false, some false⟩),
+  (.mv 0, ⟨true, 44, 0, some (25, 13, 2, 0), some false, some false⟩),
+  (.click 0, ⟨true, 44, 1, some (25, 13, 2, 0), some false, some false⟩),
+  (.click 1, ⟨true, 40, 3, some (25, 13, 2, 0), some false, some false⟩),
+  (.click 4, ⟨true, 32, 0, some (37, 15, 2, 0), some false, some false⟩),
+  (.mv 1, ⟨true, 28, 0, some (39, 15, 2, 1), some false, some false⟩),
+  (.mv 3, ⟨true, 24, 0, some (39, 17, 2, 3), some false, some false⟩),
+  (.mv 3, ⟨true, 20, 0, some (39, 19, 2, 3), some false, some false⟩),
+  (.mv 3, ⟨true, 16, 0, some (39, 21, 2, 3), some false, some false⟩),
+  (.mv 2, ⟨true, 12, 0, some (39, 19, 2, 2), some false, some false⟩),
+  (.mv 2, ⟨true, 8, 0, some (39, 17, 2, 2), some false, some false⟩),
+  (.mv 2, ⟨true, 4, 0, some (39, 15, 2, 2), some false, some false⟩),
+  (.mv 1, ⟨true, 0, 0, some (39, 15, 2, 1), some false, some false⟩),
+  (.mv 1, ⟨false, 0, 0, some (39, 15, 2, 1), some false, some false⟩)]
+
+theorem seg9_replay : replayOK (startP 35) seg9 = true := by decide +kernel
+
+def seg10 : List (PAct × Obs) := [
+  (.mv 1, ⟨true, 128, 0, some (33, 17, 4, 1), some false, some false⟩),
+  (.mv 1, ⟨true, 124, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.mv 1, ⟨true, 120, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.mv 1, ⟨true, 116, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.free, ⟨true, 116, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.free, ⟨true, 116, 0, some (37, 17, 4, 1), some false, some false⟩),
+  (.mv 3, ⟨true, 112, 0, some (37, 21, 4, 3), some false, some false⟩),
+  (.mv 0, ⟨true, 108, 0, some (33, 21, 4, 0), some false, some false⟩),
+  (.click 1, ⟨true, 104, 2, some (33, 21, 4, 0), some false, some false⟩),
+  (.click 4, ⟨true, 100, 18, some (33, 21, 4, 0), some false, some false⟩),
+  (.click 7, ⟨true, 92, 0, some (33, 21, 4, 0), some true, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 25, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 88, 0, some (33, 29, 4, 3), none, some false⟩),
+  (.mv 3, ⟨true, 84, 0, some (33, 33, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 80, 0, some (33, 37, 4, 3), some true, some false⟩),
+  (.mv 1, ⟨true, 76, 0, some (37, 37, 4, 1), some true, some false⟩),
+  (.mv 3, ⟨true, 72, 0, some (37, 41, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 68, 0, some (37, 45, 4, 3), some true, some false⟩),
+  (.mv 3, ⟨true, 100, 0, some (37, 49, 4, 3), some true, some false⟩),
+  (.mv 0, ⟨true, 96, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 92, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 88, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 88, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 84, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 80, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 76, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 72, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 68, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 64, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 60, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 56, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 52, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 48, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 44, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 44, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 40, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 36, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 32, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 28, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 24, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 20, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 16, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 12, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 8, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨true, 4, 0, some (37, 49, 4, 1), some true, some false⟩),
+  (.mv 0, ⟨true, 0, 0, some (33, 49, 4, 0), some true, some false⟩),
+  (.mv 1, ⟨false, 0, 0, some (37, 49, 4, 1), some true, some false⟩)]
+
+theorem seg10_replay : replayOK (startP 35) seg10 = true := by decide +kernel
+
+end L5P
+
+#print axioms L5P.l5p_unwinnable
+#print axioms L5P.l5p_unwinnable_at_35
+#print axioms L5P.routeP_wins_37
+#print axioms L5P.routeP_fails_36
+#print axioms L5P.seg0_replay
+#print axioms L5P.seg1_replay
+#print axioms L5P.seg2_replay
+#print axioms L5P.seg3_replay
+#print axioms L5P.seg4_replay
+#print axioms L5P.seg5_replay
+#print axioms L5P.seg6_replay
+#print axioms L5P.seg7_replay
+#print axioms L5P.seg8_replay
+#print axioms L5P.seg9_replay
+#print axioms L5P.seg10_replay

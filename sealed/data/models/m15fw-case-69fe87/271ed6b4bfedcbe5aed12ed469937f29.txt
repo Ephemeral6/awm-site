@@ -1,0 +1,155 @@
+/-!
+# m15fw level 4 : abstract model + budget lower bound
+
+Objects kept (see work/MODEL.md):
+* block: `big` (4x4 vs 2x2), `x` = column in 2-col units, x = (col-21)/2
+  (col 21 -> 0, col 31 -> 5 (stalk), col 37 -> 8 (start), col 57 -> 18 (exit))
+* barrier/switch: `opened`
+* drawing grid: `sel` = number of selected cells (pattern identity abstracted away)
+Rows, facing, walls (other than the barrier) are DROPPED: that only adds transitions
+(looser model).  The barrier is kept as: goal requires `opened`.
+
+Costs are in budget units, fitted in work/fit.py (unique surviving fit):
+ordinary action 1, pattern-completing click 2, no-op click 0, level-4 budget 18.
+-/
+namespace M15L4
+
+structure St where
+  big : Bool
+  opened : Bool
+  x : Nat
+  sel : Nat
+  deriving Repr, DecidableEq
+
+inductive Act where
+  | moveL | moveR | moveOther      -- moveOther: up/down/blocked moves (x unchanged)
+  | select | deselect
+  | castShrink | castShot | castBoth -- completing click; castBoth = superset firing both (permissive)
+  | free                            -- click on world / card: no effect, cost 0
+  deriving Repr, DecidableEq
+
+def cost : Act → Nat
+  | .castShrink => 2 | .castShot => 2 | .castBoth => 2 | .free => 0
+  | _ => 1
+
+/-- Level-4 budget (units).  Exposed constant for the range check. -/
+def L4budget : Nat := 18
+
+/-- `opens big x` : does a column-shot fired by a block of this size at this column
+    open the barrier?  Left abstract; the premise is the hypothesis `hopen` below. -/
+def step (opens : Bool → Nat → Bool) (s : St) : Act → St
+  | .moveL => { s with x := s.x - (if s.big then 2 else 1) }
+  | .moveR => { s with x := s.x + (if s.big then 2 else 1) }
+  | .moveOther => s
+  | .select => { s with sel := s.sel + 1 }
+  | .deselect => { s with sel := s.sel - 1 }
+  | .castShrink => if 3 ≤ s.sel then { s with big := false, sel := 0 } else { s with sel := s.sel + 1 }
+  | .castShot => if 2 ≤ s.sel then { s with sel := 0, opened := s.opened || opens s.big s.x }
+                 else { s with sel := s.sel + 1 }
+  | .castBoth => if 4 ≤ s.sel then { s with big := false, sel := 0, opened := s.opened || opens false s.x }
+                 else { s with sel := s.sel + 1 }
+  | .free => s
+
+def goal (s : St) : Bool :=
+  s.opened && (if s.big then decide (18 ≤ s.x + 1) else decide (18 ≤ s.x))
+
+def start : St := { big := true, opened := false, x := 8, sel := 0 }
+
+def everGoal (opens : Bool → Nat → Bool) : St → List Act → Bool
+  | s, [] => goal s
+  | s, a :: r => goal s || everGoal opens (step opens s a) r
+
+def costSum : List Act → Nat
+  | [] => 0
+  | a :: r => cost a + costSum r
+
+def ch (n : Nat) : Nat := (n + 1) / 2
+/-- |x - 5| without `if`. -/
+def d5 (x : Nat) : Nat := (x - 5) + (5 - x)
+
+/-- Potential: lower bound on remaining cost. -/
+def Φ : St → Nat
+  | ⟨true, true, x, _⟩ => ch (17 - x)
+  | ⟨false, true, x, _⟩ => 18 - x
+  | ⟨true, false, x, sel⟩ => (4 - sel) + 15 + ch (d5 x)
+  | ⟨false, false, x, sel⟩ => d5 x + (2 - sel) + 15
+
+theorem hstep (opens : Bool → Nat → Bool)
+    (hopen : ∀ b x, opens b x = true → b = false ∧ x = 5) :
+    ∀ s a, Φ s ≤ Φ (step opens s a) + cost a := by
+  intro s a
+  rcases s with ⟨big, op, x, sel⟩
+  have hb : opens true x = false := by
+    cases h : opens true x
+    · rfl
+    · exact absurd (hopen _ _ h).1 (by decide)
+  cases hf : opens false x
+  · cases a <;> cases big <;> cases op <;>
+      by_cases h2 : 2 ≤ sel <;> by_cases h3 : 3 ≤ sel <;> by_cases h4 : 4 ≤ sel <;>
+      simp [step, Φ, cost, ch, d5, h2, h3, h4, hb, hf] <;> omega
+  · have hx : x = 5 := (hopen _ _ hf).2
+    subst hx
+    cases a <;> cases big <;> cases op <;>
+      by_cases h2 : 2 ≤ sel <;> by_cases h3 : 3 ≤ sel <;> by_cases h4 : 4 ≤ sel <;>
+      simp [step, Φ, cost, ch, d5, h2, h3, h4, hb, hf] <;> omega
+
+theorem hgoal : ∀ s, goal s = true → Φ s = 0 := by
+  intro ⟨big, op, x, sel⟩ h
+  cases big <;> cases op <;> simp [goal, Φ, ch] at h ⊢ <;> omega
+
+theorem pot_le_cost (opens : Bool → Nat → Bool)
+    (hopen : ∀ b x, opens b x = true → b = false ∧ x = 5) :
+    ∀ (as : List Act) (s : St), everGoal opens s as = true → Φ s ≤ costSum as := by
+  intro as
+  induction as with
+  | nil => intro s h; simp only [everGoal] at h; simp [hgoal s h, costSum]
+  | cons a r ih =>
+    intro s h
+    simp only [everGoal, Bool.or_eq_true] at h
+    rcases h with hg | hr
+    · simp [hgoal s hg]
+    · have h1 := ih _ hr
+      have h2 := hstep opens hopen s a
+      simp only [costSum]; omega
+
+/-- Main theorem: under premise `hopen` (only a SMALL block at x = 5 can open the barrier
+    with a shot), no action list whose total cost fits the level-4 budget ever reaches the exit. -/
+theorem L4_unwinnable (opens : Bool → Nat → Bool)
+    (hopen : ∀ b x, opens b x = true → b = false ∧ x = 5) :
+    ∀ as : List Act, costSum as ≤ L4budget → everGoal opens start as = false := by
+  intro as hc
+  cases hq : everGoal opens start as
+  · rfl
+  · have := pot_le_cost opens hopen as start hq
+    simp [Φ, start, ch, d5, L4budget] at this hc
+    omega
+
+/-! ## non-vacuity -/
+
+/-- A concrete `opens` satisfying the premise. -/
+def opensReal : Bool → Nat → Bool := fun b x => !b && x == 5
+theorem opensReal_ok : ∀ b x, opensReal b x = true → b = false ∧ x = 5 := by
+  intro b x h; cases b <;> simp [opensReal] at h ⊢ <;> omega
+
+def witness : List Act :=
+  [.moveL, .select, .select, .select, .castShrink, .moveL, .select, .select, .castShot] ++
+  List.replicate 13 .moveR
+
+/-- The model is winnable with a larger budget (24): the bound is not vacuous. -/
+theorem witness_wins : everGoal opensReal start witness = true := by decide
+theorem witness_cost : costSum witness = 24 := by decide
+
+/-- The premise is a real constraint: if a BIG block could open the barrier,
+    a cheap win (cost 12) exists, inside the budget 18. -/
+def opensBig : Bool → Nat → Bool := fun _ _ => true
+def cheap : List Act := [.select, .select, .castShot] ++ List.replicate 5 .moveR
+theorem cheap_wins : everGoal opensBig start cheap = true := by decide
+theorem cheap_cost : costSum cheap ≤ L4budget := by decide
+
+#print axioms hstep
+#print axioms pot_le_cost
+#print axioms L4_unwinnable
+#print axioms witness_wins
+#print axioms cheap_wins
+
+end M15L4

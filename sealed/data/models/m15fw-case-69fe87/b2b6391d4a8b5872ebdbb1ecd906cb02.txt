@@ -1,0 +1,22 @@
+"""本局词汇（假设）：玩家块 = 颜色 9 与 10 的格子，位于 rows 0-44（盘面区）；3x3 面板在 rows 47-63 cols 22-38。"""
+PLAYER = (9, 10)
+GRID_CELLS = {(i, j): (49 + 5 * i, 24 + 5 * j) for i in range(3) for j in range(3)}  # (row0,col0) of 3x3 cell
+
+
+def player_cells(g):
+    """9/10 cells in rows 0..44 that are part of the movable block; excludes exit box (border 9 ring)."""
+    return [(r, c) for r in range(45) for c in range(62) if g[r][c] in PLAYER]
+
+
+def grid_state(g):
+    return {k: g[r + 1][c + 1] for k, (r, c) in GRID_CELLS.items()}
+
+
+def click_cell(action):
+    if not action.startswith("ACTION6:"):
+        return None
+    x, y = map(int, action.split(":")[1].split(","))
+    for k, (r, c) in GRID_CELLS.items():
+        if r <= y < r + 3 and c <= x < c + 3:
+            return k
+    return "outside"

@@ -1,0 +1,26 @@
+import json,subprocess,sys
+sys.path.insert(0,'concepts');sys.path.insert(0,'.');sys.path.insert(0,'work')
+from _lib import bar,cursor
+from budget_sim import disp
+# (action, cost, pad_gain)
+seq=[('ACTION2',1,0),('ACTION2',1,0),('ACTION2',0,0),('ACTION2',0,0),('ACTION6:5,4',0,0),('ACTION6:5,14',0,0),
+     ('ACTION4',1,0),('ACTION1',1,0),('ACTION6:30,50',1,0),('ACTION6:30,55',1,0),('ACTION6:30,60',2,0),
+     ('ACTION4',1,0),('ACTION4',1,0),('ACTION4',1,0),('ACTION4',1,0),('ACTION2',1,0),('ACTION4',1,0),('ACTION4',1,0),('ACTION4',1,10)]
+seq+= [('ACTION1' if i%2==0 else 'ACTION2',1,0) for i in range(32)]
+rem=35;pred=[]
+for a,c,g in seq:
+    rem=rem-c+g; pred.append('DEAD' if rem<0 else disp(rem))
+    if rem<0: break
+seq=seq[:len(pred)]
+txt='E2 (H-new: 35 steps, fire+1, pad+10, no-ops free): predicted bars '+','.join(map(str,pred))+f'; death at action {len(pred)}. H-old predicts death 2 actions earlier.'
+open('work/e2_pred.txt','w').write(txt)
+ok=0
+for (a,c,g),p in zip(seq,pred):
+    subprocess.run(['python','play.py','bet',txt],capture_output=True)
+    subprocess.run(['python','play.py','act',a],capture_output=True)
+    subprocess.run(['python','play.py','settle'],capture_output=True)
+    j=json.load(open('work/last_resp.json'));b='DEAD' if j['state']=='GAME_OVER' else bar(j['frames'][-1])
+    print(a,'pred',p,'got',b,'OK' if b==p else 'MISMATCH',cursor(j['frames'][-1]),flush=True)
+    ok+= b==p
+    if j['state']!='NOT_FINISHED': break
+print('matched',ok,'of',len(pred))

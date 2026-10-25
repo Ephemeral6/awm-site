@@ -1,0 +1,6 @@
+import json,sys
+d=json.load(open('.last_frame.json'))
+g=d['frame']; print('level',d['level'])
+H='0123456789abcdef'
+print('   '+''.join(str(i%10) for i in range(64)))
+for i,r in enumerate(g): print('%2d '%i+''.join(H[v] for v in r))

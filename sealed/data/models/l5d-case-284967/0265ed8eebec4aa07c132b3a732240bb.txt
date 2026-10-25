@@ -1,0 +1,56 @@
+# attempt-3 model: R-tele size-dependent, R-grow added, measured costs in 4-cell units
+import json,collections
+exec(open('work/l5_search.py').read().split('# minimise')[0])
+import os
+COST=json.loads(os.environ.get("COSTS","[1,1,1,1,4,3,4,5]"))
+def nxt3(st,a):
+    r,c,s,f,cc,dd,pad=st
+    if a==6:
+        return ((r,c) if False else ((37,15) if s==2 else (17,33)))+(s,f,cc,dd,pad),COST[6],0,False
+    if a==7:
+        if s!=2: return st,COST[7],0,False
+        P=lambda y,x: fl(cc,dd,y,x)
+        for dr,dc in ((-2,-2),(0,-2),(-2,0),(0,0)):
+            if ball(P,r+dr,c+dc,4): return (r+dr,c+dc,4,f,cc,dd,pad),COST[7],0,False
+        return st,COST[7],0,False
+    n,cst,g,won=nxt(st,a)
+    return n,COST[a],g,won
+start=(29,17,4,1,False,False,False)
+def solve(B):
+    best={start:B};par={start:None};q=collections.deque([start])
+    while q:
+        st=q.popleft();b=best[st]
+        for a in range(8):
+            n,cst,g,won=nxt3(st,a)
+            if cst>b: continue
+            nb=b-cst+g
+            if won:
+                seq=[a];x=st
+                while par[x]: x,aa=par[x];seq.append(aa)
+                return seq[::-1]
+            if nb>best.get(n,-1): best[n]=nb;par[n]=(st,a);q.append(n)
+N=['U','D','Lf','R','.shrink','.cast6','.tele','.grow']
+for B in range(30,40):
+    p=solve(B)
+    print(B, None if p is None else (len(p), sum(COST[a] for a in p), ', '.join(N[a] for a in p)))
+    if p: break
+
+# reachable set ignoring budget; exact min net cost-to-win (Phi) by Bellman-Ford style relaxation
+seen={start};q=collections.deque([start]);edges={}
+while q:
+    st=q.popleft();E=[]
+    for a in range(8):
+        n,cst,g,won=nxt3(st,a);E.append((a,n,cst,g,won))
+        if not won and n not in seen: seen.add(n);q.append(n)
+    edges[st]=E
+print('reachable',len(seen))
+INF=10**9;Phi={s:INF for s in seen}
+for it in range(500):
+    ch=False
+    for s,E in edges.items():
+        for a,n,cst,g,won in E:
+            v=cst-g+(0 if won else Phi[n])
+            if v<Phi[s]: Phi[s]=v;ch=True
+    if not ch: break
+print('Phi(start)=',Phi[start],'iters',it)
+json.dump({'states':[list(map(lambda x:int(x) if isinstance(x,bool) else x,s))+[Phi[s]] for s in seen]},open('work/l5_phi.json','w'))

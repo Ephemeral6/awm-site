@@ -1,0 +1,18 @@
+"""After ACTION1/2/3/4 the cursor's colour-9 half is on its up/down/left/right side respectively (facing = last direction pressed), whether or not it moved."""
+LEVEL = "L1"
+SCOPE = "ACTION1-4 only; same level; NA if cursor not located in nxt; NA if the whole frame is unchanged (unaccepted vs idempotent cannot be told apart)"
+NOTE = "v2: v1 judged FALSE on 2b3e5ed8fe7b90de, the very first ACTION1 after reset: frame byte-identical, facing stayed L. Read as swallowed first action (METHOD 2.1), so zero-diff frames are out of scope."
+EVIDENCE = ["e3b6a995fbd25760", "2b3e5ed8fe7b90de"]
+from _lib import cursor, same_level
+F = {"ACTION1": "U", "ACTION2": "D", "ACTION3": "L", "ACTION4": "R"}
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in F or not same_level(ctx):
+        return "NA"
+    if prev == nxt:
+        return "NA"
+    b = cursor(nxt)
+    if not b:
+        return "NA"
+    return "TRUE" if b[3] == F[action] else "FALSE"

@@ -1,0 +1,94 @@
+"""Patch lean/FinalProof.lean for the widened panel rule (superset completion, HNoDouble)."""
+p = 'lean/FinalProof.lean'
+s = open(p, encoding='utf-8').read()
+
+def rep(old, new):
+    global s
+    assert old in s, old[:80]
+    s = s.replace(old, new)
+
+rep("/-! ## panel lemmas -/", """/-- No single click fires BOTH recipes. Evidence: none either way -- a click whose marks contain
+    both recipes was never made (every recorded completion matched one recipe exactly).
+    LOAD-BEARING: `double_wins_18` below exhibits a win at budget 18 without it. Everything else
+    about non-exact marks is left free (`u.sup`, `u.pick`). -/
+def HNoDouble (u : U) : Prop := ∀ st, u.both st = false
+
+/-! ## panel lemmas -/""")
+
+i = s.index("theorem dist_toggle_le"); j = s.index("/-! ## potential -/")
+s = s[:i] + """theorem miss_toggle_le : ∀ (R m : List Bool) (k : Nat), miss R (toggle m k) ≤ miss R m + 1
+  | [], _, _ => by simp [miss]
+  | r :: rs, [], k => by simp [toggle]
+  | r :: rs, x :: xs, 0 => by
+      have := miss_toggle_le rs xs 0
+      cases r <;> cases x <;> simp [toggle, miss] <;> omega
+  | r :: rs, x :: xs, k + 1 => by
+      have := miss_toggle_le rs xs k
+      simp only [toggle, miss]; omega
+
+theorem miss_le_toggle : ∀ (R m : List Bool) (k : Nat), miss R m ≤ miss R (toggle m k) + 1
+  | [], _, _ => by simp [miss]
+  | r :: rs, [], k => by simp [toggle]
+  | r :: rs, x :: xs, 0 => by
+      have := miss_le_toggle rs xs 0
+      cases r <;> cases x <;> simp [toggle, miss] <;> omega
+  | r :: rs, x :: xs, k + 1 => by
+      have := miss_le_toggle rs xs k
+      simp only [toggle, miss]; omega
+
+theorem miss_e_SHR : miss SHR empty9 = 4 := by decide
+theorem miss_e_SW : miss SW empty9 = 3 := by decide
+
+""" + s[j:]
+
+rep("def NN (st : St) : Nat := min (AN0 st.q) (min (BS st.q + dist st.m SHR) (BW st.q + dist st.m SW))",
+    "def NN (st : St) : Nat := min (AN0 st.q) (min (BS st.q + miss SHR st.m) (BW st.q + miss SW st.m))")
+rep("def MM (st : St) : Nat := min (AM0 st.q) (min (BMS st.q + dist st.m SHR) (BMW st.q + dist st.m SW))",
+    "def MM (st : St) : Nat := min (AM0 st.q) (min (BMS st.q + miss SHR st.m) (BMW st.q + miss SW st.m))")
+rep("simp only [NN, Nz, dist_e_SHR, dist_e_SW]", "simp only [NN, Nz, miss_e_SHR, miss_e_SW]")
+rep("simp only [MM, Mz, dist_e_SHR, dist_e_SW]", "simp only [MM, Mz, miss_e_SHR, miss_e_SW]")
+s = s.replace("+ dist st.m SHR", "+ miss SHR st.m").replace("+ dist st.m SW", "+ miss SW st.m")
+
+rep("theorem pre_inv (u : U) (hF : HFire u) (hG : HGrow u) (B : Nat) (st : St) (a : Act)",
+    "theorem pre_inv (u : U) (hF : HFire u) (hG : HGrow u) (hD : HNoDouble u) (B : Nat) (st : St) (a : Act)")
+
+i = s.index("  | click k =>\n    simp only [pre]"); j = s.index("theorem run_false")
+s = s[:i] + open('work/final/click_case.lean', encoding='utf-8').read() + "\n" + s[j:]
+
+rep("theorem run_false (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (B : Nat) :",
+    "theorem run_false (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u) (B : Nat) :")
+rep("    obtain ⟨hw, hi⟩ := pre_inv u hF hG B st a h hb", "    obtain ⟨hw, hi⟩ := pre_inv u hF hG hD B st a h hb")
+rep("""theorem l4_no_win (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (as : List Act) :
+    run u 18 init as = false :=
+  run_false u hF hG hR 18 as init (init_inv 18 (Nat.le_refl _)) (by decide)""",
+    """theorem l4_no_win (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u)
+    (as : List Act) : run u 18 init as = false :=
+  run_false u hF hG hR hD 18 as init (init_inv 18 (Nat.le_refl _)) (by decide)""")
+rep("""  refundTo := fun st => st.sp - 10
+
+theorem uW_fire""", """  refundTo := fun st => st.sp - 10
+  sup := fun _ => false
+  both := fun _ => false
+  order := fun _ => true
+  pick := fun _ => true
+
+theorem uW_double : HNoDouble uW := fun _ => rfl
+
+theorem uW_fire""")
+rep("""    (∀ B, B ≤ 18 → ∀ (u : U), HFire u → HGrow u → HRefund u → ∀ as, run u B init as = false) ∧
+    (∃ u : U, HFire u ∧ HGrow u ∧ HRefund u ∧ ∃ as, run u 19 init as = true) :=
+  ⟨fun B hB u hF hG hR as => run_false u hF hG hR B as init (init_inv B hB) (by simp [init]),
+   ⟨uW, uW_fire, uW_grow, uW_refund, witness, witness_wins_19⟩⟩""",
+    open('work/final/tail.lean', encoding='utf-8').read())
+rep("""#print axioms witness_wins_19
+#print axioms l4_least_budget
+#print axioms l4_no_win
+
+end Final""", """end Final
+
+#print axioms Final.double_wins_18
+#print axioms Final.witness_wins_19
+#print axioms Final.l4_least_budget
+#print axioms Final.l4_no_win""")
+open(p, 'w', encoding='utf-8').write(s)
+print('patched')

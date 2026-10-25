@@ -1,0 +1,414 @@
+import FinalCert
+
+/-!
+# m15fw level 4 — final proof
+
+Model: `FinalModel.lean` (level-4 rules; unknown rules are the fields of `U`).
+Main theorem `l4_no_win`: under the hypotheses `HFire`, `HGrow`, `HRefund`, NO action list wins
+level 4 within its measured budget 18 — for every way of filling in the unknowns.
+Least budget: `l4_least_budget` — no win for any budget ≤ 18, and a winning list at budget 19.
+
+Proof idea: a potential certificate. `NN st` / `MM st` are lower bounds on the units still needed
+to win (without / with the one refill), read from tables plus the panel distance to each recipe.
+`facts q` states every local inequality the tables must satisfy at position `q`; `FinalCert.lean`
+checks it with the kernel for every position of the domain (320 row chunks, `chunk_ok`). From it,
+`Inv` is preserved by every action, and `Inv` excludes a win.
+-/
+
+namespace Final
+
+/-! ## hypotheses (the rules the recorded steps did not pin down) -/
+
+/-- The switch can only open the barrier when the cursor's left column is 31 or 32 (the stalk).
+    Evidence (`M15fwModel.casts`, 13 completions): fired at col 31 (L3 4x4 at its stalk col 29; L4 2x2
+    at col 31 in attempts 3,4,5,6; L4 4x4 at col 31 in attempts 7,8); never fired at cols 29, 33,
+    37, 41, 43. Stated WEAKER than the evidence: facing and size are left free (the evidence also
+    shows that facing left at col 31 does not fire — not assumed here). -/
+def HFire (u : U) : Prop := ∀ st, u.fires st = true → st.q.c = 31 ∨ st.q.c = 32
+
+/-- Completing the shrink recipe ends in one of `growOpts`: 4x4 → 2x2 same top-left (observed
+    L1, attempts 2-8); 2x2 → 4x4 at (r-2,c-2) when free (observed attempts 4, 7, 8); next to walls
+    (never observed) any free quadrant or no growth at all. -/
+def HGrow (u : U) : Prop := ∀ st, u.res st ∈ growOpts st.q
+
+/-- A refill refunds at most 10 units. Evidence: attempts 4 (10+1 → 1), 6 (18+1 → 9),
+    8 (11+1 → 2): exactly 10 each time. Whether/when an eligible refill triggers (`u.refill`) is
+    left completely free. -/
+def HRefund (u : U) : Prop := ∀ st, st.sp ≤ u.refundTo st + 10
+
+/-- No single click fires BOTH recipes. Evidence: selfaudit attempt 1 marked cells {1,3,4,5,7}
+    (both recipes) and nothing completed. Under the strict order this hypothesis is no longer
+    load-bearing (search: no win at 18 even with superset/double completion). Everything else about
+    non-exact marks stays free (`u.sup`, `u.pick`). -/
+def HNoDouble (u : U) : Prop := ∀ st, u.both st = false
+
+/-! ## panel lemmas -/
+
+theorem miss_toggle_le : ∀ (R m : List Bool) (k : Nat), miss R (toggle m k) ≤ miss R m + 1
+  | [], _, _ => by simp [miss]
+  | r :: rs, [], k => by simp [toggle]
+  | r :: rs, x :: xs, 0 => by
+      have := miss_toggle_le rs xs 0
+      cases r <;> cases x <;> simp [toggle, miss] <;> omega
+  | r :: rs, x :: xs, k + 1 => by
+      have := miss_toggle_le rs xs k
+      simp only [toggle, miss]; omega
+
+theorem miss_le_toggle : ∀ (R m : List Bool) (k : Nat), miss R m ≤ miss R (toggle m k) + 1
+  | [], _, _ => by simp [miss]
+  | r :: rs, [], k => by simp [toggle]
+  | r :: rs, x :: xs, 0 => by
+      have := miss_le_toggle rs xs 0
+      cases r <;> cases x <;> simp [toggle, miss] <;> omega
+  | r :: rs, x :: xs, k + 1 => by
+      have := miss_le_toggle rs xs k
+      simp only [toggle, miss]; omega
+
+theorem miss_e_SHR : miss SHR empty9 = 4 := by decide
+theorem miss_e_SW : miss SW empty9 = 3 := by decide
+
+/-! ## potential -/
+
+def NN (st : St) : Nat := min (AN0 st.q) (min (BS st.q + miss SHR st.m) (BW st.q + miss SW st.m))
+def MM (st : St) : Nat := min (AM0 st.q) (min (BMS st.q + miss SHR st.m) (BMW st.q + miss SW st.m))
+
+theorem NN_empty (q : Q) (sp : Nat) : NN { q := q, m := empty9, sp := sp } = Nz q := by
+  simp only [NN, Nz, miss_e_SHR, miss_e_SW]
+
+theorem MM_empty (q : Q) (sp : Nat) : MM { q := q, m := empty9, sp := sp } = Mz q := by
+  simp only [MM, Mz, miss_e_SHR, miss_e_SW]
+
+theorem min3_le (a b c a' b' c' k : Nat) (h1 : a ≤ k + a') (h2 : b ≤ k + b') (h3 : c ≤ k + c') :
+    min a (min b c) ≤ k + min a' (min b' c') := by
+  simp only [Nat.min_def]; split <;> split <;> (try split) <;> (try split) <;> omega
+
+theorem min3_le_left (a b c : Nat) : min a (min b c) ≤ a := Nat.min_le_left _ _
+theorem min3_le_mid (a b c : Nat) : min a (min b c) ≤ b :=
+  Nat.le_trans (Nat.min_le_right _ _) (Nat.min_le_left _ _)
+theorem min3_le_right (a b c : Nat) : min a (min b c) ≤ c :=
+  Nat.le_trans (Nat.min_le_right _ _) (Nat.min_le_right _ _)
+
+def Inv (B : Nat) (st : St) : Prop :=
+  Dom st.q = true ∧ B + 1 ≤ NN st + st.sp ∧ (st.q.it = true → B + 11 ≤ MM st + st.sp)
+
+/-! ## unpacking the certificate -/
+
+theorem facts_of (q : Q) (h : Dom q = true) : facts q = true := by
+  rcases q with ⟨s, r, c, op, it⟩
+  have h' := h
+  simp only [Dom, Bool.and_eq_true, Bool.or_eq_true, beq_iff_eq, Nat.blt_eq] at h'
+  obtain ⟨⟨⟨hs, hr⟩, hc⟩, _⟩ := h'
+  have hch := chunk_ok s op it r hs hr
+  simp only [chunk, List.all_eq_true, List.mem_range] at hch
+  have := hch c hc
+  simp only [h, Bool.not_true, Bool.false_or] at this
+  exact this
+
+theorem fact_move (q : Q) (h : Dom q = true) (d : Dir) : factMove q d = true := by
+  have := facts_of q h
+  simp only [facts, Bool.and_eq_true, List.all_eq_true] at this
+  exact this.1.1.1 d (by cases d <;> simp [dirs])
+
+theorem fact_grow (q : Q) (h : Dom q = true) : factGrow q = true := by
+  have := facts_of q h
+  simp only [facts, Bool.and_eq_true] at this
+  exact this.1.1.2
+
+theorem fact_switch (q : Q) (h : Dom q = true) : factSwitch q = true := by
+  have := facts_of q h
+  simp only [facts, Bool.and_eq_true] at this
+  exact this.1.2
+
+theorem fact_refill (q : Q) (h : Dom q = true) : factRefill q = true := by
+  have := facts_of q h
+  simp only [facts, Bool.and_eq_true] at this
+  exact this.2
+
+/-! ## one action preserves `Inv` -/
+
+theorem post_inv (u : U) (hR : HRefund u) (B : Nat) (st : St) (h : Inv B st) : Inv B (post u st) := by
+  unfold post
+  split
+  · next he =>
+    simp only [Bool.and_eq_true] at he
+    obtain ⟨he1, _⟩ := he
+    obtain ⟨hd, hn, hm⟩ := h
+    have hf := fact_refill st.q hd
+    simp only [factRefill, he1, Bool.not_true, Bool.false_or, Bool.and_eq_true, Nat.ble_eq] at hf
+    obtain ⟨⟨⟨hd2, h0⟩, hs⟩, hw⟩ := hf
+    have hit : st.q.it = true := by
+      simp only [eligible, Bool.and_eq_true] at he1; exact he1.1.1
+    have hm' := hm hit
+    have hr := hR st
+    refine ⟨hd2, ?_, fun h' => by simp at h'⟩
+    have e0 : AM0 st.q ≤ 0 + AN0 (Q.mk st.q.s st.q.r st.q.c st.q.op false) := by omega
+    have e1 : BMS st.q + miss SHR st.m ≤ 0 + (BS (Q.mk st.q.s st.q.r st.q.c st.q.op false) + miss SHR st.m) := by
+      omega
+    have e2 : BMW st.q + miss SW st.m ≤ 0 + (BW (Q.mk st.q.s st.q.r st.q.c st.q.op false) + miss SW st.m) := by
+      omega
+    have key := min3_le _ _ _ _ _ _ 0 e0 e1 e2
+    simp only [MM, NN] at hm' key ⊢
+    omega
+  · exact h
+
+theorem post_noelig (u : U) (st : St) (h : eligible st.q = false) : post u st = st := by
+  unfold post; simp [h]
+
+theorem elig_of_noov (q : Q) (h : overl itemC q.r q.c q.s = false) : eligible q = false := by
+  simp [eligible, h]
+
+/-- one action: a win only happens past the budget (and leaves no refill pending); otherwise `Inv`
+    holds for the pre-refill state. -/
+theorem pre_inv (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u) (B : Nat)
+    (st : St) (a : Act) (h : Inv B st) (hb : st.sp ≤ B) :
+    ((pre u st a).2 = true → B < (pre u st a).1.sp ∧ eligible (pre u st a).1.q = false) ∧
+    ((pre u st a).2 = false → Inv B (pre u st a).1) := by
+  obtain ⟨hd, hn, hm⟩ := h
+  cases a with
+  | move d =>
+    have hf := fact_move st.q hd d
+    simp only [factMove, Bool.and_eq_true, beq_iff_eq] at hf
+    obtain ⟨⟨hd2, hit⟩, hrest⟩ := hf
+    simp only [pre]
+    cases hw : wins (moveQ st.q d)
+    · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+        Bool.not_eq_true'] at hrest
+      obtain ⟨⟨⟨h0, hs⟩, hw'⟩, hmm⟩ := hrest
+      refine ⟨fun h => by simp at h, fun _ => ⟨hd2, ?_, ?_⟩⟩
+      · have : NN st ≤ 1 + NN { st with q := moveQ st.q d, sp := st.sp + 1 } := by
+          simp only [NN]; exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+        simp only at this ⊢; omega
+      · intro hi
+        simp only at hi
+        rw [hit] at hi
+        have hm2 := hm hi
+        rcases hmm with hmm | hmm
+        · rw [hmm] at hi; simp at hi
+        · obtain ⟨⟨a1, a2⟩, a3⟩ := hmm
+          have : MM st ≤ 1 + MM { st with q := moveQ st.q d, sp := st.sp + 1 } := by
+            simp only [MM]; exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+          simp only at this ⊢; omega
+    · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+      obtain ⟨h1, hel⟩ := hrest
+      have : NN st ≤ 1 := Nat.le_trans (min3_le_left _ _ _) h1
+      refine ⟨fun _ => ⟨by show B < st.sp + 1; omega, hel⟩, fun h => by simp at h⟩
+  | click k =>
+    simp only [pre]
+    split
+    · exact ⟨fun h => by simp at h, fun _ => ⟨hd, hn, hm⟩⟩
+    · split
+      · next hk hboth =>
+        simp only [hD st, Bool.and_false, Bool.false_eq_true] at hboth
+      · split
+        · next hk _ hS =>
+          -- shrink recipe completed: 4x4 → 2x2, or a grow 2x2 → 4x4 (possibly refilling)
+          have hdm : miss SHR st.m ≤ 1 := by
+            simp only [Bool.and_eq_true, beq_iff_eq] at hS
+            have := miss_le_toggle SHR st.m k; omega
+          have hgm := hG st
+          have hf := fact_grow st.q hd
+          simp only [factGrow, List.all_eq_true] at hf
+          have hq := hf _ hgm
+          simp only [Bool.and_eq_true, beq_iff_eq] at hq
+          obtain ⟨⟨hd2, hit⟩, hrest⟩ := hq
+          have hN : NN st ≤ BS st.q + miss SHR st.m := min3_le_mid _ _ _
+          have hM : MM st ≤ BMS st.q + miss SHR st.m := min3_le_mid _ _ _
+          split
+          · next hcond =>
+            -- grow refill (selfaudit repair R12.4)
+            simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+            obtain ⟨⟨⟨⟨hit1, hs2⟩, hs4⟩, hov⟩, _⟩ := hcond
+            cases hw : wins (u.res st)
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq,
+                Bool.or_eq_true, Bool.not_eq_true', hit1, hs2, hs4, hov, Bool.true_and, beq_self_eq_true,
+                Bool.not_true, Bool.false_or] at hrest
+              obtain ⟨_, hd3, hbm3⟩ := hrest
+              have hr := hR { q := u.res st, m := empty9, sp := st.sp + 2 }
+              have hm1 := hm hit1
+              refine ⟨fun h => by simp at h, fun _ => ⟨by dsimp only; rw [hs4]; exact hd3, ?_,
+                fun h' => by simp at h'⟩⟩
+              dsimp only
+              rw [NN_empty, hs4]
+              simp only at hr hM
+              omega
+            · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true', hs4] at hrest
+              rw [hrest.2] at hov; simp at hov
+          · cases hw : wins (u.res st)
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+                Bool.not_eq_true'] at hrest
+              obtain ⟨⟨hbs, hbm⟩, _⟩ := hrest
+              refine ⟨fun h => by simp at h, fun _ => ⟨hd2, ?_, ?_⟩⟩
+              · rw [NN_empty]; simp only at hN ⊢; omega
+              · intro hi
+                simp only at hi
+                rw [MM_empty]
+                try rw [hit] at hi
+                rcases hbm with hbm | hbm
+                · rw [hbm] at hi; simp at hi
+                · have := hm hi
+                  simp only at hM ⊢; omega
+            · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+              obtain ⟨h1, hov⟩ := hrest
+              refine ⟨fun _ => ⟨by show B < st.sp + 2; omega, elig_of_noov _ hov⟩, fun h => by simp at h⟩
+        · split
+          · next hk _ _ hW =>
+            -- switch recipe completed
+            have hdm : miss SW st.m ≤ 1 := by
+              simp only [Bool.and_eq_true, beq_iff_eq] at hW
+              have := miss_le_toggle SW st.m k; omega
+            have hmem : { st.q with op := st.q.op || u.fires st } ∈ switchOpts st.q := by
+              cases hfi : u.fires st
+              · simp only [Bool.or_false]
+                unfold switchOpts; split <;> simp
+              · have hc := hF st hfi
+                simp only [Bool.or_true]
+                unfold switchOpts
+                simp [hc]
+            have hf := fact_switch st.q hd
+            simp only [factSwitch, List.all_eq_true] at hf
+            have hq := hf _ hmem
+            simp only [Bool.and_eq_true, beq_iff_eq] at hq
+            obtain ⟨⟨hd2, hit⟩, hrest⟩ := hq
+            have hN : NN st ≤ BW st.q + miss SW st.m := min3_le_right _ _ _
+            have hM : MM st ≤ BMW st.q + miss SW st.m := min3_le_right _ _ _
+            cases hw : wins { st.q with op := st.q.op || u.fires st }
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+                Bool.not_eq_true'] at hrest
+              obtain ⟨hbw, hbm⟩ := hrest
+              refine ⟨fun h => by simp at h, fun _ => ⟨hd2, ?_, ?_⟩⟩
+              · rw [NN_empty]; simp only at hN ⊢; omega
+              · intro hi
+                simp only at hi
+                rw [MM_empty]
+                try rw [hit] at hi
+                rcases hbm with hbm | hbm
+                · rw [hbm] at hi; simp at hi
+                · have := hm hi
+                  simp only at hM ⊢; omega
+            · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+              obtain ⟨h1, hov⟩ := hrest
+              refine ⟨fun _ => ⟨by show B < st.sp + 2; omega, elig_of_noov _ hov⟩, fun h => by simp at h⟩
+          · -- ordinary click: each missing count moves by at most one
+            refine ⟨fun h => by simp at h, fun _ => ⟨hd, ?_, ?_⟩⟩
+            · have : NN st ≤ 1 + NN { st with m := toggle st.m k, sp := st.sp + 1 } := by
+                simp only [NN]
+                have := miss_le_toggle SHR st.m k
+                have := miss_le_toggle SW st.m k
+                exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+              simp only at this ⊢; omega
+            · intro hi
+              have := hm hi
+              have : MM st ≤ 1 + MM { st with m := toggle st.m k, sp := st.sp + 1 } := by
+                simp only [MM]
+                have := miss_le_toggle SHR st.m k
+                have := miss_le_toggle SW st.m k
+                exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+              simp only at this ⊢; omega
+
+theorem run_false (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u) (B : Nat) :
+    ∀ (as : List Act) (st : St), Inv B st → st.sp ≤ B → run u B st as = false := by
+  intro as
+  induction as with
+  | nil => intro st _ _; rfl
+  | cons a rest ih =>
+    intro st h hb
+    obtain ⟨hwon, hnot⟩ := pre_inv u hF hG hR hD B st a h hb
+    simp only [run, step]
+    by_cases hw : (pre u st a).2 = true
+    · obtain ⟨hlt, hel⟩ := hwon hw
+      have hsp : (post u (pre u st a).1).sp = (pre u st a).1.sp := by rw [post_noelig u _ hel]
+      have hlt' : B < (post u (pre u st a).1).sp := by rw [hsp]; exact hlt
+      simp [hlt']
+    · have hw' : (pre u st a).2 = false := by simpa using hw
+      have hp := post_inv u hR B _ (hnot hw')
+      simp only [hw', Bool.false_eq_true, ite_false]
+      split
+      · rfl
+      · next hlt => exact ih _ hp (by omega)
+
+theorem init_inv (B : Nat) (hB : B ≤ 18) : Inv B init := by
+  have h1 : Dom init.q = true := by decide
+  have h2 : NN init = 23 := by decide
+  have h3 : MM init = 29 := by decide
+  refine ⟨h1, ?_, fun _ => ?_⟩
+  · rw [h2]; simp only [init]; omega
+  · rw [h3]; simp only [init]; omega
+
+/-! ## main theorem -/
+
+/-- **No action list wins level 4 within its measured budget (18)**, for every reading of the
+    unknown rules allowed by `HFire`, `HGrow`, `HRefund` (any `fires`, `res`, `refill`,
+    `refundTo` satisfying them). -/
+theorem l4_no_win (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u)
+    (as : List Act) : run u 18 init as = false :=
+  run_false u hF hG hR hD 18 as init (init_inv 18 (Nat.le_refl _)) (by decide)
+
+/-! ## non-vacuity: the least winning budget is 19 -/
+
+/-- a concrete reading of the unknowns consistent with all recorded steps:
+    fire at the stalk column, exact grow anchor, refill always triggers, refund exactly 10. -/
+def uW : U where
+  fires := fun st => st.q.c == 31 || st.q.c == 32
+  res := fun st => (growOpts st.q).headD st.q
+  refill := fun _ => true
+  refundTo := fun st => st.sp - 10
+  sup := fun _ => false
+  both := fun _ => false
+  order := fun _ => true
+  pick := fun _ => true
+
+theorem uW_double : HNoDouble uW := fun _ => rfl
+
+theorem uW_fire : HFire uW := by
+  intro st h
+  simp only [uW, Bool.or_eq_true, beq_iff_eq] at h
+  exact h
+
+theorem growOpts_ne (q : Q) : growOpts q ≠ [] := by
+  unfold growOpts; split
+  · simp
+  · split <;> simp
+
+theorem uW_grow : HGrow uW := by
+  intro st
+  simp only [uW]
+  have hne := growOpts_ne st.q
+  cases h : growOpts st.q with
+  | nil => exact absurd h hne
+  | cons x xs => simp
+
+theorem uW_refund : HRefund uW := by
+  intro st; simp only [uW]; omega
+
+/-- found by work/final/gen.py: down, down, left×3 (4x4 to (33,25)); shrink; left onto the item
+    (refill); up, right; grow → 4x4 (29,23); right×2 → (29,31); switch (fires); right×6. -/
+def witness : List Act :=
+  [.move .down, .move .down, .move .left, .move .left, .move .left,
+   .click 1, .click 3, .click 5, .click 7, .move .down,
+   .click 1, .click 3, .click 5, .click 7, .move .up, .move .right, .move .right,
+   .click 1, .click 4, .click 7,
+   .move .right, .move .right, .move .right, .move .right, .move .right, .move .right]
+
+theorem witness_wins_19 : run uW 19 init witness = true := by decide +kernel
+
+/-- **least budget**: with budget ≤ 18 no list wins (under the hypotheses, for every reading),
+    and at budget 19 a list wins (for a reading satisfying the hypotheses). -/
+theorem l4_least_budget :
+    (∀ B, B ≤ 18 → ∀ (u : U), HFire u → HGrow u → HRefund u → HNoDouble u →
+        ∀ as, run u B init as = false) ∧
+    (∃ u : U, HFire u ∧ HGrow u ∧ HRefund u ∧ HNoDouble u ∧ ∃ as, run u 19 init as = true) :=
+  ⟨fun B hB u hF hG hR hD as => run_false u hF hG hR hD B as init (init_inv B hB) (by simp [init]),
+   ⟨uW, uW_fire, uW_grow, uW_refund, uW_double, witness, witness_wins_19⟩⟩
+
+/-! ## `HNoDouble`
+
+Under the strict order (pinned in the selfaudit round) even superset + double completion gives no
+win at 18 (work/final/superset_check search, strict variant), and the selfaudit round observed that
+marks containing both recipes complete NOTHING (att.1: marks {1,3,4,5,7} stayed). The old
+counter-witness `double_wins_18` (permissive order) no longer applies and was removed. -/
+
+end Final
+
+#print axioms Final.witness_wins_19
+#print axioms Final.l4_least_budget
+#print axioms Final.l4_no_win

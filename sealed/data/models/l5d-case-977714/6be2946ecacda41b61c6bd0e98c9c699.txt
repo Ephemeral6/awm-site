@@ -1,0 +1,72 @@
+"""Assemble the split Lean development for the self-audit corrected level-5 model.
+
+lean/L5Defs.lean     definitions, rules, soundness lemmas, the certificate table, the witness
+lean/L5ChunkN.lean   kernel check of table chunk N              (separate process: memory)
+lean/L5Nodes.lean    kernel check of the 15 skeleton nodes, tab_s0 and the witness
+lean/L5Model.lean    the main theorem and the relaxed-model theorem, composed without evaluation
+"""
+import json
+head = open('work/l5b_head.lean.txt', encoding='utf-8').read()
+tables = open('work/l5b_defs_tables.lean.txt', encoding='utf-8').read()
+meta = json.load(open('work/l5b_chunks.json', encoding='utf-8'))
+
+lemma = '''
+theorem all_node {p : St → Int → Bool} {l r : Tree} {s : St} {h : Int}
+    (hp : p s h = true) (hl : l.all p = true) (hr : r.all p = true) :
+    (Tree.node l s h r).all p = true := by
+  simp [Tree.all, hp, hl, hr]
+
+'''
+open('lean/L5Defs.lean', 'w', encoding='utf-8').write(head + lemma + tables + '\nend L5\n')
+
+for j in range(meta['nchunks']):
+    open('lean/L5Chunk%d.lean' % j, 'w', encoding='utf-8').write(
+        'import L5Defs\n\nnamespace L5\n\nset_option maxRecDepth 100000\n\n'
+        'theorem tabC%d_ok : tabC%d.all (ok tab) = true := by decide +kernel\n\nend L5\n' % (j, j))
+
+nodes = ''.join('theorem tabN%d_ok : ok tab %s (%d) = true := by decide +kernel\n' % (q, s, v)
+                for q, (s, v) in enumerate(meta['nodes']))
+open('lean/L5Nodes.lean', 'w', encoding='utf-8').write(
+    'import L5Defs\n\nnamespace L5\n\nset_option maxRecDepth 100000\n\n' + nodes +
+    '\ntheorem tab_s0 : tab.find s0 = some 37 := by decide +kernel\n\n'
+    '/-- relaxed model: budget 35 → 37 admits this route -/\n'
+    'theorem witness_wins : firstWin s0 witness = some 37 := by decide +kernel\n\nend L5\n')
+
+main = ''.join('import L5Chunk%d\n' % j for j in range(meta['nchunks'])) + 'import L5Nodes\n'
+main += '''
+/-!
+# Level 5, self-audit corrected model: main theorem
+
+Definitions, rules and the certificate table are in `L5Defs.lean`, amended from the attempt-7 `L5Model.lean`
+(the old version is kept in work/L5Model_attempt7.lean.bak). The rule changed is R-col → R-col' (`beam`).
+The kernel checks are split over `L5ChunkN.lean` / `L5Nodes.lean` only to keep each Lean process under the
+memory limit; this file does no evaluation and only composes them.
+-/
+
+namespace L5
+
+/-- the whole certificate table passes `ok`, composed from the chunk and skeleton-node checks. -/
+theorem tab_ok : tab.all (ok tab) = true := %s
+
+/-- **Main theorem (self-audit corrected model).** In the level-5 model with the beam rule R-col',
+    every action sequence that wins costs at least 37 units, more than the measured 35-unit budget.
+    It quantifies over every action sequence (moves, plus, col, tele) from the level start; no hypotheses. -/
+theorem l5_impossible : ∀ (as : List Act) (C : Int), firstWin s0 as = some C → 35 < C := by
+  intro as C hw
+  have := lower_bound tab tab_ok as s0 37 C tab_s0 hw
+  omega
+
+/-- **Relaxed-model theorem.** Relax the budget from 35 to 37 (by 2 units): the same model has a winning
+    route, and 37 is the least budget at which it wins. -/
+theorem least_budget_is_37 :
+    (∀ (as : List Act) (C : Int), firstWin s0 as = some C → 37 ≤ C) ∧ firstWin s0 witness = some 37 :=
+  ⟨fun as C hw => lower_bound tab tab_ok as s0 37 C tab_s0 hw, witness_wins⟩
+
+end L5
+
+#print axioms L5.l5_impossible
+#print axioms L5.least_budget_is_37
+#print axioms L5.witness_wins
+''' % meta['prf']
+open('lean/L5Model.lean', 'w', encoding='utf-8').write(main)
+print('assembled')

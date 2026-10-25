@@ -1,0 +1,9 @@
+import L5Defs
+
+namespace L5
+
+set_option maxRecDepth 100000
+
+theorem tabC11_ok : tabC11.all (ok tab) = true := by decide +kernel
+
+end L5

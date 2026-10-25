@@ -1,0 +1,77 @@
+"""Abstract level-4 model (rows abstracted, facing ignored = loose) with refill and grow.
+Computes exact min gross costs N (to win) and M (to win via a refill) by Dijkstra on the reversed graph."""
+import itertools, heapq
+CS = range(0, 64)
+def w(big): return 4 if big else 2
+def maxC(big, op, corr): return (62 - w(big)) if (op and corr) else (45 - w(big))
+def leftC(big, c): return c - w(big) if 21 + w(big) <= c else 21
+def rightC(big, op, corr, c):
+    m = maxC(big, op, corr)
+    if c + w(big) <= m: return c + w(big)
+    return m if c <= m else c
+def wins(big, op, c): return op and 58 <= c + w(big)
+ANCH_S = (0, 2); ANCH_G = (-2, 0)
+def succ(s):
+    big, c, op, a, b, item, won = s
+    if won: return
+    def mv(c2, k=1):
+        wn = wins(big, op, c2)
+        yield (big, c2, op, a, b, item, wn), k, False
+        if item and not big and c2 in (22, 23, 24):
+            yield (big, c2, op, a, b, False, wn), k, True
+    yield from mv(c)                      # vertical move
+    yield from mv(leftC(big, c))
+    for corr in (False, True):
+        yield from mv(rightC(big, op, corr, c))
+    for da in (-1, 0, 1):
+        for db in (-1, 0, 1):
+            a2, b2 = a - da, b - db
+            if not (0 <= a2 <= 4 and 0 <= b2 <= 3): continue
+            shr = a >= 1 and a2 == 0; sw = b >= 1 and b2 == 0
+            if not (shr or sw):
+                yield (big, c, op, a2, b2, item, False), 1, False
+                continue
+            anchs = (ANCH_S if big else ANCH_G) if shr else (0,)
+            for an in anchs:
+                big2 = (not big) if shr else big
+                c2 = c + an
+                if c2 < 0: continue
+                op2 = op or (sw and c2 in (31, 32))
+                yield (big2, c2, op2, 4, 3, item, wins(big2, op2, c2)), 2, False
+STATES = [(big, c, op, a, b, item, won) for big in (False, True) for c in CS for op in (False, True)
+          for a in range(0, 5) for b in range(0, 4) for item in (False, True) for won in (False, True)]
+INF = 99
+def compute():
+    # reverse edges
+    rev = {s: [] for s in STATES}
+    edges = {}
+    for s in STATES:
+        lst = [(t, k, r) for t, k, r in succ(s) if t in rev]
+        edges[s] = lst
+        for t, k, r in lst:
+            rev[t].append((s, k, r))
+    # N: min cost to reach a won state
+    N = {s: INF for s in STATES}; pq = []
+    for s in STATES:
+        if s[6]: N[s] = 0; pq.append((0, s))
+    heapq.heapify(pq)
+    while pq:
+        d, t = heapq.heappop(pq)
+        if d > N[t]: continue
+        for s, k, r in rev[t]:
+            if d + k < N[s]: N[s] = d + k; heapq.heappush(pq, (d + k, s))
+    # M: min cost to win via at least one refill step: M(s) = min over edges of k + (N(t) if r else M(t))
+    M = {s: INF for s in STATES}
+    changed = True
+    while changed:
+        changed = False
+        for s in STATES:
+            if s[6] or not s[5]: continue
+            best = min([k + (N[t] if r else M[t]) for t, k, r in edges[s]] + [INF])
+            best = min(best, INF)
+            if best < M[s]: M[s] = best; changed = True
+    return N, M, edges
+if __name__ == '__main__':
+    N, M, edges = compute()
+    init = (True, 37, False, 4, 3, True, False)
+    print('N(init) =', N[init], ' M(init) =', M[init])

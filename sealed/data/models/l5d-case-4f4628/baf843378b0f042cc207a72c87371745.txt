@@ -1,0 +1,48 @@
+"""本局词汇：两条以上概念共用的判据写在这里。
+
+**它们是假设，不是事实。**
+"""
+from geo import cells_of, components, bbox
+
+DIRS = {"ACTION1": (-4, 0), "ACTION2": (4, 0), "ACTION3": (0, -4), "ACTION4": (0, 4)}
+
+
+def piece(g, sizes=(4,)):
+    """假设：可动块 = 一个 s×s 方块（s∈sizes），一半 9 一半 10（9 那半朝前）。
+    用窗口匹配而不是连通块（连通块会和相邻的 9 边框粘在一起 —— L2 f1be93c0 打过）。
+    多候选时丢掉「9 那一半的侧向邻格仍是 9」的候选（L3 f0981f49：块贴着目标框上沿，
+    框的 9 边 + a 内部凑出一个假的朝上窗口）。
+    返回唯一的 (top,left,facing)；0 个或多个返回 None。"""
+    H, W = len(g), len(g[0])
+    out = []
+    for s in sizes:
+        h = s // 2
+        for t in range(H - s + 1):
+            for l in range(W - s + 1):
+                win = [[g[t + i][l + j] for j in range(s)] for i in range(s)]
+                if any(v not in (9, 10) for row in win for v in row):
+                    continue
+                for f, pred in (('U', lambda i, j: i < h), ('D', lambda i, j: i >= h),
+                                ('L', lambda i, j: j < h), ('R', lambda i, j: j >= h)):
+                    if all((win[i][j] == 9) == pred(i, j) for i in range(s) for j in range(s)):
+                        out.append((t, l, f, s))
+    if len(out) > 1:
+        keep = []
+        for (t, l, f, s) in out:
+            h = s // 2
+            if f in 'UD':
+                rows = range(t, t + h) if f == 'U' else range(t + h, t + s)
+                side = [(y, l - 1) for y in rows] + [(y, l + s) for y in rows]
+            else:
+                cols = range(l, l + h) if f == 'L' else range(l + h, l + s)
+                side = [(t - 1, x) for x in cols] + [(t + s, x) for x in cols]
+            # 背后（10 那一半的外侧）也不许是 9/10 —— L4 9f22596c：块贴着目标框左口，
+            # 块的 9 半 + 框内 a 凑出一个假的「朝左」窗口。
+            if f == 'U': back = [(t + s, x) for x in range(l, l + s)]
+            elif f == 'D': back = [(t - 1, x) for x in range(l, l + s)]
+            elif f == 'L': back = [(y, l + s) for y in range(t, t + s)]
+            else: back = [(y, l - 1) for y in range(t, t + s)]
+            if all(not (0 <= y < H and 0 <= x < W) or g[y][x] != 9 for y, x in side) and                all(not (0 <= y < H and 0 <= x < W) or g[y][x] not in (9, 10) for y, x in back):
+                keep.append((t, l, f, s))
+        out = keep
+    return out[0][:3] if len(out) == 1 else None

@@ -1,0 +1,114 @@
+# m15fw formal system (after attempt 1)
+
+Executable rules: `concepts/*.py`, checked by settle (all S = 1.000, see REPORT.md).
+Lean definitions: `lean/M15fwModel.lean`. Level-4 bound: `lean/M15fwL4.lean`.
+Budget fit: `work/fit_budget.py`.
+
+## a. Objects and their slots
+
+| object | slots | pair of positions that become indistinguishable if it is dropped |
+|---|---|---|
+| cursor | top row r, left column c, side (4 or 2), facing | r/c: any two positions one step apart. side: L1 before and after the shrink (same r and c). facing: L1 t1 vs t2 (same box, colour 9 on a different side) |
+| board (level data) | passable cells (colours 2, 9, 10, 11, 14), barrier cells (13), goal cells, switch, teleport frame | barrier: L3 t32, where a move into 13 has k = 0, versus the same move once opened |
+| panel | 9 mark bits | L1 after 3 clicks vs 0 clicks (the 4th click completes only in the first) |
+| recipes (level data) | mask, effect | L2 vs L3: the same click sequence teleports in one and opens the switch in the other |
+| opened | Bool | L3 before and after the second 6-completion |
+| spent | cost units | L4 t65 vs t66 (bar at 0, then GAME_OVER) |
+
+Dropped slot: the colour-0 "hint" cells in the panel. Marks start empty on every level, and no rule reads the hints.
+
+## b. Rules (position × action → change)
+
+| rule | domain | change | status |
+|---|---|---|---|
+| move_step4 v5 | ACTION1-4 | cursor moves k cells, k = largest j ≤ side such that every shifted footprint is passable | Lean def `moveK`, `applyMove` |
+| front_leads | a move with k > 0 | facing := the move direction | Lean def (inside `applyMove`) |
+| panel_click | ACTION6 on an unmarked panel cell | that cell is marked | Lean def `clickPanel` |
+| completion | marks = some recipe mask | panel clears and the effect fires | Lean def `clickPanel` |
+| shrink | completion of the shrink recipe | side := 2, top-left kept (one observation) | Lean def `applyEffect` |
+| teleport | completion of the teleport recipe | cursor moves to the bracketed frame | Lean def |
+| switch | completion of the switch recipe | opened := true **if `fires`** | effect is a def; **precondition NOT IN MODEL** |
+| goal_win | after a move | footprint overlaps the goal, so the level is won | Lean def `overlapsGoal` |
+| budget | every action | spent += 1, or 2 for a completing click; game over iff spent > B | Lean def `cost`, `overdrawn` |
+| L4 lower bound | L4 | no win within cost 19 if `Hyp` holds | consequence (theorem) |
+| clicking a marked cell, ACTION5/7, clicks outside the panel | — | — | NOT IN MODEL (never tried) |
+
+## c. Simplification
+
+- Facing is read only by front_leads, a rendering rule. It is kept in Part A but dropped from the L4 abstraction. No transition rule reads it, unless the switch precondition does (unknown).
+- In the L4 abstraction, rows are dropped (vertical moves become a no-op that costs 1), and the 9 panel bits become two counters. Both changes only add transitions.
+- The model's verdict is unchanged on every observed frame: the Python concepts run with zero counterexamples on 67 transitions, and the Lean `example`s reproduce the decisive transitions.
+
+## Changes in this attempt (attempt 1 = the first formal version)
+
+- **New rule: budget.** Costs are 1 per action and 2 for a completing click. L4 budget = 18 (fit). Game over iff spent > 18.
+- **Refuted: switch precondition "facing up and touching the stalk".** L4 t58 had both conditions and the switch did not open. The precondition is therefore NOT IN MODEL and appears only as the hypothesis `Hyp`.
+- **Refuted: 14-item is a refill.** L4 t63/t64: the bar kept dropping while the cursor covered the item.
+
+## Audit of dropped mechanisms
+
+| dropped | direction |
+|---|---|
+| rows in L4 | looser (more transitions); safe |
+| exact 9-bit panel in L4 (replaced by counters that may drop 1 per click, chosen freely) | looser; safe |
+| shrink anchor (one observation; model allows offset 0 or 2) | looser; safe |
+| shrink on an already-small cursor (unobserved; model allows a 0/2 shift) | looser; safe |
+| un-marking a marked cell (unobserved) | real cost can only go up; safe for a lower bound |
+| **switch precondition** | **replaced by the hypothesis `Hyp`. This is the stricter direction if `Hyp` is false** |
+
+## Amendments from attempt 2
+- **Object `CastObs` + table `casts`** (lean/M15fwModel.lean): all six switch-recipe completions.
+  The `Hyp` predicate (left column = stalk left column) fits all six (`decide`).
+  Refuted by data: "facing up and touching the stalk", "bumped the barrier before", "a 2x2 fires anywhere".
+- **Barrier blocks the 2x2 as well** (board4 example). No change to the rule, which was already size-independent; the L4 model already assumed it.
+- **Shrink anchor = top-left:** a second observation, now with the cursor facing right. The L4 abstraction stays loose (anchor 0 or 2).
+- **move_step4 scope:** NA when the previous frame has an empty bar (a transition across a service restart, e571568392377fe0).
+- **Budget fit:** level-4 readings from both attempts, each attempt starting at spent 0. L4 alone now pins down a unique ratio:
+  budget/c = 18, completion surcharge/c = 1, ceil rounding, game over iff R < 0 (20 raw integer scalings, 1 distinct).
+  No refund: within a level the bar never rose (the only rise was the service restart).
+
+## Amendments from attempt 3
+- `casts` table: two rows added (4x4 at col 33 facing up beside the stalk: no fire; 2x2 at col 31 in the stalk facing up: FIRED). The `Hyp` predicate fits all 8 completions (`decide`).
+- Hyp now has a controlled pair: the same facing and the same adjacency, with only the column (and size) varied. It remains an explicit hypothesis in the L4 theorem, because it also covers 4x4 columns 21 and 25, never tried facing up.
+- Budget fit with three L4 segments: still a unique ratio (B=18, completion surcharge = 1 ordinary action, ceil, game over iff R<0). No within-level rises other than the two service restarts.
+- Shrink anchor: top-left, a third observation (attempt 3, facing up). The L4 abstraction stays loose.
+
+## Amendments from attempt 4
+- **Board slot `item`** (level data: the colour-14 cells) and **Pos slot `item : Bool`** (still present).
+  Distinguishing pair: attempt 4, the move onto (33,23), versus the same move with the item already gone. In the first the bar resets, in the second it does not.
+- **Rule refill** (definition, in `stepPos .move`): if the item is present and a **2x2** footprint overlaps it, the item is consumed, spent := 0, and then the move is charged 1.
+  Evidence: attempt 4, bar 30 -> 62 rows (R = 17). Attempt 1 t63: a 4x4 covering it did not refill.
+- **Rule grow** (definition, in `applyEffect .shrink`): completing the shrink recipe on a 2x2 makes a 4x4 at (r-2, c-2). Evidence: attempt 4, 2x2 (29,31) -> 4x4 (27,29).
+  This revises "shrink on a small cursor: not in model".
+- **Switch:** fired with a 2x2 at (29,31) in the room, away from the stalk (`casts` row 9). Being in or touching the stalk is not needed. Every firing so far had the cursor facing up, so facing remains untested.
+- **lean/M15fwL4.lean is SUPERSEDED.** Its abstraction had neither refill nor grow, so it was stricter than the game; the impossibility verdict of attempts 1-3 does not transfer.
+  The current result is `lean/M15fwL4Win.lean`, a winning plan proved under `HypCol`.
+- **Budget fit with refill semantics searched** (reset+charge, reset-free, refund r = 0..40): L4 has 24 raw / 5 listed / **2 physically distinct** survivors, both with B=18, completion surcharge 1, ceil, game over iff R<0:
+  (i) refill resets spent and then charges the move; (ii) a fixed refund of exactly 10 units (which equals everything spent before the refill in attempt 4, so the two coincide on that one reading).
+  The Lean plan assumes (i). Under (ii) the plan dies: pre-refill spent 16 + 1 - 10 = 7, plus 17 more = 24 > 18. **The two readings are not yet separated.** Deciding experiment: take the item at a different spent value.
+
+## Amendments from attempt 5
+- **Switch precondition revised.** Column-only `HypCol` is REFUTED: 2x2 at (33,31) facing left did not fire, then at (31,31) facing up it did. Same column and size; only facing (and one row) varied.
+  New hypothesis `HypColUp`: fires iff left column ∈ {31,32} AND facing = up. It fits all 11 `casts` rows (`decide`).
+- **New object `RefillSem`** (a definition parameter of `stepPos`/`runA`, with explicit defaults): reset vs fixed refund, and whether the refill comes before the overdraw check. Neither is established.
+  The plan needs reset + before-check; the Lean theorems show it dies under either alternative.
+- **lean/M15fwL4Win.lean:** `l4_winnable` (under HypCol) is kept as a record of attempt 4, and its premise is now known false. `plan_fails_colUp` reproduces attempt 5. The new main theorem is `l4_winnable2` (plan2, under HypColUp).
+- **Fit (attempts 1-5):** unchanged; 2 physically distinct survivors (refill = reset+charge, or refund exactly 10). Attempt 5 had no refill, so it adds nothing on this question.
+- **Harness:** settle.py now records the raw transition count (gate bug).
+
+## Amendments from attempt 6
+- **Refill rule revised:** a fixed refund of 10 units (attempt 4: 10+1-10 = 1; attempt 6: 18+1-10 = 9). This is decisive against reset+charge, which predicts 1 at attempt 6 (observed 9).
+  The refill move at spent 18 survived, so the refill is applied before the overdraw check. The `RefillSem` defaults are now these observed values.
+  Not yet observed: whether a refund can take spent below 0 (capped bar). Both variants are searched.
+- **Click toggles:** a second click on a marked cell un-marks it (`setAt` toggles).
+- **casts:** row 12 added (the fire predicted at (33,31) facing up).
+- **lean/M15fwL4Win.lean:** the attempt-4/5 theorems now name their refuted premise (`resetSem`) explicitly. New: `plan2_dies_observed` and `plan3_dies_observed`.
+- **Impossibility evidence:** work/search_l4.py (full model, uncapped refund) and work/reach_l4.py (capped, dominance: 651,655 reachable (position, facing, opened, item, marks) states with min spent ≤ 18). Neither reaches a won state.
+  The rows-free abstraction (work/abs_l4b.py) is TOO LOOSE: it admits a 28-gross win ending at spent exactly 18. A small Lean certificate on that abstraction is therefore impossible, and the full model is too large for a kernel-checked certificate.
+
+## Amendments from attempt 7
+- **New action constructor `Act.offClick`:** ACTION6 outside the panel is a free no-op (switch, item, goal and barrier tested: 0 cells change, bar unchanged).
+  Recipe-box clicks change only the panel's 0-hint, a display slot no rule reads, so it is dropped. ACTION5/7 are rejected by the service.
+- **casts row 13:** a 4x4 at (29,31) facing up FIRED, as predicted by HypColUp (the first firing by a 4x4 on L4).
+- **plan3 (the cheapest route found by the search, needs B=21) was played.** Every step matched. GAME_OVER on action 26, which `plan3_prefix25_spent` / `plan3_prefix26_dead` reproduce in Lean.
+- **fit_budget.py:** off-panel clicks are a separate kind, with their cost searched as 0 or c.

@@ -1,0 +1,56 @@
+"""Exact search over the M15fwModel rules on the level-4 board (mirrors lean/M15fwModel.lean).
+Refill = refund REFUND units (attempt 6: refund 10), applied before the overdraw check.
+Switch fires iff left col in {31,32} and facing up (HypColUp)."""
+import heapq, sys
+B = 18; REFUND = 10
+def inR(r0, r1, c0, c1, r, c): return r0 <= r <= r1 and c0 <= c <= c1
+def passable(op, r, c):
+    return inR(21,36,21,44,r,c) or (op and inR(29,32,45,47,r,c)) or inR(29,32,48,56,r,c) or inR(28,33,57,61,r,c)
+def goal(r, c): return inR(28,33,57,61,r,c)
+def item(r, c): return inR(34,35,23,24,r,c)
+D = {'U': (-1,0), 'D': (1,0), 'L': (0,-1), 'R': (0,1)}
+SHR = frozenset({1,3,5,7}); SW = frozenset({1,4,7})
+def foot(r, c, s): return [(r+i, c+j) for i in range(s) for j in range(s)]
+def move(st, d):
+    r, c, s, f, op, it, mk = st
+    dr, dc = D[d]; k = 0
+    for j in range(1, s+1):
+        if all(passable(op, y, x) for y, x in foot(r+dr*j, c+dc*j, s)) and r+dr*j >= 0 and c+dc*j >= 0: k = j
+        else: break
+    if k == 0: return (r, c, s, f, op, it, mk), False, False
+    r2, c2 = r+dr*k, c+dc*k
+    hit = it and s == 2 and any(item(y, x) for y, x in foot(r2, c2, s))
+    won = any(goal(y, x) for y, x in foot(r2, c2, s))
+    return (r2, c2, s, d, op, it and not hit, mk), hit, won
+def click(st, k):
+    r, c, s, f, op, it, mk = st
+    m = mk | {k}
+    if m == SHR:
+        if s == 4: return (r, c, 2, f, op, it, frozenset()), True
+        return (r-2, c-2, 4, f, op, it, frozenset()), True
+    if m == SW:
+        fire = c in (31, 32) and f == 'U'
+        return (r, c, s, f, op or fire, it, frozenset()), True
+    return (r, c, s, f, op, it, frozenset(m)), False
+def search(start, spent0):
+    pq = [(spent0, 0, start, ())]; best = {}; n = 0
+    while pq:
+        sp, _, st, path = heapq.heappop(pq)
+        if best.get(st, 99) <= sp: continue
+        best[st] = sp
+        for a in list(D) + list(range(9)):
+            if isinstance(a, str):
+                st2, hit, won = move(st, a); sp2 = sp + 1 - (REFUND if hit else 0)
+            else:
+                if a in st[6]: continue
+                st2, comp = click(st, a); sp2 = sp + (2 if comp else 1); won = False
+            if sp2 > B: continue
+            if won: return sp2, path + (a,)
+            n += 1
+            heapq.heappush(pq, (sp2, n, st2, path + (a,)))
+    return None
+if __name__ == '__main__':
+    full = search((25, 37, 4, 'D', False, True, frozenset()), 0)
+    print('from level-4 start (refund %d):' % REFUND, full)
+    now = search((33, 23, 2, 'L', True, False, frozenset()), 9)
+    print('from current state (2x2 (33,23), opened, item used, spent 9):', now)

@@ -1,0 +1,55 @@
+import json, sys
+sys.argv = ['x', '9']
+import importlib.util
+spec = importlib.util.spec_from_file_location('m', 'work/l5_table.py'); m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+
+def table(T):
+    m.T = T
+    seen = {m.s0}; todo = [m.s0]; edges = []
+    while todo:
+        s = todo.pop()
+        for a in m.ACTS:
+            n, c, w = m.step(s, a); edges.append((s, a, n, c, w))
+            if not w and n not in seen: seen.add(n); todo.append(n)
+    INF = 10**6; h = {s: INF for s in seen}
+    for _ in range(len(seen) + 1):
+        ch = False
+        for s, a, n, c, w in edges:
+            v = c if w else c + h[n]
+            if v < h[s]: h[s] = v; ch = True
+        if not ch: break
+    # witness path from s0
+    path = []; s = m.s0
+    while True:
+        for a in m.ACTS:
+            n, c, w = m.step(s, a)
+            if w and c == h[s]: path.append(a); s = None; break
+            if not w and h[n] < INF and c + h[n] == h[s]: path.append(a); s = n; break
+        if s is None: break
+    cap = 1000  # unwinnable states: any big bound works (no win reachable)
+    return {s: (v if v < INF else cap) for s, v in h.items()}, path
+
+def key(s):
+    r, c, sz, bc, bd, t = s
+    return ((((r * 64 + c) * 8 + sz) * 2 + int(bc)) * 2 + int(bd)) * 2 + int(t)
+
+def st(s):
+    r, c, sz, bc, bd, t = s
+    b = lambda x: 'true' if x else 'false'
+    return '⟨%d, %d, %d, %s, %s, %s⟩' % (r, c, sz, b(bc), b(bd), b(t))
+
+def tree(items):
+    if not items: return '.leaf'
+    mid = len(items) // 2
+    k, s, h = items[mid]
+    return '(.node %s %s (%d) %s)' % (tree(items[:mid]), st(s), h, tree(items[mid+1:]))
+
+out = []
+for T in (10, 11):
+    h, path = table(T)
+    items = sorted(((key(s), s, v) for s, v in h.items()))
+    out.append('/-- certificate table for T = %d (%d states; h = min units to win, 1000 = no win reachable). -/\ndef tab%d : Tree := %s\n' % (T, len(items), T, tree(items)))
+    nm = {'U': '.mv .up', 'D': '.mv .down', 'L': '.mv .left', 'R': '.mv .right', 'PLUS': '.plus', 'COL': '.col', 'TELE': '.tele', 'TELEF': '.telef', 'GROW_A': '.growA', 'GROW_B': '.growB'}
+    out.append('/-- a cheapest winning route for T = %d (cost %d). -/\ndef witness%d : List Act := [%s]\n' % (T, h[m.s0], T, ', '.join(nm[a] for a in path)))
+    print(T, h[m.s0], len(path))
+open('work/l5_tables.lean.txt', 'w', encoding='utf-8').write('\n'.join(out))

@@ -1,0 +1,138 @@
+"""Mirror of lean/L5Model.lean `pstep` (loose acts); computes reachable states and
+remaining-cost lower bounds, and emits lean/L5Cert.lean. Lean re-checks everything."""
+import heapq, collections
+FLOOR=[(25,40,13,28),(13,24,21,22),(33,36,32,36),(25,40,37,52),(21,24,45,46),(17,20,41,48),(15,16,41,54),(5,10,33,36),(14,20,33,36)]
+barC=(33,36,29,31); barD=(11,13,33,36); swC=(9,12,20,23); swD=(14,17,55,58); goal=(1,4,33,36); pick=(37,38,49,50)
+T4=(17,33); T2=(37,15)
+def mem(q,y,x): return q[0]<=y<=q[1] and q[2]<=x<=q[3]
+def touches(q,t,l,s): return q[0]<=t+s-1 and t<=q[1] and q[2]<=l+s-1 and l<=q[3]
+def inFloor(y,x): return any(mem(q,y,x) for q in FLOOR)
+def passable(co,dO,y,x): return inFloor(y,x) or mem(goal,y,x) or (co and mem(barC,y,x)) or (dO and mem(barD,y,x))
+def windowOk(co,dO,t,l,s): return all(passable(co,dO,t+i,l+j) for i in range(s) for j in range(s))
+def sub(a,b): return max(0,a-b)
+def shift(d,t,l,k):
+    if d=='U': return (t-k,l) if k<=t else None
+    if d=='D': return (t+k,l)
+    if d=='L': return (t,l-k) if k<=l else None
+    return (t,l+k)
+def tryMove(d,q):
+    t,l,s,f,co,dO,pk=q
+    for k in range(s,0,-1):
+        r=shift(d,t,l,k)
+        if r and windowOk(co,dO,r[0],r[1],s): return r
+    return None
+def beamStart(q):
+    t,l,s,f,co,dO,pk=q
+    if f=='U': return [(sub(t,1),l),(sub(t,1),l+1)]
+    if f=='D': return [(t+s,sub(l+s,2)),(t+s,sub(l+s,1))]
+    if f=='R': return [(t,l+s),(t+1,l+s)]
+    return [(sub(t+s,2),sub(l,1)),(sub(t+s,1),sub(l,1))]
+def adv(d,c):
+    y,x=c
+    return {'U':(sub(y,1),x),'D':(y+1,x),'L':(y,sub(x,1)),'R':(y,x+1)}[d]
+def beam(co,dO,fuel,d,cs):
+    for _ in range(fuel):
+        if all(mem(swC,*c) for c in cs): return True
+        if all(mem(swD,*c) for c in cs): return False
+        if all(passable(co,dO,*c) for c in cs): cs=[adv(d,c) for c in cs]
+        else: return None
+    return None
+OFF=[(0,0),(0,2),(2,0),(2,2)]
+def growTo(q,a,b):
+    t,l,s,f,co,dO,pk=q
+    if s==2 and a<=t and b<=l and windowOk(co,dO,t-a,l-b,4): return (t-a,l-b,4,f,co,dO,pk)
+    return q
+def growSlide(q):
+    # measured (attempt 3): ideal (t-2,l-2); first fitting offset in order a,b in 2..0 (slide 0..2 down/right)
+    for a,b in [(2,2),(2,1),(1,2),(2,0),(1,1),(0,2),(1,0),(0,1),(0,0)]:
+        r=growTo(q,a,b)
+        if r!=q: return r
+    return q
+ACTS=['mvU','mvD','mvL','mvR','shrink','six','tele','grow']+['shrinkAt%d'%i for i in range(4)]+['growAt%d%d'%(a,b) for a in range(3) for b in range(3)]
+COST={'mv':1,'shrink':5,'six':4,'tele':4,'grow':5,'shrinkAt':5,'growAt':5}
+def cost(a):
+    if a.startswith('mv'): return 1
+    return COST[a.rstrip('0123456789')]
+def pstep(q,a):
+    t,l,s,f,co,dO,pk=q
+    if a.startswith('mv'):
+        d=a[2]; r=tryMove(d,q)
+        if r is None: return (t,l,s,d,co,dO,pk),False
+        nt,nl=r
+        return (nt,nl,s,d,co,dO,pk or touches(pick,nt,nl,s)), touches(goal,nt,nl,s)
+    if a=='shrink': return ((t,l,2,f,co,dO,pk) if s==4 else q),False
+    if a.startswith('shrinkAt'):
+        o=OFF[int(a[-1])]; return ((t+o[0],l+o[1],2,f,co,dO,pk) if s==4 else q),False
+    if a=='grow': return growSlide(q),False
+    if a.startswith('growAt'):
+        return growTo(q,int(a[-2]),int(a[-1])),False
+    if a=='six':
+        b=beam(co,dO,64,f,beamStart(q))
+        if b is True: return (t,l,s,f,True,dO,pk),False
+        if b is False: return (t,l,s,f,co,True,pk),False
+        return q,False
+    if a=='tele':
+        r=T4 if s==4 else T2; return (r[0],r[1],s,f,co,dO,pk),False
+start=(29,17,4,'U',False,False,False)
+seen={start}; Q=[start]; edges=collections.defaultdict(list); winc={}
+while Q:
+    q=Q.pop()
+    for a in ACTS:
+        q2,w=pstep(q,a); c=cost(a)
+        if w: winc[q]=min(winc.get(q,10**9),c); continue
+        edges[q2].append((q,c))
+        if q2 not in seen: seen.add(q2); Q.append(q2)
+INF=1000
+dist={q:INF for q in seen}
+pq=[]
+for q,c in winc.items(): dist[q]=c; heapq.heappush(pq,(c,q))
+while pq:
+    d,q=heapq.heappop(pq)
+    if d>dist[q]: continue
+    for p,c in edges[q]:
+        if d+c<dist[p]: dist[p]=d+c; heapq.heappush(pq,(d+c,p))
+print('states',len(seen),'dist(start)',dist[start],'dead',sum(1 for v in dist.values() if v>=INF))
+import json; json.dump([[list(q),d] for q,d in dist.items()],open('work/l5cert.json','w'))
+q=start; path=[]
+while True:
+    best=None
+    for a in ACTS:
+        q2,w=pstep(q,a); c=cost(a)
+        if w and c==dist[q]: best=(a,None); break
+        if not w and q2 in dist and c+dist[q2]==dist[q] and q2!=q: best=(a,q2); break
+    path.append(best[0])
+    if best[1] is None: break
+    q=best[1]
+print(' '.join(path))
+# ---- energy-weighted measure: w = 9*clicks + 10*comps, pickup flip -90
+CL={'mv':1,'shrink':4,'six':3,'tele':3,'grow':4,'shrinkAt':4,'growAt':4}
+def W(a):
+    k='mv' if a.startswith('mv') else a.rstrip('0123456789')
+    return 9*CL[k]+(0 if k=='mv' else 10)
+INFW=10**6
+dw={}
+for layer in (True,False):
+    S=[q for q in seen if q[6]==layer]
+    D={q:INFW for q in S}
+    pq=[]
+    for q in S:
+        for a in ACTS:
+            q2,w=pstep(q,a); c=W(a)
+            if w: v=c
+            elif q2[6]!=layer: v=c-90+dw[q2]
+            else: continue
+            if v<D[q]: D[q]=v
+    for q in S: heapq.heappush(pq,(D[q],q))
+    rev=collections.defaultdict(list)
+    for q in S:
+        for a in ACTS:
+            q2,w=pstep(q,a)
+            if not w and q2[6]==layer: rev[q2].append((q,W(a)))
+    while pq:
+        d,q=heapq.heappop(pq)
+        if d>D[q]: continue
+        for p,c in rev[q]:
+            if d+c<D[p]: D[p]=d+c; heapq.heappush(pq,(d+c,p))
+    dw.update(D)
+print('weighted dist(start)',dw[start])
+json.dump([[list(q),dist[q],dw[q]] for q in seen],open('work/l5cert.json','w'))

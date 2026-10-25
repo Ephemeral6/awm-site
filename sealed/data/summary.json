@@ -1,0 +1,441 @@
+{
+  "title": "Sealed sc25 experiments",
+  "source_site": "https://ephemeral6.github.io/awm-site/",
+  "existing_site_entry": "games/sc25/#sealed",
+  "historical_runs": [
+    {
+      "id": "l4p-case-2a3cc5",
+      "level": 4,
+      "historical_protocol": "armkit-v2 (run-specific variants; see original METHOD/prompts)",
+      "recorded_attempts": 3,
+      "expected_attempts": 8,
+      "final_interview_present": false,
+      "status": "continuation_pending",
+      "reported_initial_bound": 19,
+      "engine_minimum_cap": 19,
+      "sealed_cap": 18,
+      "bound_note": "",
+      "raw_sessions": 1,
+      "raw_messages": 504,
+      "initial_final_verdict": null,
+      "model_version_coverage": [],
+      "missing_source_version_count": 0,
+      "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
+      "download": "downloads/l4p-case-2a3cc5.zip",
+      "data": "data/l4p-case-2a3cc5.json",
+      "pending_note": "合作者正在续跑；由合作者补传第4–8次、未完成追问及最终访谈。"
+    },
+    {
+      "id": "m15fw-case-69fe87",
+      "level": 4,
+      "historical_protocol": "armkit-v2 (run-specific variants; see original METHOD/prompts)",
+      "recorded_attempts": 8,
+      "expected_attempts": 8,
+      "final_interview_present": true,
+      "status": "initial8_record_present",
+      "reported_initial_bound": 19,
+      "engine_minimum_cap": 19,
+      "sealed_cap": 18,
+      "bound_note": "",
+      "raw_sessions": 1,
+      "raw_messages": 713,
+      "initial_final_verdict": {
+        "verdict": "impossible",
+        "confidence": 55,
+        "stated": true
+      },
+      "model_version_coverage": [
+        {
+          "attempt": 1,
+          "tracked_files": 9,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 2,
+          "tracked_files": 10,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 3,
+          "tracked_files": 10,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 4,
+          "tracked_files": 10,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 5,
+          "tracked_files": 10,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 6,
+          "tracked_files": 10,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 7,
+          "tracked_files": 10,
+          "recovered_files": 10
+        },
+        {
+          "attempt": 8,
+          "tracked_files": 10,
+          "recovered_files": 10
+        }
+      ],
+      "missing_source_version_count": 5,
+      "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
+      "download": "downloads/m15fw-case-69fe87.zip",
+      "data": "data/m15fw-case-69fe87.json",
+      "pending_note": ""
+    },
+    {
+      "id": "m15fw-case-9ec8d4",
+      "level": 4,
+      "historical_protocol": "armkit-v2 (run-specific variants; see original METHOD/prompts)",
+      "recorded_attempts": 8,
+      "expected_attempts": 8,
+      "final_interview_present": true,
+      "status": "initial8_record_present",
+      "reported_initial_bound": 20,
+      "engine_minimum_cap": 19,
+      "sealed_cap": 18,
+      "bound_note": "",
+      "raw_sessions": 1,
+      "raw_messages": 1169,
+      "initial_final_verdict": {
+        "verdict": "impossible",
+        "confidence": 75,
+        "stated": true
+      },
+      "model_version_coverage": [
+        {
+          "attempt": 1,
+          "tracked_files": 11,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 2,
+          "tracked_files": 11,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 3,
+          "tracked_files": 11,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 4,
+          "tracked_files": 12,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 5,
+          "tracked_files": 12,
+          "recovered_files": 10
+        },
+        {
+          "attempt": 6,
+          "tracked_files": 12,
+          "recovered_files": 10
+        },
+        {
+          "attempt": 7,
+          "tracked_files": 12,
+          "recovered_files": 12
+        },
+        {
+          "attempt": 8,
+          "tracked_files": 12,
+          "recovered_files": 12
+        }
+      ],
+      "missing_source_version_count": 11,
+      "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
+      "download": "downloads/m15fw-case-9ec8d4.zip",
+      "data": "data/m15fw-case-9ec8d4.json",
+      "pending_note": ""
+    },
+    {
+      "id": "l5d-case-284967",
+      "level": 5,
+      "historical_protocol": "armkit-v2 (run-specific variants; see original METHOD/prompts)",
+      "recorded_attempts": 8,
+      "expected_attempts": 8,
+      "final_interview_present": true,
+      "status": "initial8_record_present",
+      "reported_initial_bound": 37,
+      "engine_minimum_cap": 36,
+      "sealed_cap": 35,
+      "bound_note": "37 includes the winning move",
+      "raw_sessions": 1,
+      "raw_messages": 775,
+      "initial_final_verdict": {
+        "verdict": "impossible_in_model_proved",
+        "confidence": 65,
+        "stated": true
+      },
+      "model_version_coverage": [
+        {
+          "attempt": 1,
+          "tracked_files": 12,
+          "recovered_files": 12
+        },
+        {
+          "attempt": 2,
+          "tracked_files": 12,
+          "recovered_files": 12
+        },
+        {
+          "attempt": 3,
+          "tracked_files": 21,
+          "recovered_files": 19
+        },
+        {
+          "attempt": 4,
+          "tracked_files": 21,
+          "recovered_files": 21
+        },
+        {
+          "attempt": 5,
+          "tracked_files": 20,
+          "recovered_files": 20
+        },
+        {
+          "attempt": 6,
+          "tracked_files": 20,
+          "recovered_files": 20
+        },
+        {
+          "attempt": 7,
+          "tracked_files": 20,
+          "recovered_files": 20
+        },
+        {
+          "attempt": 8,
+          "tracked_files": 20,
+          "recovered_files": 20
+        }
+      ],
+      "missing_source_version_count": 2,
+      "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
+      "download": "downloads/l5d-case-284967.zip",
+      "data": "data/l5d-case-284967.json",
+      "pending_note": ""
+    },
+    {
+      "id": "l5d-case-4f4628",
+      "level": 5,
+      "historical_protocol": "armkit-v2 (run-specific variants; see original METHOD/prompts)",
+      "recorded_attempts": 8,
+      "expected_attempts": 8,
+      "final_interview_present": true,
+      "status": "initial8_record_present",
+      "reported_initial_bound": 36,
+      "engine_minimum_cap": 36,
+      "sealed_cap": 35,
+      "bound_note": "",
+      "raw_sessions": 1,
+      "raw_messages": 816,
+      "initial_final_verdict": {
+        "verdict": "impossible_in_model_proved",
+        "confidence": 65,
+        "stated": true
+      },
+      "model_version_coverage": [
+        {
+          "attempt": 1,
+          "tracked_files": 9,
+          "recovered_files": 9
+        },
+        {
+          "attempt": 2,
+          "tracked_files": 24,
+          "recovered_files": 21
+        },
+        {
+          "attempt": 3,
+          "tracked_files": 53,
+          "recovered_files": 50
+        },
+        {
+          "attempt": 4,
+          "tracked_files": 54,
+          "recovered_files": 54
+        },
+        {
+          "attempt": 5,
+          "tracked_files": 54,
+          "recovered_files": 54
+        },
+        {
+          "attempt": 6,
+          "tracked_files": 54,
+          "recovered_files": 54
+        },
+        {
+          "attempt": 7,
+          "tracked_files": 54,
+          "recovered_files": 54
+        },
+        {
+          "attempt": 8,
+          "tracked_files": 54,
+          "recovered_files": 54
+        }
+      ],
+      "missing_source_version_count": 6,
+      "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
+      "download": "downloads/l5d-case-4f4628.zip",
+      "data": "data/l5d-case-4f4628.json",
+      "pending_note": ""
+    },
+    {
+      "id": "l5d-case-977714",
+      "level": 5,
+      "historical_protocol": "armkit-v2 (run-specific variants; see original METHOD/prompts)",
+      "recorded_attempts": 8,
+      "expected_attempts": 8,
+      "final_interview_present": true,
+      "status": "initial8_record_present",
+      "reported_initial_bound": 47,
+      "engine_minimum_cap": 36,
+      "sealed_cap": 35,
+      "bound_note": "",
+      "raw_sessions": 2,
+      "raw_messages": 1971,
+      "initial_final_verdict": {
+        "verdict": "impossible_in_model_proved",
+        "confidence": 62,
+        "stated": true
+      },
+      "model_version_coverage": [
+        {
+          "attempt": 1,
+          "tracked_files": 11,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 2,
+          "tracked_files": 12,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 3,
+          "tracked_files": 12,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 4,
+          "tracked_files": 12,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 5,
+          "tracked_files": 12,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 6,
+          "tracked_files": 12,
+          "recovered_files": 11
+        },
+        {
+          "attempt": 7,
+          "tracked_files": 12,
+          "recovered_files": 12
+        },
+        {
+          "attempt": 8,
+          "tracked_files": 12,
+          "recovered_files": 12
+        }
+      ],
+      "missing_source_version_count": 5,
+      "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
+      "download": "downloads/l5d-case-977714.zip",
+      "data": "data/l5d-case-977714.json",
+      "pending_note": ""
+    }
+  ],
+  "harnesses": [
+    {
+      "id": "01-four-transforms-no-auto",
+      "version": "four-transforms-initial8-external-feedback-v1",
+      "archive": "harnesses/01-four-transforms-no-auto/AWM-4T.zip",
+      "sha256": "107dccb652060c9141e1b4314aea3715a653953654d78f3b5aa456d89d2df9e3",
+      "new_live_results_included": false,
+      "offline_validation": {
+        "zip": "AWM-4T.zip",
+        "sha256": "107dccb652060c9141e1b4314aea3715a653953654d78f3b5aa456d89d2df9e3",
+        "zip_mib": 5.13,
+        "files": 1153,
+        "offline_tests": 66,
+        "relocated_workflow_passed": true,
+        "models_called": false,
+        "real_game_servers_started": false
+      },
+      "web_download": "downloads/harness-01-four-transforms-no-auto.zip",
+      "label": "Four transforms"
+    },
+    {
+      "id": "02-four-transforms-auto-repair-latest",
+      "version": "four-transforms-cost-20261024-v2.3.1",
+      "archive": "harnesses/02-four-transforms-auto-repair-latest/AWM-4T.zip",
+      "sha256": "c3dd302c9e7c2422b44a36910189e296efe306da1f53f79b91974aa1970a5e95",
+      "new_live_results_included": false,
+      "offline_validation": {
+        "recipient_scope": "awm_only",
+        "bare_policy": "reuse_archived_records_offline_rescoring_no_rerun",
+        "execution_protocol": "four-transforms-cost-20261024-v2.3",
+        "cost_convention_id": "exit-terminal-free-v1",
+        "version": "four-transforms-cost-20261024-v2.3.1",
+        "sha256": "c3dd302c9e7c2422b44a36910189e296efe306da1f53f79b91974aa1970a5e95",
+        "zip_mib": 6.13,
+        "files": 1384,
+        "offline_tests": 169,
+        "relocated_workflow_passed": true,
+        "old_v2_3_files_verified": 1244,
+        "models_called": false,
+        "real_game_servers_started": false
+      },
+      "web_download": "downloads/harness-02-four-transforms-auto-repair-latest.zip",
+      "label": "Four transforms + automatic repair"
+    }
+  ],
+  "complete_initial8_records": 5,
+  "continuation_pending": [
+    "l4p-case-2a3cc5"
+  ],
+  "new_four_transform_results_available": false,
+  "new_auto_repair_results_available": false,
+  "selected_external_repairs": [
+    {
+      "run": "m15fw-case-9ec8d4",
+      "attempts": 4,
+      "bound_before": 20,
+      "bound_after": 19
+    },
+    {
+      "run": "l5d-case-977714",
+      "attempts": 4,
+      "bound_before": 47,
+      "bound_after": 37,
+      "engine_normalized_bound": 36
+    }
+  ],
+  "notes": [
+    "Do not relabel historical runs as executions of the newer four-transform protocol.",
+    "Do not pool heterogeneous historical auto-repair development runs into a single success rate.",
+    "A proof artifact, a final current-model proof and an engine-correct bound are separate fields."
+  ],
+  "supplementary_downloads": [
+    {
+      "label": "Historical baseline reference records",
+      "path": "downloads/baseline-reference-records.zip"
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+"""同一关内，计时条（列62的14色格数）从不增加，每步减少量是偶数且 <= 6。"""
+LEVEL = "L4"
+SCOPE = "全部动作；换关 NA"
+NOTE = ""
+EVIDENCE = ["827b6b560fc0b5bb", "0968b3c0e714f5c9", "2b3e5ed8fe7b90de"]
+
+from _lib import timer, same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not same_level(ctx):
+        return "NA"
+    d = timer(prev) - timer(nxt)
+    return "TRUE" if 0 <= d <= 6 and d % 2 == 0 else "FALSE"

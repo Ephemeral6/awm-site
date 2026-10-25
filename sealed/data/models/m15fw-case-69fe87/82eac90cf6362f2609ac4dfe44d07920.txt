@@ -1,0 +1,146 @@
+tree=open('work/vtree.txt').read()
+L=r'''/-!
+# m15fw level 4, row-aware model (amends M15L4.lean; see work/MODEL.md "attempt 2" section)
+
+Changes from attempt 1 (M15L4.lean, kept unchanged as the x-only model):
+* rows + walls of the level-4 map (rectangles read off the frame),
+* diamond TOGGLES size: big -> small keeps top-left; small -> big puts the small block at the big block's
+  bottom-right (r-2, c-2)        [attempt 2, tr 102, 107, 111]
+* refill pad (cells (34,23),(34,24),(35,23),(35,24)): the first time a SMALL block overlaps it, net cost -10
+  [attempt 2, tr 103; cost fit: refund "sub 10" or "set 8"; "sub 10" is the permissive one when used <= 18]
+* the column shot may open the barrier only if the block's left column is 31 (explicit hypothesis `hopen`;
+  ANY size, ANY row, facing ignored: looser than all evidence)
+* superset firing (one click completing two patterns) is an explicit parameter with hypothesis `superset = false`.
+Spells are macro actions: diamond = 3 selects + completing click = 5, shot = 2 selects + completing click = 4.
+Positions: block top-left (r, c), always odd (start (25,37), steps 2 or 4, grow -2).
+-/
+namespace M15L4Map
+
+structure St where
+  big : Bool
+  op : Bool
+  pad : Bool
+  r : Nat
+  c : Nat
+  deriving Repr, DecidableEq
+
+inductive Act where
+  | U | D | L | R | dia | shot | combo | free
+  deriving Repr, DecidableEq
+
+def floorCell (r c : Nat) (op : Bool) : Bool :=
+  (decide (21 ≤ r ∧ r ≤ 36 ∧ 21 ≤ c ∧ c ≤ 44)) ||
+  (decide (9 ≤ r ∧ r ≤ 20 ∧ 31 ≤ c ∧ c ≤ 32)) ||
+  (decide (29 ≤ r ∧ r ≤ 32 ∧ 48 ≤ c ∧ c ≤ 56)) ||
+  (decide (28 ≤ r ∧ r ≤ 33 ∧ 57 ≤ c ∧ c ≤ 61)) ||
+  (op && decide (29 ≤ r ∧ r ≤ 32 ∧ 45 ≤ c ∧ c ≤ 47))
+
+def sz (big : Bool) : Nat := if big then 4 else 2
+
+def fits (big op : Bool) (r c : Nat) : Bool :=
+  (List.range (sz big)).all fun i => (List.range (sz big)).all fun j => floorCell (r + i) (c + j) op
+
+def onPad (big : Bool) (r c : Nat) : Bool :=
+  !big && (List.range 2).any fun i => (List.range 2).any fun j =>
+    decide ((r + i = 34 ∨ r + i = 35) ∧ (c + j = 23 ∨ c + j = 24))
+
+def atExit (big : Bool) (r c : Nat) : Bool :=
+  (List.range (sz big)).any fun i => (List.range (sz big)).any fun j =>
+    decide (28 ≤ r + i ∧ r + i ≤ 33 ∧ 57 ≤ c + j ∧ c + j ≤ 61)
+
+def valid (s : St) : Bool :=
+  decide (s.r % 2 = 1 ∧ 9 ≤ s.r ∧ s.r ≤ 35 ∧ s.c % 2 = 1 ∧ 21 ≤ s.c ∧ s.c ≤ 61) && fits s.big s.op s.r s.c
+
+def goal (s : St) : Bool := s.op && atExit s.big s.r s.c
+
+/-- pad bookkeeping after an action of gross cost `k`: returns (state, net cost). -/
+def post (s : St) (k : Int) : St × Int :=
+  if !s.pad && onPad s.big s.r s.c then ({ s with pad := true }, k - 10) else (s, k)
+
+def mv (s : St) (dr dc : Int) : St :=
+  let st : Int := if s.big then 4 else 2
+  let nr : Int := s.r + dr * st
+  let nc : Int := s.c + dc * st
+  if 0 ≤ nr ∧ 0 ≤ nc ∧ fits s.big s.op nr.toNat nc.toNat = true then { s with r := nr.toNat, c := nc.toNat } else s
+
+def toggle (s : St) : St :=
+  if s.big then { s with big := false }
+  else if 2 ≤ s.r ∧ 2 ≤ s.c ∧ fits true s.op (s.r - 2) (s.c - 2) = true then
+    { s with big := true, r := s.r - 2, c := s.c - 2 } else s
+
+/-- one action: (next state, net cost). `opens` decides whether a shot opens the barrier. -/
+def step (opens : St → Bool) (superset : Bool) (s : St) : Act → St × Int
+  | .U => post (mv s (-1) 0) 1
+  | .D => post (mv s 1 0) 1
+  | .L => post (mv s 0 (-1)) 1
+  | .R => post (mv s 0 1) 1
+  | .dia => post (toggle s) 5
+  | .shot => post { s with op := s.op || opens s } 4
+  | .combo => if superset then post (let t := toggle s; { t with op := t.op || opens t }) 6 else (s, 1)
+  | .free => (s, 0)
+
+/-- Budgeted run: an action whose net cost would push `used` above `B` ends the game (GAME_OVER).
+    (Checking AFTER the refund is the permissive choice.) -/
+def winsWithin (opens : St → Bool) (superset : Bool) (B : Int) : St → Int → List Act → Bool
+  | s, _, [] => goal s
+  | s, u, a :: rest => goal s ||
+      (let p := step opens superset s a
+       if u + p.2 > B then false else winsWithin opens superset B p.1 (u + p.2) rest)
+
+def start : St := { big := true, op := false, pad := false, r := 25, c := 37 }
+
+/-- Level-4 budget, fitted (work/fit2.py): 18 units. -/
+def L4budget : Int := 18
+
+/-! ## potential: Bellman table computed in work/gen_lean.py, CHECKED below by the kernel -/
+inductive T where
+  | leaf (v : Int)
+  | node (l r : T)
+
+def look : T → Nat → Nat → Int
+  | .leaf v, _, _ => v
+  | .node a b, k, d => if k % 2 = 0 then look a (k / 2) d else look b (k / 2) d
+
+def key (s : St) : Nat :=
+  ((((if s.big then 1 else 0) * 2 + (if s.op then 1 else 0)) * 2 + (if s.pad then 1 else 0)) * 14
+    + (s.r - 9) / 2) * 21 + (s.c - 21) / 2
+
+def tab : T := TREE
+
+def V (s : St) : Int := look tab (key s) 0
+
+/-- all possible outcomes of an action for ANY `opens` satisfying `hopen`, with superset = false. -/
+def outs (s : St) (a : Act) : List (St × Int) :=
+  match a with
+  | .shot => if s.c = 31 then [post s 4, post { s with op := true } 4] else [post s 4]
+  | _ => [step (fun _ => false) false s a]
+
+def edgeOk (s : St) (a : Act) : Bool :=
+  (outs s a).all fun p => valid p.1 && decide (V s ≤ p.2 + V p.1)
+
+def acts : List Act := [.U, .D, .L, .R, .dia, .shot, .combo, .free]
+
+def stOf (b o p : Bool) (r c : Nat) : St := { big := b, op := o, pad := p, r := r, c := c }
+
+/-- The kernel check: every valid state, every action, every admissible outcome. -/
+def checkAll : Bool :=
+  [false, true].all fun b => [false, true].all fun o => [false, true].all fun p =>
+    (List.range 14).all fun i => (List.range 21).all fun j =>
+      let s := stOf b o p (9 + 2 * i) (21 + 2 * j)
+      !valid s || acts.all (edgeOk s)
+
+set_option maxRecDepth 100000 in
+theorem checkAll_true : checkAll = true := by decide
+
+theorem goalV : ([false, true].all fun b => [false, true].all fun o => [false, true].all fun p =>
+    (List.range 14).all fun i => (List.range 21).all fun j =>
+      let s := stOf b o p (9 + 2 * i) (21 + 2 * j)
+      !(valid s && goal s) || decide (V s ≤ 0)) = true := by decide
+
+theorem start_valid : valid start = true := by decide
+theorem V_start : V start = 20 := by decide
+
+END_PART
+'''
+L=L.replace('TREE',tree)
+open('lean/M15L4Map.lean','w',encoding='utf-8').write(L.replace('END_PART','end M15L4Map'))

@@ -1,0 +1,13 @@
+"""关卡只在 ACTION1-4 之后推进（点击从不直接过关）。"""
+LEVEL = "L5"
+SCOPE = "全部动作；ctx 缺失 NA；RESET 动作 NA（重开不是过关）"
+NOTE = "v2: 01775ff8 (RESET 把关 5 带回关 1) 判 FALSE —— 那是重开，不是过关；RESET 判 NA"
+EVIDENCE = ["01775ff8a4b739c9", "61ff3ebb11f68c2b", "c7903d798b1bab84"]
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action == "RESET" or not ctx or ctx.get("level_prev") is None or ctx.get("level_next") is None:
+        return "NA"
+    if ctx["level_next"] == ctx["level_prev"]:
+        return "TRUE"
+    return "TRUE" if action in ("ACTION1", "ACTION2", "ACTION3", "ACTION4") else "FALSE"

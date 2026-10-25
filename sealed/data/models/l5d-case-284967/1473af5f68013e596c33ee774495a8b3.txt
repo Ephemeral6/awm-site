@@ -1,0 +1,41 @@
+import json,math,itertools,sys
+sys.path.insert(0,'concepts');sys.path.insert(0,'.')
+from _lib import bar,cursor
+L=[json.loads(l) for l in open('transitions.jsonl')]
+def sel(g): return frozenset((r,c) for r in range(3) for c in range(3) if g[50+5*r][25+5*c]==14)
+SP=[frozenset({(0,1),(1,0),(1,2),(2,1)}),frozenset({(0,1),(1,1),(2,1)}),frozenset({(0,0),(0,1),(1,1)})]
+segs=[];cur=None
+for r in L:
+    if r['ctx']['level_prev']!=5: continue
+    st=(cursor(r['prev']) or (0,0))[:3]
+    if bar(r['prev'])==128 and st==(29,17,4) and not sel(r['prev']) and (cur is None or len(cur)>2):
+        cur=[];segs.append(cur)
+    a=r['action']
+    if a.startswith('ACTION6'):
+        x,y=map(int,a.split(':')[1].split(','))
+        cell=[(rr,c) for rr in range(3) for c in range(3) if abs(x-(25+5*c))<=1 and abs(y-(50+5*rr))<=1]
+        if cell:
+            s=frozenset(set(sel(r['prev']))^{cell[0]})
+            kind='fire' if s in SP else 'click'
+        elif x<10: kind='hint'
+        else: kind='board'
+    else: kind='mv'
+    cur.append(dict(kind=kind,pad=bar(r['nxt'])>bar(r['prev']),b1=bar(r['nxt']),dead=r['ctx']['state_next']=='GAME_OVER'))
+print('segments',len(segs),[len(s) for s in segs])
+def disp(rem,N): return 4*max(0,min(32,math.ceil(32*rem/N-1e-9)))
+sols=[]
+for N in range(30,42):
+ for cm,cc,cf,ch,cb in itertools.product((0,1),(0,1),(1,2,3),(0,1),(0,1)):
+  for pg in range(5,15):
+    good=0
+    for s in segs:
+        rem=N;g=True
+        for t in s:
+            rem-={'mv':cm,'click':cc,'fire':cf,'hint':ch,'board':cb}[t['kind']]
+            if t['pad']: rem+=pg
+            if t['dead']: g = rem<0; break
+            if rem<0 or disp(rem,N)!=t['b1']: g=False;break
+        good+=g
+    if good==len(segs): sols.append((N,cm,cc,cf,ch,cb,pg))
+print(sols)
+json.dump(segs,open('work/l5_segs3.json','w'))

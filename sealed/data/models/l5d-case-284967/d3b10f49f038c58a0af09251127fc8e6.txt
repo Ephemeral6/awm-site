@@ -1,0 +1,10 @@
+import math
+def disp(rem,N=35): return 4*max(0,min(32,math.ceil(32*rem/N-1e-9)))
+def run(costs,N=35,pads=()):
+    rem=N;out=[]
+    for i,c in enumerate(costs):
+        rem-=c
+        if i in pads: rem+=10
+        out.append('DEAD' if rem<0 else disp(rem,N))
+        if rem<0: break
+    return out

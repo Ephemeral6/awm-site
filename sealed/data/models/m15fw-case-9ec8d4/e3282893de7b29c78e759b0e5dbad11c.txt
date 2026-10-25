@@ -1,0 +1,431 @@
+/-!
+# m15fw — level 4, column abstraction, conditional lower bound
+
+**SUPERSEDED after attempt 4.** This abstraction has no refill item and no grow effect
+(both observed in attempt 4), so it is STRICTER than the game: its bound (no win below cost 20)
+does not transfer. Kept unchanged as the record of attempts 1-3; the current result is
+`M15fwL4Win.lean`.
+
+State abstraction of level 4 (attempt 1 observations; see `work/MODEL.md`):
+
+* rows are abstracted away entirely (vertical moves are a free no-op that costs 1) — this only
+  ADDS transitions (the abstract cursor may be anywhere vertically), so it is the loose direction;
+* `c` = left column of the cursor footprint, `big` = 4x4 (else 2x2);
+* panel progress is abstracted to two counters `a` (shrink-recipe cells still unmarked, full = 4)
+  and `b` (switch-recipe cells still unmarked, full = 3); a click may lower each by at most one,
+  freely chosen (looser than the real 9-cell panel, where only the shared cells lower both);
+* any completion resets both counters (observed: the whole panel clears on every completion);
+* shrink keeps the column or shifts it by 2 (`anch` ∈ {0,2}); only anchor 0 was observed
+  (L1 facing up; attempt 2 L4 facing right), 2 is kept to stay loose;
+* the barrier blocks both cursor sizes (attempt 2: 2x2 at col 43 moving right, k = 0);
+* the switch-opening precondition is NOT a rule of the model: it is the parameter `fires`,
+  constrained only by the explicit hypothesis `H` in the main theorem.
+
+Costs (fit in `work/fit_budget.py`): ordinary action 1 unit, ability-completing click 2 units,
+level-4 budget `B4 = 18` units, game over iff spent > budget.
+-/
+
+namespace M15fwL4
+
+set_option maxHeartbeats 4000000
+
+structure S where
+  big : Bool
+  c : Nat
+  opened : Bool
+  a : Nat
+  b : Nat
+  won : Bool
+  deriving DecidableEq, Repr
+
+def w (big : Bool) : Nat := if big then 4 else 2
+
+/-- abstract choices.  `right corr`: `corr = true` means "the cursor is in the corridor rows",
+    which only matters once the barrier is open. -/
+inductive Ch where
+  | vert
+  | left
+  | right (corr : Bool)
+  | click (da db anch : Nat)
+  deriving DecidableEq, Repr
+
+/-- rightmost legal left column. Room right wall col 44; with the barrier open and in the
+    corridor rows, the goal block ends at col 61. -/
+def maxC (big opened corr : Bool) : Nat := if opened && corr then 62 - w big else 45 - w big
+
+def leftC (big : Bool) (c : Nat) : Nat := if 21 + w big ≤ c then c - w big else 21
+
+def rightC (big opened corr : Bool) (c : Nat) : Nat :=
+  if c + w big ≤ maxC big opened corr then c + w big
+  else if c ≤ maxC big opened corr then maxC big opened corr else c
+
+/-- goal block occupies cols 57..61 in rows 28..33 (rows abstracted: any overlap in columns). -/
+def wins (big opened : Bool) (c : Nat) : Bool := opened && decide (58 ≤ c + w big)
+
+def step (fires : Bool → Nat → Bool) (s : S) : Ch → Option (S × Nat)
+  | .vert => if s.won then none else some (s, 1)
+  | .left => if s.won then none else
+      some ({ s with c := leftC s.big s.c, won := wins s.big s.opened (leftC s.big s.c) }, 1)
+  | .right corr => if s.won then none else
+      some ({ s with c := rightC s.big s.opened corr s.c,
+                     won := wins s.big s.opened (rightC s.big s.opened corr s.c) }, 1)
+  | .click da db anch =>
+      if s.won || decide (1 < da) || decide (1 < db) || !(anch == 0 || anch == 2) then none
+      else if (decide (0 < s.a) && s.a - da == 0) || (decide (0 < s.b) && s.b - db == 0) then
+        -- some recipe completed: cost 2, panel cleared
+        let shr := decide (0 < s.a) && s.a - da == 0
+        let sw := decide (0 < s.b) && s.b - db == 0
+        let big' := if shr then false else s.big
+        let c' := if shr then s.c + anch else s.c
+        let op' := s.opened || (sw && fires big' c')
+        some ({ big := big', c := c', opened := op', a := 4, b := 3, won := wins big' op' c' }, 2)
+      else some ({ s with a := s.a - da, b := s.b - db }, 1)
+
+/-- run a choice list; `none` if some step is illegal (in particular: stepping after a win). -/
+def run (fires : Bool → Nat → Bool) : S → List Ch → Option (S × Nat)
+  | s, [] => some (s, 0)
+  | s, ch :: rest =>
+      match step fires s ch with
+      | none => none
+      | some (s', k) =>
+          match run fires s' rest with
+          | none => none
+          | some (s'', k') => some (s'', k + k')
+
+def init : S := { big := true, c := 37, opened := false, a := 4, b := 3, won := false }
+
+/-- level-4 budget in cost units (named constant; see 7c). -/
+def B4 : Nat := 18
+
+def dist (x y : Nat) : Nat := (x - y) + (y - x)
+
+def alignBig (c : Nat) : Nat := (dist c 29 + 3) / 4
+
+def mx (x y : Nat) : Nat := x + (y - x)
+
+/-- potential: a lower bound on the cost units still needed to win. -/
+def Φ (s : S) : Nat :=
+  if s.won then 0
+  else if s.opened then (57 - s.c) / 2
+  else if s.big then mx s.a s.b + 1 + alignBig s.c + 13
+  else s.b + dist s.c 31 / 2 + 13
+
+def Inv (s : S) : Prop :=
+  21 ≤ s.c ∧ 1 ≤ s.a ∧ s.a ≤ 4 ∧ 1 ≤ s.b ∧ s.b ≤ 3 ∧
+  (s.big = true → s.c % 4 = 1 ∧ s.c ≤ 41 ∧ s.opened = false) ∧
+  (s.big = false → s.won = false → s.c % 2 = 1)
+
+/-- the hypothesis the bound rests on: the switch can only open when the cursor's left column
+    is 31 or 32 (the stalk columns). Kept as an explicit hypothesis (it quantifies over positions
+    never tried: 4x4 at cols 21/25 facing up). Evidence (`M15fw.casts`, 8 completions): attempt 3
+    controlled pair — 4x4 at col 33 facing up beside the stalk: no fire; 2x2 at col 31 in the stalk
+    facing up: fired; attempt 1 4x4 at col 29 facing up beside the stalk: no fire. -/
+def Hyp (fires : Bool → Nat → Bool) : Prop := ∀ bg c, fires bg c = true → c = 31 ∨ c = 32
+
+theorem Φ_init : Φ init = 20 := by decide
+
+section proofs
+variable (fires : Bool → Nat → Bool)
+
+theorem step_vert (s s' : S) (k : Nat) (hI : Inv s) (h : step fires s .vert = some (s', k)) :
+    Inv s' ∧ Φ s ≤ Φ s' + k := by
+  simp only [step] at h
+  split at h
+  · cases h
+  · simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hI, by omega⟩
+
+theorem w_t : w true = 4 := rfl
+theorem w_f : w false = 2 := rfl
+
+theorem leftC_cases (big : Bool) (c : Nat) :
+    (21 + w big ≤ c ∧ leftC big c = c - w big) ∨ (c < 21 + w big ∧ leftC big c = 21) := by
+  unfold leftC; split <;> omega
+
+theorem rightC_cases (big opened corr : Bool) (c : Nat) :
+    (c + w big ≤ maxC big opened corr ∧ rightC big opened corr c = c + w big) ∨
+    (maxC big opened corr < c + w big ∧ c ≤ maxC big opened corr ∧
+      rightC big opened corr c = maxC big opened corr) ∨
+    (maxC big opened corr < c ∧ rightC big opened corr c = c) := by
+  unfold rightC; split
+  · omega
+  · split <;> omega
+
+/-- shared arithmetic core for moves. -/
+theorem move_core (big opened : Bool) (c c' a b : Nat)
+    (hI : Inv { big := big, c := c, opened := opened, a := a, b := b, won := false })
+    (h21 : 21 ≤ c')
+    (hbig : big = true → c' % 4 = 1 ∧ c' ≤ 41)
+    (hsm : big = false → (c' % 2 = 1 ∨ (58 ≤ c' + 2 ∧ opened = true)))
+    (hstep : c' ≤ c + w big ∧ c ≤ c' + w big) :
+    Inv { big := big, c := c', opened := opened, a := a, b := b, won := wins big opened c' } ∧
+    Φ { big := big, c := c, opened := opened, a := a, b := b, won := false } ≤
+      Φ { big := big, c := c', opened := opened, a := a, b := b, won := wins big opened c' } + 1 := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hI
+  dsimp only at h1 h2 h3 h4 h5 h6 h7
+  cases big <;> cases opened
+  · have hp := h7 rfl rfl
+    have hs := hsm rfl
+    simp only [w_f] at hstep
+    refine ⟨⟨h21, h2, h3, h4, h5, by simp, fun _ _ => by show c' % 2 = 1; simp at hs; omega⟩, ?_⟩
+    simp only [Φ, wins, dist, Bool.false_and, Bool.false_eq_true, ite_false]
+    try dsimp only
+    omega
+  · have hp := h7 rfl rfl
+    simp only [w_f] at hstep
+    by_cases hw : 58 ≤ c' + 2
+    · have hwin : wins false true c' = true := by simp [wins, w_f, hw]
+      rw [hwin]
+      refine ⟨⟨h21, h2, h3, h4, h5, by simp, fun _ h => by simp at h⟩, ?_⟩
+      simp only [Φ, Bool.false_eq_true, ite_false, ite_true]
+      try dsimp only
+      omega
+    · have hwin : wins false true c' = false := by simp [wins, w_f, hw]
+      rw [hwin]
+      have hs := hsm rfl
+      refine ⟨⟨h21, h2, h3, h4, h5, by simp, fun _ _ => by show c' % 2 = 1; omega⟩, ?_⟩
+      simp only [Φ, Bool.false_eq_true, ite_false, ite_true]
+      try dsimp only
+      omega
+  · have hb := h6 rfl
+    have hb' := hbig rfl
+    simp only [w_t] at hstep
+    refine ⟨⟨h21, h2, h3, h4, h5, fun _ => ⟨hb'.1, hb'.2, rfl⟩, fun h => by simp at h⟩, ?_⟩
+    simp only [Φ, wins, alignBig, dist, mx, Bool.false_and, Bool.false_eq_true, ite_false,
+      ite_true]
+    try dsimp only
+    omega
+  · have hb := h6 rfl
+    simp at hb
+
+theorem step_left (s s' : S) (k : Nat) (hI : Inv s) (h : step fires s .left = some (s', k)) :
+    Inv s' ∧ Φ s ≤ Φ s' + k := by
+  rcases s with ⟨big, c, opened, a, b, won⟩
+  cases won
+  · simp only [step, Bool.false_eq_true, ite_false, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    have hI' := hI
+    obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hI
+    dsimp only at h1 h2 h3 h4 h5 h6 h7
+    have hc := leftC_cases big c
+    cases big
+    · have hp := h7 rfl rfl
+      simp only [w_f] at hc
+      apply move_core false opened c _ a b hI' <;> (try simp only [w_f]) <;>
+        first | omega | (intro hh; simp at hh) | (intro _; left; omega)
+    · have hp := h6 rfl
+      simp only [w_t] at hc
+      apply move_core true opened c _ a b hI' <;> (try simp only [w_t]) <;>
+        first | omega | (intro hh; simp at hh) | (intro _; omega)
+  · exact absurd h (by simp [step])
+
+theorem step_right (corr : Bool) (s s' : S) (k : Nat) (hI : Inv s)
+    (h : step fires s (.right corr) = some (s', k)) : Inv s' ∧ Φ s ≤ Φ s' + k := by
+  rcases s with ⟨big, c, opened, a, b, won⟩
+  cases won
+  · simp only [step, Bool.false_eq_true, ite_false, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    have hI' := hI
+    obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hI
+    dsimp only at h1 h2 h3 h4 h5 h6 h7
+    have hc := rightC_cases big opened corr c
+    cases big
+    · have hp := h7 rfl rfl
+      cases opened <;> cases corr <;>
+        simp only [w_f, maxC, Bool.and_true, Bool.and_false, Bool.false_and, Bool.true_and,
+          Bool.false_eq_true, ite_false, ite_true] at hc <;>
+        exact move_core false _ c _ a b hI' (by omega) (by intro hh; simp at hh)
+          (by
+            intro _
+            rcases hc with ⟨_, hy⟩ | ⟨_, _, hy⟩ | ⟨_, hy⟩ <;> rw [hy] <;>
+              first | (left; omega) | (right; exact ⟨by omega, rfl⟩))
+          (by simp only [w_f]; omega)
+    · obtain ⟨hm, hle, hop⟩ := h6 rfl
+      subst hop
+      cases corr <;>
+        simp only [w_t, maxC, Bool.and_true, Bool.and_false, Bool.false_and, Bool.true_and,
+          Bool.false_eq_true, ite_false, ite_true] at hc <;>
+        exact move_core true false c _ a b hI' (by omega) (by intro _; constructor <;> omega)
+          (by intro hh; simp at hh) (by simp only [w_t]; omega)
+  · exact absurd h (by simp [step])
+
+theorem click_none (big opened : Bool) (c a b da db : Nat)
+    (hI : Inv { big := big, c := c, opened := opened, a := a, b := b, won := false })
+    (hda : da ≤ 1) (hdb : db ≤ 1)
+    (hna : ¬ (0 < a ∧ a - da = 0)) (hnb : ¬ (0 < b ∧ b - db = 0)) :
+    Inv { big := big, c := c, opened := opened, a := a - da, b := b - db, won := false } ∧
+    Φ { big := big, c := c, opened := opened, a := a, b := b, won := false } ≤
+      Φ { big := big, c := c, opened := opened, a := a - da, b := b - db, won := false } + 1 := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hI
+  dsimp only at h1 h2 h3 h4 h5 h6 h7
+  refine ⟨⟨h1, by dsimp only; omega, by dsimp only; omega, by dsimp only; omega,
+    by dsimp only; omega, h6, h7⟩, ?_⟩
+  cases big <;> cases opened <;>
+    simp only [Φ, mx, Bool.false_eq_true, ite_false, ite_true] <;> omega
+
+theorem click_comp (big opened shr sw f : Bool) (c a b anch : Nat)
+    (hI : Inv { big := big, c := c, opened := opened, a := a, b := b, won := false })
+    (hanch : anch = 0 ∨ anch = 2)
+    (hsome : shr = true ∨ sw = true)
+    (hsa : shr = true → a = 1) (hsb : sw = true → b = 1)
+    (hf : f = true → (if shr then c + anch else c) = 31 ∨ (if shr then c + anch else c) = 32) :
+    Inv { big := if shr then false else big, c := if shr then c + anch else c,
+          opened := opened || (sw && f), a := 4, b := 3,
+          won := wins (if shr then false else big) (opened || (sw && f))
+                   (if shr then c + anch else c) } ∧
+    Φ { big := big, c := c, opened := opened, a := a, b := b, won := false } ≤
+      Φ { big := if shr then false else big, c := if shr then c + anch else c,
+          opened := opened || (sw && f), a := 4, b := 3,
+          won := wins (if shr then false else big) (opened || (sw && f))
+                   (if shr then c + anch else c) } + 2 := by
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hI
+  dsimp only at h1 h2 h3 h4 h5 h6 h7
+  cases big <;> cases opened <;> cases shr <;> cases sw <;> cases f <;>
+    simp only [Inv, Φ, wins, w_t, w_f, dist, alignBig, mx, Bool.false_eq_true, ite_false,
+      ite_true, Bool.true_and, Bool.false_and, Bool.or_false, Bool.or_true, Bool.false_or,
+      Bool.and_true, Bool.and_false, decide_eq_true_eq, true_implies, forall_const,
+      Bool.true_eq_false, false_implies, true_and, and_true, reduceCtorEq] at * <;>
+    (try simp at hsome) <;> (try (have hp := h7 rfl)) <;> (try (obtain ⟨hm, hle⟩ := h6)) <;>
+    (try simp at hle) <;>
+    (try (have hfa := hf rfl)) <;>
+    (try (have hsa' := hsa rfl)) <;> (try (have hsb' := hsb rfl)) <;>
+    first | omega | (split <;> omega) | (split <;> split <;> omega)
+
+theorem step_click (H : Hyp fires) (da db anch : Nat) (s s' : S) (k : Nat) (hI : Inv s)
+    (h : step fires s (.click da db anch) = some (s', k)) : Inv s' ∧ Φ s ≤ Φ s' + k := by
+  rcases s with ⟨big, c, opened, a, b, won⟩
+  cases won
+  case true => exact absurd h (by simp [step])
+  case false =>
+  have hI' := hI
+  obtain ⟨h1, h2, h3, h4, h5, h6, h7⟩ := hI
+  dsimp only at h1 h2 h3 h4 h5 h6 h7
+  by_cases hda : 1 < da
+  · exact absurd h (by simp [step, hda])
+  by_cases hdb : 1 < db
+  · exact absurd h (by simp [step, hda, hdb])
+  by_cases han : anch = 0 ∨ anch = 2
+  case neg =>
+    have : (anch == 0 || anch == 2) = false := by
+      simp only [Bool.or_eq_false_iff, beq_eq_false_iff_ne]; omega
+    exact absurd h (by simp [step, hda, hdb, this])
+  case pos =>
+  have han' : (anch == 0 || anch == 2) = true := by
+    rcases han with rfl | rfl <;> rfl
+  simp only [step, hda, hdb, han', Bool.false_or, Bool.not_true, Bool.or_false,
+    decide_false, Bool.false_eq_true, ite_false] at h
+  split at h
+  · next hc =>
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    apply click_comp big opened _ _ _ c a b anch hI' han
+    · simpa using hc
+    · intro hs; simp at hs; omega
+    · intro hs; simp at hs; omega
+    · intro hf; exact H _ _ hf
+  · next hc =>
+    simp only [Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    simp only [Bool.or_eq_true, Bool.and_eq_true, decide_eq_true_eq, beq_iff_eq, not_or,
+      not_and] at hc
+    exact click_none big opened c a b da db hI' (by omega) (by omega)
+      (fun ⟨x, y⟩ => hc.1 x y) (fun ⟨x, y⟩ => hc.2 x y)
+
+theorem step_ok (H : Hyp fires) (ch : Ch) (s s' : S) (k : Nat) (hI : Inv s)
+    (h : step fires s ch = some (s', k)) : Inv s' ∧ Φ s ≤ Φ s' + k := by
+  cases ch with
+  | vert => exact step_vert fires s s' k hI h
+  | left => exact step_left fires s s' k hI h
+  | right corr => exact step_right fires corr s s' k hI h
+  | click da db anch => exact step_click fires H da db anch s s' k hI h
+
+theorem run_ok (H : Hyp fires) :
+    ∀ (chs : List Ch) (s s' : S) (k : Nat), Inv s → run fires s chs = some (s', k) →
+      Inv s' ∧ Φ s ≤ Φ s' + k := by
+  intro chs
+  induction chs with
+  | nil =>
+    intro s s' k hI h
+    simp only [run, Option.some.injEq, Prod.mk.injEq] at h
+    obtain ⟨rfl, rfl⟩ := h
+    exact ⟨hI, by omega⟩
+  | cons ch rest ih =>
+    intro s s' k hI h
+    simp only [run] at h
+    split at h
+    · cases h
+    · next s1 k1 h1 =>
+      split at h
+      · cases h
+      · next s2 k2 h2 =>
+        simp only [Option.some.injEq, Prod.mk.injEq] at h
+        obtain ⟨rfl, rfl⟩ := h
+        obtain ⟨hI1, hp1⟩ := step_ok fires H ch s s1 k1 hI h1
+        obtain ⟨hI2, hp2⟩ := ih s1 s2 k2 hI1 h2
+        exact ⟨hI2, by omega⟩
+
+theorem Φ_won (s : S) (hw : s.won = true) : Φ s = 0 := by simp [Φ, hw]
+
+theorem Inv_init : Inv init :=
+  ⟨by decide, by decide, by decide, by decide, by decide, fun _ => ⟨by decide, by decide, rfl⟩,
+   fun h => by simp [init] at h⟩
+
+/-- **Main theorem.** Under `Hyp fires`, every run from the level-4 start state whose total cost
+    is at most `B` (any `B < Φ init = 20`) ends in a non-won state. Since a won state has no
+    successor, this covers every prefix, i.e. "never wins within budget `B`". -/
+theorem no_win_within (H : Hyp fires) (B : Nat) (hB : B < Φ init) :
+    ∀ (chs : List Ch) (s' : S) (k : Nat), run fires init chs = some (s', k) → k ≤ B →
+      s'.won = false := by
+  intro chs s' k h hk
+  obtain ⟨_, hp⟩ := run_ok fires H chs init s' k Inv_init h
+  cases hw : s'.won
+  · rfl
+  · rw [Φ_won s' hw] at hp; omega
+
+end proofs
+
+/-- the instance at the measured budget. -/
+theorem l4_no_win_B4 (fires : Bool → Nat → Bool) (H : Hyp fires) :
+    ∀ (chs : List Ch) (s' : S) (k : Nat), run fires init chs = some (s', k) → k ≤ B4 →
+      s'.won = false :=
+  no_win_within fires H B4 (by decide)
+
+/-! ### Non-vacuity -/
+
+/-- ① direction: with a `fires` that satisfies `Hyp` (fires exactly at column 31), a run of
+    cost exactly 20 wins — so the bound 20 is tight in the abstract model and `everWon` is not
+    vacuously false. Route: big 37→33→29, four clicks (last one completes both recipes,
+    shrink anchored +2 → column 31, switch fires), thirteen 2-column moves right. -/
+def fire31 : Bool → Nat → Bool := fun _ c => c == 31
+
+theorem fire31_hyp : Hyp fire31 := by
+  intro bg c h; simp [fire31] at h; omega
+
+def witness : List Ch :=
+  [.left, .left, .click 1 1 0, .click 1 1 0, .click 1 0 0, .click 1 1 2] ++
+  List.replicate 13 (.right true)
+
+theorem witness_wins : (run fire31 init witness).map (fun p => (p.1.won, p.2)) = some (true, 20) := by
+  decide
+
+/-- ② the hypothesis is a real constraint: if the switch could fire anywhere (e.g. the
+    "bump the barrier first" alternative — tested and refuted in attempt 2), a run of cost 9 wins:
+    three clicks (cost 4), then six 4-column moves right through the opened barrier. -/
+def fireAny : Bool → Nat → Bool := fun _ _ => true
+
+def cheap : List Ch := [.click 0 1 0, .click 0 1 0, .click 0 1 0] ++ List.replicate 5 (.right true)
+
+theorem cheap_wins : (run fireAny init cheap).map (fun p => (p.1.won, p.2)) = some (true, 9) := by
+  decide
+
+theorem fireAny_not_hyp : ¬ Hyp fireAny := by
+  intro h; have := h true 0 rfl; omega
+
+#print axioms no_win_within
+#print axioms l4_no_win_B4
+#print axioms witness_wins
+#print axioms cheap_wins
+#print axioms fireAny_not_hyp
+
+end M15fwL4

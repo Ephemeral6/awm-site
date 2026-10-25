@@ -1,0 +1,25 @@
+FinalProof.lean:163:40: warning: Variable name `hb` is not explicitly referenced.
+
+Hint: The binding can be removed (if unused) or named `_` (if used implicitly). Alternatively, prefix the name with `_` to silence this warning:
+  [apply] _hb
+
+Note: This linter can be disabled with `set_option linter.unusedVariables false`
+FinalProof.lean:223:16: warning: This simp argument is unused:
+  Bool.or_eq_true
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true', hit1, hs2, hs4,
+    hov, Bool.true_and, beq_self_eq_true, Bool.not_true, Bool.false_or] at hrest
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+FinalProof.lean:223:33: warning: This simp argument is unused:
+  Bool.not_eq_true'
+
+Hint: Omit it from the simp argument list.
+  [apply] simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true, hit1, hs2, hs4,
+    hov, Bool.true_and, beq_self_eq_true, Bool.not_true, Bool.false_or] at hrest
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+'Final.witness_wins_19' does not depend on any axioms
+'Final.l4_least_budget' depends on axioms: [propext, Classical.choice, Quot.sound]
+'Final.l4_no_win' depends on axioms: [propext, Classical.choice, Quot.sound]

@@ -1,0 +1,28 @@
+import L5Defs
+
+namespace L5
+
+set_option maxRecDepth 100000
+
+theorem tabN0_ok : ok tab ⟨15, 43, 4, .left, false, true, true⟩ (13) = true := by decide +kernel
+theorem tabN1_ok : ok tab ⟨25, 19, 4, .left, false, true, true⟩ (32) = true := by decide +kernel
+theorem tabN2_ok : ok tab ⟨19, 21, 2, .left, true, true, true⟩ (45) = true := by decide +kernel
+theorem tabN3_ok : ok tab ⟨27, 23, 4, .down, true, true, true⟩ (38) = true := by decide +kernel
+theorem tabN4_ok : ok tab ⟨29, 37, 2, .down, false, true, false⟩ (28) = true := by decide +kernel
+theorem tabN5_ok : ok tab ⟨29, 13, 2, .up, false, false, true⟩ (14) = true := by decide +kernel
+theorem tabN6_ok : ok tab ⟨25, 47, 2, .up, false, true, false⟩ (23) = true := by decide +kernel
+theorem tabN7_ok : ok tab ⟨31, 41, 2, .down, false, false, true⟩ (8) = true := by decide +kernel
+theorem tabN8_ok : ok tab ⟨33, 35, 4, .up, false, false, false⟩ (8) = true := by decide +kernel
+theorem tabN9_ok : ok tab ⟨33, 19, 2, .left, false, false, true⟩ (13) = true := by decide +kernel
+theorem tabN10_ok : ok tab ⟨35, 35, 2, .right, false, true, true⟩ (28) = true := by decide +kernel
+theorem tabN11_ok : ok tab ⟨37, 43, 4, .left, false, false, false⟩ (8) = true := by decide +kernel
+theorem tabN12_ok : ok tab ⟨37, 15, 4, .right, false, false, false⟩ (8) = true := by decide +kernel
+theorem tabN13_ok : ok tab ⟨35, 15, 2, .down, false, false, true⟩ (13) = true := by decide +kernel
+theorem tabN14_ok : ok tab ⟨31, 15, 4, .down, false, true, true⟩ (34) = true := by decide +kernel
+
+theorem tab_s0 : tab.find s0 = some 37 := by decide +kernel
+
+/-- relaxed model: budget 35 → 37 admits this route -/
+theorem witness_wins : firstWin s0 witness = some 37 := by decide +kernel
+
+end L5

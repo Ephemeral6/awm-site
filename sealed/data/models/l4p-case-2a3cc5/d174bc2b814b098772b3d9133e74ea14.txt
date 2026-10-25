@@ -1,0 +1,17 @@
+"""完成匹配钥匙色 15 时：格子全部重置为 2，且可动块边长在 4 与 2 之间切换（4→2 减半，2→4 加倍）。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION6 完成匹配（_lib.matched_key）且钥匙色 15；换关 NA"
+NOTE = ("v2: v1 未限定钥匙色，被 a97af4438459243d 打脸（L2 钥匙色 11 是传送）。"
+        " v3: 钥匙读法改为通用 _lib.keys（L4 起钥匙面板位置变了、可以有两把）。"
+        " v4: 8d3d361c59b336ae（attempt 3, L4：2x2 块在 (33,23) 再次 f 匹配，变回 4x4 于 (31,21)，右下角不变）打 v3 的『减半』；改为 4/2 切换。")
+EVIDENCE = ["d0112ab134e3aa8c", "a97af4438459243d", "8d3d361c59b336ae"]
+from _lib import GRID_PTS, piece, matched_key
+
+def assert_(prev, action, nxt, ctx=None):
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    if matched_key(prev, action) != 15: return "NA"
+    a, b = piece(prev), piece(nxt)
+    if a is None or b is None: return "NA"
+    sa, sb = a[1] - a[0] + 1, b[1] - b[0] + 1
+    ok = all(nxt[py][px] == 2 for py, px in GRID_PTS) and ((sa == 4 and sb == 2) or (sa == 2 and sb == 4))
+    return "TRUE" if ok else "FALSE"

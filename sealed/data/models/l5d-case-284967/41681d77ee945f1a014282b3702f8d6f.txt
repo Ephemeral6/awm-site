@@ -1,0 +1,59 @@
+import json,sys
+sys.set_int_max_str_digits(0)
+d=json.load(open('work/l5_phi.json'))['states']
+def key(r,c,s,f,cc,dd,pad): return (((((r*64+c)*2+(1 if s==4 else 0))*4+f)*8)+cc*4+dd*2+pad)
+R=0;P=0
+for st in d:
+    r,c,s,f,cc,dd,pad,phi=st
+    k=key(r,c,s,f,cc,dd,pad); R|=1<<k; P|=phi<<(7*k)
+rows=sys.argv[1] if len(sys.argv)>1 else 'all'
+hdr=f'''import L5Model
+/-! Attempt 3: kernel-checked lower bound on the start budget needed to win L5 in `L5Model`.
+Potential `phi` = exact min net cost-to-win (cost - pad gain) of each model state, found by a
+Python Bellman-Ford over the same model (work/l5_search3.py). Lean does not trust it: `rowOK r`
+re-checks, with the Lean `apply`, that every reachable key's successors are reachable keys and
+phi(s) ≤ cost - gain + phi(s') (or ≤ cost - gain when the move wins). -/
+namespace L5B
+open L5
+
+def b2n (b : Bool) : Nat := if b then 1 else 0
+
+def key (st : St) : Nat :=
+  ((((st.r.toNat * 64 + st.c.toNat) * 2 + (if st.s = 4 then 1 else 0)) * 4 + st.f) * 8)
+    + b2n st.cc * 4 + b2n st.dd * 2 + b2n st.pad
+
+def decode (k : Nat) : St :=
+  {{ r := ((k / 4096 : Nat) : Int), c := ((k / 64 % 64 : Nat) : Int),
+    s := if k / 32 % 2 = 1 then 4 else 2, f := k / 8 % 4,
+    cc := k / 4 % 2 == 1, dd := k / 2 % 2 == 1, pad := k % 2 == 1, bud := 0, won := false }}
+
+def reachBits : Nat := {R}
+def phiBits : Nat := {P}
+
+def inR (k : Nat) : Bool := (reachBits >>> k) % 2 == 1
+def phi (k : Nat) : Int := (((phiBits >>> (7 * k)) % 128 : Nat) : Int)
+
+def okB (st : St) : Bool :=
+  0 ≤ st.r && st.r < 42 && 0 ≤ st.c && st.c < 64 && (st.s == 2 || st.s == 4) && st.f < 4
+
+def acts : List Act := [.mv 0, .mv 1, .mv 2, .mv 3, .shrink, .cast6, .tele, .grow]
+
+def checkKey (k : Nat) : Bool :=
+  let st := decode k
+  acts.all fun a =>
+    let t := apply st a
+    if t.won then decide (phi k ≤ (cost a : Int) - t.bud)
+    else okB t && inR (key t) && decide (phi k ≤ (cost a : Int) - t.bud + phi (key t))
+
+def allFrom (p : Nat → Bool) (lo : Nat) : Nat → Bool
+  | 0 => true
+  | n + 1 => p lo && allFrom p (lo + 1) n
+
+def rowOK (r : Nat) : Bool := allFrom (fun k => !inR k || checkKey k) (r * 4096) 4096
+'''
+body=''
+open('lean/L5BoundDefs.lean','w',encoding='utf-8').write(hdr+'\nend L5B\n')
+for i in range(7):
+    rs=range(i*6,i*6+6)
+    t='import L5BoundDefs\nnamespace L5B\n'+''.join(f'theorem row{r} : rowOK {r} = true := by decide +kernel\n' for r in rs)+'end L5B\n'
+    open(f'lean/L5BoundRows{i}.lean','w',encoding='utf-8').write(t)

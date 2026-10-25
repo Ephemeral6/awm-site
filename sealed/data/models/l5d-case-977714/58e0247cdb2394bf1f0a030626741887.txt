@@ -1,0 +1,25 @@
+
+theorem tab10_ok : tab10.all (ok 10 tab10) = true := by decide +kernel
+theorem tab11_ok : tab11.all (ok 11 tab11) = true := by decide +kernel
+theorem tab10_s0 : tab10.find s0 = some 47 := by decide +kernel
+theorem tab11_s0 : tab11.find s0 = some 47 := by decide +kernel
+
+/-- **Main theorem.** In the level-5 model, for each reach threshold T consistent with the ten
+    observed colour-6 firings (T = 10 or 11; attempt 5's gap-10 success ruled out T = 9), every
+    action sequence that wins costs at least 47 units > 35 = the level-5 budget. -/
+theorem l5_impossible (T : Nat) (hT : T = 10 ∨ T = 11) :
+    ∀ (as : List Act) (C : Int), firstWin T s0 as = some C → 35 < C := by
+  intro as C hw
+  rcases hT with rfl | rfl
+  · have := lower_bound 10 tab10 tab10_ok as s0 47 C tab10_s0 hw; omega
+  · have := lower_bound 11 tab11 tab11_ok as s0 47 C tab11_s0 hw; omega
+
+/-- Non-vacuity: the bound is tight. Relaxing the budget to 47 gives a win. -/
+theorem witness10_wins : firstWin 10 s0 witness10 = some 47 := by decide +kernel
+theorem witness11_wins : firstWin 11 s0 witness11 = some 47 := by decide +kernel
+
+end L5
+
+#print axioms L5.l5_impossible
+#print axioms L5.witness10_wins
+#print axioms L5.witness11_wins

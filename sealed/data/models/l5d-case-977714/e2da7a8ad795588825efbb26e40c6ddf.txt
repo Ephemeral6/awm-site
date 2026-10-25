@@ -1,0 +1,9 @@
+import json,sys
+sys.path.insert(0,'.')
+from geo import diff_sum, moved, diff_groups
+L=[json.loads(l) for l in open('transitions.jsonl')]
+for r in L[-int(sys.argv[1]) if len(sys.argv)>1 else -1:]:
+    print(r['action'], r['tid'], r['ctx'])
+    print(' sum', diff_sum(r['prev'],r['nxt']))
+    print(' moved', [(m['color'],m['n'],m['delta']) for m in moved(r['prev'],r['nxt'])])
+    print(' groups', {k:len(v) for k,v in diff_groups(r['prev'],r['nxt']).items()})

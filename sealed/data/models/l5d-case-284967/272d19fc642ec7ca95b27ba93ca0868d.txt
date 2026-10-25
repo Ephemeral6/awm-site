@@ -1,0 +1,49 @@
+import json,sys,math,itertools
+sys.path.insert(0,'concepts');sys.path.insert(0,'.')
+from _lib import bar,cursor
+L=[json.loads(l) for l in open('transitions.jsonl')]
+def sel(g): return frozenset((r,c) for r in range(3) for c in range(3) if g[50+5*r][25+5*c]==14)
+segs=[];cur=None
+for r in L:
+    if r['ctx']['level_prev']!=5: continue
+    st=(cursor(r['prev']) or (0,0))[:3]
+    if bar(r['prev'])==128 and st==(29,17,4) and (cur is None or len(cur)>3):
+        cur=[];segs.append(cur)
+    a=r['action'];kind='mv'
+    same=r['prev']==r['nxt']
+    if a.startswith('ACTION6'):
+        x,y=map(int,a.split(':')[1].split(','))
+        incell=any(abs(x-(25+5*c))<=1 and abs(y-(50+5*rr))<=1 for rr in range(3) for c in range(3))
+        sp,sn=sel(r['prev']),sel(r['nxt'])
+        if not incell: kind='hint' if not same else 'noop'
+        elif len(sn)==0 and len(sp)>=2 and not (len(sp)==1): kind='fire'
+        else: kind='click'
+    if same: kind='noop'
+    pad = bar(r['nxt'])>bar(r['prev'])
+    cur.append(dict(kind=kind,pad=pad,b0=bar(r['prev']),b1=bar(r['nxt']),dead=r['ctx']['state_next']=='GAME_OVER',a=a))
+json.dump(segs,open('work/l5_segs.json','w'))
+def disp(rem,N,mode):
+    v=32*rem/N
+    q={'ceil':math.ceil(v-1e-9),'round':math.floor(v+0.5),'floor':math.floor(v+1e-9)}[mode]
+    return 4*max(0,min(32,q))
+best=[]
+for N in range(30,50):
+  for mode in ('ceil','round','floor'):
+    for fx in (0,1,2):
+      for pg in range(5,12):
+        for hintcost in (0,1):
+          ok=0;tot=0
+          for s in segs:
+            rem=N; good=True
+            for t in s:
+                c={'mv':1,'click':1,'fire':1+fx,'hint':hintcost,'noop':0}[t['kind']]
+                rem-=c
+                if t['pad']: rem+=pg
+                if t['dead']:
+                    if rem>=0: good=False
+                    break
+                if rem<0 or disp(rem,N,mode)!=t['b1']: good=False;break
+            ok+=good;tot+=1
+          best.append((ok,N,mode,fx,pg,hintcost))
+best.sort(reverse=True)
+for b in best[:12]: print(b, 'of',len(segs))

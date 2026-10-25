@@ -1,0 +1,85 @@
+# Self-audit pass 1 (level 5), written before any game action in this round
+
+Model: `work/selfaudit/sim.py`, a click-level version of `lean/L5Model.lean` with every rule as the evidence
+supports it: no extra grow placements, 2x2 teleport → (37,15), refill only with top-left on (37,49), T = 10,
+facing tracked but read by no full-evidence rule.
+Replay of every recorded L5 transition (attempts 2–8, 280 transitions, chained from the level start): **280/280 agree**.
+Least winning budget (search over moves + recipe macros, game over enforced at every step): **L = 48**.
+Measured budget: 35.
+
+(A search bug was found and fixed while building this table: the queue dropped facing. Every L below is from
+the fixed search.)
+
+## 1a Rules, by kind
+- **Preconditions:**
+  - R1: a move is blocked unless the shifted square is all floor; the clamp shortens by 2.
+  - R2: floor rectangles, including the barriers/boxes once removed.
+  - R4: colour-6 reaches a pair iff the player is aligned with the BOX and gap ≤ T.
+  - R5: refill fires iff the top-left lands on (37,49) while the tile is present.
+- **Effects:**
+  - R3: move by k, face := direction.
+  - R7: plus → shrink keeps top-left; grow → (r-2,c-2), else (r,c-2), else nothing.
+  - R4e: clears that box and its barrier.
+  - R9: teleport → 4x4 to (17,33), 2x2 to (37,15).
+  - R5e: refund 10, tile removed.
+- **Charges:**
+  - R6: move 1 (blocked too); panel toggle 1; completion +1; card/map clicks 0; refill −10.
+- **Constants:** B = 35, T = 10, refill amount 10, tile position, teleport landings, floor rectangles (read off the frame).
+- **Ordering/termination:**
+  - R8: an action is charged first; if u > B the game is over. A win only counts if not over. A recipe effect does not apply on the over step.
+- **Abstraction:** recipes as macros from a blank panel (stray toggles omitted, partial marks never carried over); facing dropped by the Lean model.
+
+## 1b/1c Sensitivity table
+L = 48. A row is load-bearing if L_step < 48 or L_wide < 48; ≤35 marks the verdict-deciding ones.
+
+| rule | kind | step loosening (exact) | L_step | widest admissible | L_wide | what pins it / evidence |
+|---|---|---|---|---|---|---|
+| R1.1 clamp by 1 (4x4) | precondition | clamp_odd | refuted | — | — | att3 4b72bfc8: 4x4 (17,33) up moved 2, not 3 |
+| R4.1 reach, column-aligned | constant | T = 11 | 48 | T = 11 | 48 | gap 10 ok (att5), gap 12 fail (L4) |
+| R4.2 reach, row-aligned | constant | T_row = 11 | 48 | T_row = 17 | 48 | only fail at gap 18 (att4) |
+| R4.3 reach, unaligned | precondition | allowed if gap-sum ≤ 8 | 48 | sum ≤ 10 refuted | — | att3 2e49c165 (sum 9 fail) |
+| **R4.4 reach via the BARRIER, facing it** | precondition | barrier aligned in the facing direction, gap ≤ T | **12 (≤35)** | "any direction" refuted | — | no record: the only aligned near-barrier firing (att4, (17,33), gap 3) faced right, away from it |
+| R4.5 effect on the over step | ordering | effect applies | refuted | — | — | att6 cf06e892: no d clear at u=36 |
+| R5.1 refill placement | precondition | top-left in any tile cell | 48 | any overlap except tile in a 4x4's right half | 48 | att7 e0d128f8 (37,47) no refill |
+| R5.2 refill any overlap | precondition | any | refuted | — | — | att7 e0d128f8 |
+| R5.3 refill amount | constant | 11 | refuted | — | — | att2 597dec78 bar 0→20 |
+| R6.1 completion surcharge | charge | 0 | refuted | — | — | att2 5792b4ca bars |
+| R6.2 teleport charge | charge | 3 | refuted | — | — | att3 ed671e92 bars |
+| R7.1 grow placements | effect | add (r-2,c), (r,c) | 48 | same | 48 | att5 walled grow did nothing (those placements were walled too) |
+| **R8.1 win on the over step** | termination | win counts when u = B+1 | **47** | same | 47 | no recorded winning move at u > B |
+
+**Load-bearing: R4.4 (12, below the measured 35) and R8.1 (47).**
+
+Pinned by records (no probe needed): R1.1 (att3 4b72bfc8), R4.5 (att6 cf06e892), R5.2 (att7 e0d128f8),
+R5.3 (att2 597dec78), R6.1 (att2 5792b4ca), R6.2 (att3 ed671e92); floor rectangles (frame); B (bar fit,
+attempts 2–8).
+
+## 2 Probes
+**2a Bite steps.**
+- **R4.4:** cheapest loosened route from the start:
+  - teleport (3 clicks) → 4x4 (17,33);
+  - U → (15,33), facing up, barrier gap 1;
+  - **bite: colour-6 (clicks 1,7,4)**. Full model: nothing. Loosened: d box + barrier cleared;
+  - then U, U, U → win at u = 12.
+- **R8.1:** bite = a winning move at u = 36. Its situation needs a full route; it gets its own test after R4.4 is settled.
+
+**2b Ranking.**
+- **R4.4 first.** The rule "reach is measured to the box" was generalised from 4 successes, all of which had the player facing the box.
+  No record ever put the player facing a barrier within reach, so the bite situation is a pure extrapolation.
+  If refuted, L drops 36 units.
+- **R8.1 second.** Untested ordering, worth 1 unit.
+
+**2c Plan (one attempt tests R4.4, and if it is refuted also reaches a winning move):**
+1. Levels 1–4 by the known solutions (L4 by the Lean plan).
+2. L5: click 0,1,4 (teleport). Both models: 4x4 → (17,33), u=4, bar 62.
+3. U. Both: (15,33), facing up, u=5, bar 60.
+4. Clicks 1,7,4. **Full model:** u=9, bar 48, the d barrier stays. **R4.4:** u=9, the d box and barrier vanish.
+5. If cleared: U, U, U → win at u=12. If not: R4.4 is CONFIRMED, and I fall back to further tests.
+
+## 2d Outcomes
+- **R4.4: CONFIRMED.**
+  - Run: attempt 9 (this round). Reset, then L1–L4 by known solutions. At L5: teleport (clicks 0,1,4) → 4x4 at (17,33), u=4; U → (15,33) facing up, u=5, bar 56.
+  - Bite: clicks 1,7,4 (colour-6). Bar 56 → 48 (u=9). The d barrier at rows 11-13 and the d box stayed (frame cells (11,33)=13, (15,56)=13).
+  - The full-evidence model predicted exactly this; the loosened model predicted both would vanish.
+- R8.1 not probed yet (needs a winning move at u = B+1). Carried into pass 2.
+- **R10.1 (superset completion): CONFIRMED** (exact match). Run: attempt 9, L5, player at (15,33), u=9. Clicks 7,0,1,4 → marks {0,1,4,7}, a superset of both TELE and COL. Nothing fired: player stayed at (15,33), the four cells stayed 14, bar 48→42 (u=13).

@@ -1,0 +1,51 @@
+import L5Chunk0
+import L5Chunk1
+import L5Chunk2
+import L5Chunk3
+import L5Chunk4
+import L5Chunk5
+import L5Chunk6
+import L5Chunk7
+import L5Chunk8
+import L5Chunk9
+import L5Chunk10
+import L5Chunk11
+import L5Chunk12
+import L5Chunk13
+import L5Chunk14
+import L5Chunk15
+import L5Nodes
+
+/-!
+# Level 5, self-audit corrected model: main theorem
+
+Definitions, rules and the certificate table are in `L5Defs.lean`, amended from the attempt-7 `L5Model.lean`
+(the old version is kept in work/L5Model_attempt7.lean.bak). The rule changed is R-col → R-col' (`beam`).
+The kernel checks are split over `L5ChunkN.lean` / `L5Nodes.lean` only to keep each Lean process under the
+memory limit; this file does no evaluation and only composes them.
+-/
+
+namespace L5
+
+/-- the whole certificate table passes `ok`, composed from the chunk and skeleton-node checks. -/
+theorem tab_ok : tab.all (ok tab) = true := (all_node tabN14_ok (all_node tabN6_ok (all_node tabN2_ok (all_node tabN0_ok tabC0_ok tabC1_ok) (all_node tabN1_ok tabC2_ok tabC3_ok)) (all_node tabN5_ok (all_node tabN3_ok tabC4_ok tabC5_ok) (all_node tabN4_ok tabC6_ok tabC7_ok))) (all_node tabN13_ok (all_node tabN9_ok (all_node tabN7_ok tabC8_ok tabC9_ok) (all_node tabN8_ok tabC10_ok tabC11_ok)) (all_node tabN12_ok (all_node tabN10_ok tabC12_ok tabC13_ok) (all_node tabN11_ok tabC14_ok tabC15_ok))))
+
+/-- **Main theorem (self-audit corrected model).** In the level-5 model with the beam rule R-col',
+    every action sequence that wins costs at least 37 units, more than the measured 35-unit budget.
+    It quantifies over every action sequence (moves, plus, col, tele) from the level start; no hypotheses. -/
+theorem l5_impossible : ∀ (as : List Act) (C : Int), firstWin s0 as = some C → 35 < C := by
+  intro as C hw
+  have := lower_bound tab tab_ok as s0 37 C tab_s0 hw
+  omega
+
+/-- **Relaxed-model theorem.** Relax the budget from 35 to 37 (by 2 units): the same model has a winning
+    route, and 37 is the least budget at which it wins. -/
+theorem least_budget_is_37 :
+    (∀ (as : List Act) (C : Int), firstWin s0 as = some C → 37 ≤ C) ∧ firstWin s0 witness = some 37 :=
+  ⟨fun as C hw => lower_bound tab tab_ok as s0 37 C tab_s0 hw, witness_wins⟩
+
+end L5
+
+#print axioms L5.l5_impossible
+#print axioms L5.least_budget_is_37
+#print axioms L5.witness_wins

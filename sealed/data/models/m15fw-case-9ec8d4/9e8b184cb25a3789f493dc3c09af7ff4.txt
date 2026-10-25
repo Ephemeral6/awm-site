@@ -1,0 +1,64 @@
+# Self-audit pass 2 (after the R12.4 repair)
+
+**L = 19**, C = 18. The base is the full-evidence model with one repair. R12, before: a refill triggers only for a 2×2 overlapping the item after a move. R12, after: a grow click that leaves a 4×4 over the item also refills (att.2 of this round, t307: bar 30 → 44).
+The repaired base replays all 220 recorded level-4 transitions; the old base fails from t307 on.
+Least route: DDLLL, shrink, D, grow* (refill), R, R, U, switch, R×6. Attempt 2 played exactly this route and died at 19.
+
+The engine now passes the action kind (move / click / shrink / grow / switch / off-panel) to the refill check,
+so each trigger reading is its own row (`work/selfaudit/sensitivity_pass2.py`, `.out`).
+
+| rule | class | relaxation (all admissible: 220/220) | L | records it rests on |
+|---|---|---|---|---|
+| R10.1b | precondition (switch) | 4×4 at col 41 facing **down** fires | **10 ≤ C** | untested (col 41 facing right failed) |
+| R10.1g | precondition (switch) | 4×4 at col 33 facing **down** fires | **12 ≤ C** | untested (col 33 facing up failed) |
+| R10.1d | precondition (switch) | 4×4 at col 25 facing up fires | **18 ≤ C** | untested |
+| R9.2 | effect (grow) | a 2×2 facing **left** may grow to any free quadrant | **18 ≤ C** | anchor (r-2,c-2) pinned for facing up (att.4), right (att.7/8), down (this round att.2) |
+| R10.2a | precondition (switch) | 4×4 at col 31 facing right | 19 | not load-bearing |
+| R12.1 | precondition (refill) | 4×4 partial overlap after a move | 19 | not load-bearing |
+| R12.2 | precondition (refill) | 2×2 put on the item by a shrink | 19 | not load-bearing |
+| R12.5 | precondition (refill) | grown 4×4 only touching the item | 19 | not load-bearing |
+| R12.6 | precondition (refill) | 4×4 over the item after any panel click | 19 | not load-bearing |
+| R12.7 | precondition (refill) | 4×4 over the item after a free off-panel click | 19 | not load-bearing |
+| R12.8 | precondition (refill) | top-left 2×2 block rule, any action | 19 | not load-bearing |
+| R13.1, R16, R17, R9 | | (as in pass 1) | 19 | not load-bearing |
+
+**Newly pinned in this round:**
+- R6, the win/budget order: the budget is checked first (att.2, GAME_OVER on the winning move at 19).
+- R7.1 and R7.2: exact match only (att.1).
+- R8.1: a 4×4 facing down shrinks to its top-left corner (att.1).
+- R9.2 for facing down: anchor (r-2,c-2) (att.2).
+- R10.1a and R10.1c: no fire at col 37, facing down or up (att.1).
+
+## (b) Ranking and plan for attempt 3
+
+**Ranking.** Every load-bearing row is ≤ C, so any of them would make the level winnable. All four are extrapolations from neighbouring situations:
+- **R10.1b and R10.1g:** facing down was never tried at these columns. Cheap: 6 units each.
+- **R9.2:** a facing-dependent anchor seems unlikely, since three facings agree; costs 15.
+- **R10.1d:** costs 10.
+
+**Plan.** One route tests R10.1g and then R10.1b, and wins if either fires.
+
+| step | actions | tests | full-evidence prediction | relaxed prediction |
+|---|---|---|---|---|
+| 1 | L → 4×4 (25,33) facing left; D → (29,33) facing down; switch (c1, c4, c7) | R10.1g | no fire, spent 6 | fires; then R ×6 wins at 12 |
+| 2 | R → (29,37); R → (29,41) facing right; U → (25,41); D → (29,41) facing down; switch | R10.1b | no fire, spent 14 | fires; then R ×4 wins at 18 |
+| 3 | remaining 4 units: A2, A2, A2, A2, A2 → GAME_OVER | | | |
+
+Attempt 4 is for R9.2 (DDLLL, shrink facing left, grow: does the 4×4 land on (31,23) or elsewhere?) and R10.1d.
+
+## Results, attempt 3 (selfaudit round)
+
+| step | actions | rule | game did | result |
+|---|---|---|---|---|
+| 1 | A3 → 4×4 (25,33); A2 → (29,33) facing down (bottom row colour 9); switch | **R10.1g** | no fire (barrier still 13), bar 44 (spent 6) | **CONFIRMED** |
+| 2 | R, R → (29,41); U → (25,41); D → (29,41) facing down; switch | **R10.1b** | no fire, bar 16 (spent 14) | **CONFIRMED** |
+| 3 | A4 at (29,41) facing down, blocked by the barrier | R17 (blocked move turns?) | no movement, but the 9-half moved to the right side (facing right), spent 15 | **REFUTED**: a blocked move turns the cursor |
+| 4 | A3 ×4 | — | GAME_OVER at spent 19 | as modelled |
+
+**(c) Repair R17.**
+- **Old rule:** a blocked move leaves the facing unchanged.
+- **New rule:** a blocked move still sets the facing to the move direction (t332).
+- **Replay harness fix:** the replay check had compared facing loosely. With a strict facing check, the old base replays 236/237 (fails at t332) and the repaired base replays 237/237.
+- **L:** still **19** (pass 2 had already shown the blocked-turn relaxation does not lower L).
+
+Pass 3 (base = R12.4 + R17 repaired) is in `pass3.md`. Already recomputed: R10.1d L 18 ≤ C and R9.2 (facing left) L 18 ≤ C, both admissible (237/237).

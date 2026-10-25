@@ -1,0 +1,275 @@
+# -*- coding: utf-8 -*-
+"""打一局：发动作、记转移，**两道闸在这里强制**。
+
+    python play.py reset
+    python play.py bet "第 12 步：me 上移 1 格，别的不动（依据 move_up）"
+    python play.py act ACTION1 ACTION1
+    python play.py settle
+    python play.py status
+    python play.py retire <概念名> --why "……"
+
+## 两道闸（不靠自觉，靠这个脚本）
+
+```
+闸一  **没有比最后一条转移更新的押注，act 发不出去。**
+      押注要写成能落空的话：第几步、谁、变成什么样、依据哪条概念。
+      只有整条命令就是 `act RESET` 才豁免。
+      bet 和 act 必须是两条独立命令 —— act 在发之前查 BET.json 的时间戳。
+
+闸二  **有没结算的转移、没处理的反例、跑不起来的概念，act 发不出去。**
+      出反例后三条出路，只有这些：
+        · 改断言，改到在那条转移上判 TRUE；
+        · 缩 scope 判 NA（缩了就别再声称管那一片）；
+        · `retire` 撤册。
+      **把反例的 tid 抄进 EVIDENCE 只是登记，不是修好** ——
+      结算会在这条概念自己的 EVIDENCE 上重跑 `assert_`，判 FALSE 照样关闸。
+```
+
+## 为什么闸要在发动作这一侧
+
+反例没处理就接着走，后面每一条转移都是在一个已知错的模型上记的账，
+而**错不会自己报出来**。闸关在 `act` 上，是让「修完再走」成为唯一能走的路。
+"""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import io
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+TRANS = HERE / "transitions.jsonl"
+BET = HERE / "BET.json"
+PENDING = HERE / "PENDING.json"
+JOURNAL = HERE / "journal.jsonl"
+DISCLOSED = HERE / "disclosed.json"
+SERVICE = HERE / "service.json"
+CONCEPTS = HERE / "concepts"
+HISTORY = HERE / "history"
+
+ACTS = {"ACTION1", "ACTION2", "ACTION3", "ACTION4", "ACTION5", "ACTION6", "ACTION7", "RESET"}
+
+
+def url() -> str:
+    if SERVICE.exists():
+        return json.loads(SERVICE.read_text(encoding="utf-8"))["url"]
+    raise SystemExit("找不到 service.json —— 它应该和这个脚本在同一个目录里")
+
+
+def tid_of(prev, action, nxt) -> str:
+    h = hashlib.md5()
+    h.update(json.dumps(prev, separators=(",", ":")).encode())
+    h.update(str(action).encode())
+    h.update(json.dumps(nxt, separators=(",", ":")).encode())
+    return h.hexdigest()[:16]
+
+
+def jot(kind: str, **kw) -> None:
+    with io.open(JOURNAL, "a", encoding="utf-8") as f:
+        f.write(json.dumps({"t": time.strftime("%Y-%m-%d %H:%M:%S"),
+                            "kind": kind, **kw}, ensure_ascii=False) + "\n")
+
+
+def transitions() -> list:
+    if not TRANS.exists():
+        return []
+    out = []
+    for line in io.open(TRANS, encoding="utf-8"):
+        line = line.strip()
+        if line:
+            out.append(json.loads(line))
+    return out
+
+
+def post(path: str, body: dict) -> tuple:
+    req = urllib.request.Request(url() + path, data=json.dumps(body).encode(),
+                                 headers={"Content-Type": "application/json"})
+    try:
+        r = urllib.request.urlopen(req, timeout=180)
+        return r.status, json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        return e.code, json.loads(e.read() or b"{}")
+
+
+# ---------------------------------------------------------------- 闸
+
+def gate_bet(cmd_is_plain_reset: bool) -> str | None:
+    """闸一：押注要比最后一条转移新。"""
+    if cmd_is_plain_reset:
+        return None
+    if not BET.exists():
+        return ("闸一：还没有押注。先 `python play.py bet \"……\"` 写一条能落空的话"
+                "（第几步、谁、变成什么样、依据哪条概念），再 act。")
+    bet = json.loads(BET.read_text(encoding="utf-8"))
+    ts = bet.get("t", 0)
+    tr = transitions()
+    if tr and ts <= tr[-1]["t"]:
+        return ("闸一：手上这条押注比最后一条转移还旧（押于 %s，最后一条转移 %s）。"
+                "押注要**在动作之前**写，事后补写等于对着答案填空。"
+                % (time.strftime("%H:%M:%S", time.localtime(ts)),
+                   time.strftime("%H:%M:%S", time.localtime(tr[-1]["t"]))))
+    return None
+
+
+def gate_pending() -> str | None:
+    """闸二：没结算的转移 / 没处理的反例 / 跑不起来的概念。"""
+    tr = transitions()
+    if not PENDING.exists():
+        if tr:
+            return "闸二：有 %d 条转移还没结算。先 `python play.py settle`。" % len(tr)
+        return None
+    try:
+        p = json.loads(PENDING.read_text(encoding="utf-8"))
+    except Exception:
+        return "闸二：PENDING.json 读不出来（上次结算写盘被打断）。重跑一次 settle。"
+    if p.get("settled_through", 0) < len(tr):
+        return ("闸二：有 %d 条转移还没结算（已结算到第 %d 条）。先 settle。"
+                % (len(tr) - p.get("settled_through", 0), p.get("settled_through", 0)))
+    bad = p.get("counterexamples") or []
+    err = p.get("errors") or []
+    if bad:
+        lines = ["闸二：有 %d 处反例没处理 —— 改断言 / 缩 scope / retire，三条路只有这些。" % len(bad)]
+        for b in bad[:6]:
+            lines.append("   %s 在 tid %s 上判 FALSE（%s）" % (b["concept"], b["tid"], b.get("why", "")))
+        lines.append("   **把 tid 抄进 EVIDENCE 只是登记，不是修好**："
+                     "结算会在它自己的 EVIDENCE 上重跑，判 FALSE 照样关闸。")
+        return "\n".join(lines)
+    if err:
+        return ("闸二：有 %d 条概念跑不起来（import 失败 / 抛异常 / 返回值不合法）：%s。"
+                "没被检验不等于没被推翻。"
+                % (len(err), "、".join(e["concept"] for e in err[:6])))
+    return None
+
+
+# ---------------------------------------------------------------- 命令
+
+def cmd_reset(a) -> int:
+    s, j = post("/reset", {})
+    if s >= 400:
+        print("服务拒绝：%s" % j.get("error"))
+        return 1
+    _record("RESET", None, j)
+    print("开局。关 %s，state %s" % (j.get("level"), j.get("state")))
+    return 0
+
+
+_LAST = HERE / ".last_frame.json"
+
+
+def _record(action, prev, resp) -> None:
+    frames = resp.get("frames") or []
+    nxt = frames[-1] if frames else None
+    if prev is not None and nxt is not None:
+        rec = {"t": time.time(), "tid": tid_of(prev, action, nxt), "action": action,
+               "prev": prev, "nxt": nxt,
+               "ctx": {"level_prev": resp.get("_level_prev"), "level_next": resp.get("level"),
+                       "state_next": resp.get("state"),
+                       "levels_completed": resp.get("levels_completed")}}
+        with io.open(TRANS, "a", encoding="utf-8") as f:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    if nxt is not None:
+        _LAST.write_text(json.dumps({"frame": nxt, "level": resp.get("level")},
+                                    ensure_ascii=False), encoding="utf-8")
+
+
+def cmd_bet(a) -> int:
+    BET.write_text(json.dumps({"t": time.time(), "text": a.text,
+                               "predict": a.predict or []}, ensure_ascii=False),
+                   encoding="utf-8")
+    jot("押注", text=a.text, predict=a.predict or [])
+    print("押注记下了。现在可以 act。")
+    return 0
+
+
+def cmd_act(a) -> int:
+    seq = [x.upper() for x in a.actions]
+    for x in seq:
+        base = x.split(":")[0]
+        if base not in ACTS:
+            raise SystemExit("看不懂的动作 %r" % x)
+    plain_reset = (seq == ["RESET"])
+    for g in (gate_bet(plain_reset), gate_pending()):
+        if g:
+            print(g)
+            return 2
+    for x in seq:
+        prev = None
+        if _LAST.exists():
+            prev = json.loads(_LAST.read_text(encoding="utf-8"))["frame"]
+        lvl_prev = json.loads(_LAST.read_text(encoding="utf-8")).get("level") if _LAST.exists() else None
+        if x == "RESET":
+            s, j = post("/reset", {})
+        elif x.startswith("ACTION6:"):
+            _, xy = x.split(":", 1)
+            cx, cy = xy.split(",")
+            s, j = post("/action", {"action": 6, "x": int(cx), "y": int(cy)})
+        else:
+            s, j = post("/action", {"action": int(x[-1])})
+        if s >= 400:
+            print("服务拒绝：%s" % j.get("error"))
+            return 1
+        j["_level_prev"] = lvl_prev
+        _record(x, prev, j)
+        print("%-16s 关 %s  state %s  已过 %s" % (x, j.get("level"), j.get("state"),
+                                                 j.get("levels_completed")))
+        if j.get("state") in ("GAME_OVER", "WIN"):
+            break
+    print("走完了。**下一次 act 之前要先 settle，有反例要先处理。**")
+    return 0
+
+
+def cmd_settle(a) -> int:
+    import settle as S
+    return S.run(HERE)
+
+
+def cmd_status(a) -> int:
+    tr = transitions()
+    print("转移 %d 条" % len(tr))
+    for name, g in (("闸一（押注）", gate_bet(False)), ("闸二（结算/反例）", gate_pending())):
+        print("  %-16s %s" % (name, g.splitlines()[0] if g else "通"))
+    n = len(list(CONCEPTS.glob("*.py"))) if CONCEPTS.exists() else 0
+    print("概念 %d 条" % max(0, n - (1 if (CONCEPTS / "_lib.py").exists() else 0)))
+    return 0
+
+
+def cmd_retire(a) -> int:
+    p = CONCEPTS / ("%s.py" % a.name)
+    if not p.exists():
+        raise SystemExit("没有这条概念：%s" % a.name)
+    HISTORY.mkdir(exist_ok=True)
+    dst = HISTORY / ("%s-%s.py" % (a.name, time.strftime("%Y%m%d-%H%M%S")))
+    dst.write_text(p.read_text(encoding="utf-8"), encoding="utf-8")
+    p.unlink()
+    jot("撤册", concept=a.name, why=a.why, history=str(dst.name))
+    print("撤了 %s，源码留在 history/%s。**再 settle 一次让总账认下它。**" % (a.name, dst.name))
+    return 0
+
+
+def main(argv=None) -> int:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    for _q in (str(HERE), str(HERE / "concepts")):
+        if _q not in sys.path:
+            sys.path.insert(0, _q)
+    ap = argparse.ArgumentParser()
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("reset").set_defaults(fn=cmd_reset)
+    b = sub.add_parser("bet"); b.add_argument("text"); b.add_argument("--predict", nargs="*")
+    b.set_defaults(fn=cmd_bet)
+    c = sub.add_parser("act"); c.add_argument("actions", nargs="+"); c.set_defaults(fn=cmd_act)
+    sub.add_parser("settle").set_defaults(fn=cmd_settle)
+    sub.add_parser("status").set_defaults(fn=cmd_status)
+    r = sub.add_parser("retire"); r.add_argument("name"); r.add_argument("--why", required=True)
+    r.set_defaults(fn=cmd_retire)
+    a = ap.parse_args(argv)
+    return a.fn(a)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

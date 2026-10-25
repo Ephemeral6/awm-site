@@ -1,0 +1,9 @@
+import L5BoundDefs
+namespace L5B
+theorem row36 : rowOK 36 = true := by decide +kernel
+theorem row37 : rowOK 37 = true := by decide +kernel
+theorem row38 : rowOK 38 = true := by decide +kernel
+theorem row39 : rowOK 39 = true := by decide +kernel
+theorem row40 : rowOK 40 = true := by decide +kernel
+theorem row41 : rowOK 41 = true := by decide +kernel
+end L5B

@@ -1,0 +1,156 @@
+"""Amend work/l5_head.lean.txt into work/l5b_head.lean.txt for the self-audit corrected (beam) model."""
+p = 'work/l5_head.lean.txt'
+s = open(p, encoding='utf-8').read()
+
+def rep(old, new):
+    global s
+    assert old in s, old[:60]
+    s = s.replace(old, new)
+
+rep("""* R-tele: the teleport recipe (colour 11) lands a 2x2 at (18,34) and a 4x4 at (17,33).""",
+"""* R-tele: the teleport recipe (colour 11) lands a 2x2 at (18,34) and a 4x4 at (17,33).
+
+**Self-audit amendment (attempts 9-12).** R-col's "aligned and gap <= T" is REFUTED: attempt 11, transition
+b2622be3, a 2x2 at (25,21) facing up cleared the c box at gap 12, where the old rule (T <= 11) predicted
+nothing. It is replaced by R-col' (`beam`). From the player's two anchor lanes (columns c, c+1 when facing
+up/down; rows r, r+1 when facing left/right), scan outward in the facing direction. Every lane cell must be
+floor until a box cell is reached; that box and its barrier are removed. No range limit (a 20-cell beam
+worked in attempt 12). The state now carries `face` (set by every move, kept by recipes and teleport).
+The grow fallbacks `growA`/`growB` and the duplicate `telef` are removed: the grow order (r-2,c-2) then
+(r,c-2) was confirmed in attempts 6-8, and the 2x2 landing (37,15) in attempts 4, 5 and 12.
+The old version of the rule is kept in work/L5Model_attempt7.lean.bak.""")
+rep("""* M4 the teleport landing squares. 4x4 → (17,33) was confirmed in attempt 3; 2x2 → (18,34) is inferred.
+* M5 (attempt 4, loosened) grow: observed placements (r-2,c-2), then (r,c-2) as the fallback. The
+  other two placements are offered as extra actions `growA`/`growB`, so the model is a superset.
+* M4 (attempt 5) teleport landings: 4x4 → (17,33) and 2x2 → (37,15), both observed from several
+  starting spots. `telef` is now identical to `tele` and is kept only for continuity.""",
+"""* M4 teleport landings: 4x4 → (17,33), 2x2 → (37,15), observed from several starting spots.
+* M5 grow: (r-2,c-2), else (r,c-2), else nothing (all three observed).""")
+rep("* M3 the colour-15 tile has no effect, there are no other actions and no other mechanics.\n  This is the **stricter** direction and was not tested.",
+"* M3 no other actions or mechanics. The colour-15 tile alone does nothing (tested). Superset panel matches do\n  nothing (tested, att9). Barrier-facing firings do nothing (tested, att9). Stricter direction for anything untried.\n* M6 a win on the step that overruns the budget does not count. UNTESTABLE on L5 (needs a route <= 36);\n  loosening it gives a least budget of 36, still > 35.")
+rep("""  | plus
+  | col
+  | tele
+  | telef   -- attempt 4: teleport landing on the colour-15 tile (seen for a 2x2); allowed always (looser)
+  | growA   -- attempt 4: unobserved grow placements, allowed as extra choices (looser)
+  | growB
+  deriving DecidableEq, Repr""", """  | plus
+  | col
+  | tele
+  deriving DecidableEq, Repr""")
+rep("""  sz : Nat
+  bc : Bool""", """  sz : Nat
+  face : Dir   -- self-audit: the beam reads the facing direction
+  bc : Bool""")
+
+a = s.index('/-- gap sum between'); b = s.index('/-- one step:')
+s = s[:a] + '''def hitCell (y x r0 r1 c0 c1 : Nat) : Bool := inR y x r0 r1 c0 c1
+
+/-- vertical beam upward from row y (inclusive) on lanes x, x+1 -/
+def scanU (bc bd : Bool) (x r0 r1 c0 c1 : Nat) : Nat → Bool
+  | 0 => hitCell 0 x r0 r1 c0 c1 || hitCell 0 (x+1) r0 r1 c0 c1
+  | y+1 =>
+    if hitCell (y+1) x r0 r1 c0 c1 || hitCell (y+1) (x+1) r0 r1 c0 c1 then true
+    else if floor bc bd (y+1) x && floor bc bd (y+1) (x+1) then scanU bc bd x r0 r1 c0 c1 y
+    else false
+
+/-- vertical beam downward from row y, with fuel -/
+def scanD (bc bd : Bool) (x r0 r1 c0 c1 : Nat) : Nat → Nat → Bool
+  | _, 0 => false
+  | y, n+1 =>
+    if 64 ≤ y then false
+    else if hitCell y x r0 r1 c0 c1 || hitCell y (x+1) r0 r1 c0 c1 then true
+    else if floor bc bd y x && floor bc bd y (x+1) then scanD bc bd x r0 r1 c0 c1 (y+1) n
+    else false
+
+/-- horizontal beam leftward from column x (inclusive) on lanes y, y+1 -/
+def scanL (bc bd : Bool) (y r0 r1 c0 c1 : Nat) : Nat → Bool
+  | 0 => hitCell y 0 r0 r1 c0 c1 || hitCell (y+1) 0 r0 r1 c0 c1
+  | x+1 =>
+    if hitCell y (x+1) r0 r1 c0 c1 || hitCell (y+1) (x+1) r0 r1 c0 c1 then true
+    else if floor bc bd y (x+1) && floor bc bd (y+1) (x+1) then scanL bc bd y r0 r1 c0 c1 x
+    else false
+
+/-- horizontal beam rightward from column x, with fuel -/
+def scanR (bc bd : Bool) (y r0 r1 c0 c1 : Nat) : Nat → Nat → Bool
+  | _, 0 => false
+  | x, n+1 =>
+    if 64 ≤ x then false
+    else if hitCell y x r0 r1 c0 c1 || hitCell (y+1) x r0 r1 c0 c1 then true
+    else if floor bc bd y x && floor bc bd (y+1) x then scanR bc bd y r0 r1 c0 c1 (x+1) n
+    else false
+
+/-- R-col' (self-audit): does the beam from the player's anchor lanes, in its facing direction, reach the box? -/
+def beam (s : St) (r0 r1 c0 c1 : Nat) : Bool :=
+  match s.face with
+  | .up => if s.r = 0 then false else scanU s.bc s.bd s.c r0 r1 c0 c1 (s.r - 1)
+  | .down => scanD s.bc s.bd s.c r0 r1 c0 c1 (s.r + s.sz) 64
+  | .left => if s.c = 0 then false else scanL s.bc s.bd s.r r0 r1 c0 c1 (s.c - 1)
+  | .right => scanR s.bc s.bd s.r r0 r1 c0 c1 (s.c + s.sz) 64
+
+''' + s[b:]
+
+a = s.index('/-- one step:'); b = s.index('/-- cumulative cost')
+s = s[:a] + '''/-- one step: next state, unit cost (Int: the refill makes it negative), and whether it wins. -/
+def step (s : St) : Act → St × Int × Bool
+  | .mv d =>
+    let k := reach s.bc s.bd d s.r s.c s.sz s.sz
+    let p := shift d s.r s.c k
+    -- attempt 7: the refill fires only when the player's top-left lands on the tile (37,49)
+    let onTile := s.tile && p.1 == 37 && p.2 == 49
+    ({ s with r := p.1, c := p.2, face := d, tile := s.tile && !onTile },
+     (if onTile then -9 else 1), hits p.1 p.2 s.sz 1 4 33 36)
+  | .plus =>
+    -- shrink keeps top-left; grow puts the 4x4 at (r-2,c-2) if free, else (r,c-2), else nothing
+    (if s.sz == 4 then { s with sz := 2 }
+     else if 2 ≤ s.r && 2 ≤ s.c && free s.bc s.bd (s.r - 2) (s.c - 2) 4 then
+       { s with r := s.r - 2, c := s.c - 2, sz := 4 }
+     else if 2 ≤ s.c && free s.bc s.bd s.r (s.c - 2) 4 then { s with c := s.c - 2, sz := 4 }
+     else s, 5, false)
+  -- R-col' (self-audit): both beams are evaluated on the state before the completion
+  | .col => ({ s with bc := s.bc && !beam s 9 12 20 23, bd := s.bd && !beam s 14 17 55 58 }, 4, false)
+  -- 2x2 → colour-15 tile (37,15); 4x4 → b marker (17,33)
+  | .tele => ((if s.sz == 2 then { s with r := 37, c := 15 } else { s with r := 17, c := 33 }), 4, false)
+
+''' + s[b:]
+
+rep("""def firstWin (T : Nat) (s : St) : List Act → Option Int
+  | [] => none
+  | a :: as =>
+    let x := step T s a
+    if x.2.2 then some x.2.1 else (firstWin T x.1 as).map (x.2.1 + ·)""", """def firstWin (s : St) : List Act → Option Int
+  | [] => none
+  | a :: as =>
+    let x := step s a
+    if x.2.2 then some x.2.1 else (firstWin x.1 as).map (x.2.1 + ·)""")
+rep("def s0 : St := ⟨29, 17, 4, true, true, true⟩", "def s0 : St := ⟨29, 17, 4, .down, true, true, true⟩")
+rep("def acts : List Act := [.mv .up, .mv .down, .mv .left, .mv .right, .plus, .col, .tele, .telef, .growA, .growB]",
+    "def acts : List Act := [.mv .up, .mv .down, .mv .left, .mv .right, .plus, .col, .tele]")
+rep("""def key (s : St) : Nat :=
+  ((((s.r * 64 + s.c) * 8 + s.sz) * 2 + (if s.bc then 1 else 0)) * 2 + (if s.bd then 1 else 0)) * 2
+    + (if s.tile then 1 else 0)""", """def faceIdx : Dir → Nat
+  | .up => 0 | .down => 1 | .left => 2 | .right => 3
+
+def key (s : St) : Nat :=
+  (((((s.r * 64 + s.c) * 8 + s.sz) * 4 + faceIdx s.face) * 2 + (if s.bc then 1 else 0)) * 2
+    + (if s.bd then 1 else 0)) * 2 + (if s.tile then 1 else 0)""")
+rep("""def ok (T : Nat) (t : Tree) (s : St) (h : Int) : Bool :=
+  acts.all fun a =>
+    let x := step T s a""", """def ok (t : Tree) (s : St) (h : Int) : Bool :=
+  acts.all fun a =>
+    let x := step s a""")
+rep("""theorem lower_bound (T : Nat) (t : Tree) (hall : t.all (ok T t) = true) :
+    ∀ (as : List Act) (s : St) (h C : Int), t.find s = some h → firstWin T s as = some C → h ≤ C""",
+"""theorem lower_bound (t : Tree) (hall : t.all (ok t) = true) :
+    ∀ (as : List Act) (s : St) (h C : Int), t.find s = some h → firstWin s as = some C → h ≤ C""")
+rep("    by_cases w : (step T s a).2.2 = true", "    by_cases w : (step s a).2.2 = true")
+rep("      cases hf' : t.find (step T s a).1 with", "      cases hf' : t.find (step s a).1 with")
+rep("        cases hw' : firstWin T (step T s a).1 as with", "        cases hw' : firstWin (step s a).1 as with")
+rep("          have := lower_bound T t hall as _ h' C' hf' hw'", "          have := lower_bound t hall as _ h' C' hf' hw'")
+rep("""  | mv d => cases d <;> simp [acts]
+  | _ => simp [acts]""", """  | mv d => cases d <;> simp [acts]
+  | plus => simp [acts]
+  | col => simp [acts]
+  | tele => simp [acts]""")
+open('work/l5b_head.lean.txt', 'w', encoding='utf-8').write(s)
+print('ok')

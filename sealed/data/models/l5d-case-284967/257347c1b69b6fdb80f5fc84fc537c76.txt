@@ -1,0 +1,33 @@
+import json,subprocess,sys,itertools
+sys.path.insert(0,'concepts');sys.path.insert(0,'.')
+from _lib import bar,cursor
+CELLS=[(r,c) for r in range(3) for c in range(3)]
+SPELLS=[{(0,1),(1,0),(1,2),(2,1)},{(0,1),(1,1),(2,1)},{(0,0),(0,1),(1,1)}]
+tested=json.load(open('work/tested_sets.json')) if len(sys.argv)>2 else []
+tested=set(frozenset(map(tuple,t)) for t in tested)
+N=int(sys.argv[1])
+def panel():
+    g=json.load(open('.last_frame.json'))['frame']
+    return frozenset((r,c) for r,c in CELLS if g[50+5*r][25+5*c]==14), g
+cur,g=panel()
+for i in range(N):
+    best=None
+    for cell in CELLS:
+        nxt=set(cur)^{cell}
+        if any(nxt==s for s in SPELLS) or frozenset(nxt) in tested: continue
+        # prefer sets whose untested neighbours are many
+        score=sum(1 for c2 in CELLS if frozenset(set(nxt)^{c2}) not in tested and not any(set(nxt)^{c2}==s for s in SPELLS))
+        if best is None or score>best[0]: best=(score,cell,frozenset(nxt))
+    if best is None: print('stuck');break
+    _,(r,c),nset=best
+    x,y=25+5*c,50+5*r
+    subprocess.run(['python','play.py','bet',f'click ({r},{c}) -> selection {sorted(nset)}: untested set; guess no spell fires'],capture_output=True,encoding='utf-8',errors='replace')
+    out=subprocess.run(['python','play.py','act',f'ACTION6:{x},{y}'],capture_output=True,encoding='utf-8',errors='replace').stdout
+    subprocess.run(['python','play.py','settle'],capture_output=True,encoding='utf-8',errors='replace')
+    j=json.load(open('work/last_resp.json'));g2=j['frames'][-1]
+    got,_=panel()
+    fired = got!=nset or len(j['frames'])>1
+    print(i,sorted(nset),'bar',bar(g2),'cur',cursor(g2),'frames',len(j['frames']),'FIRED' if fired else '',j['state'])
+    tested.add(nset); cur=got
+    json.dump([sorted(t) for t in tested],open('work/tested_sets.json','w'))
+    if j['state']!='NOT_FINISHED' or fired: break

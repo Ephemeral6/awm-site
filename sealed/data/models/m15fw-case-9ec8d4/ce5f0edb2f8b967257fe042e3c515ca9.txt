@@ -1,0 +1,49 @@
+"""本局词汇：两条以上概念共用的判据写在这里。
+
+**它们是假设，不是事实。** 改 `_lib` 不算改版，但依赖它的概念要一起重审 ——
+两条概念都从同一个词取值再互相核对，S=1 不等于这个词被检验过。
+要检验一个词，得有一条概念拿它和帧上**另一种**读法对。
+"""
+
+DIRS = {"ACTION1": (-1, 0), "ACTION2": (1, 0), "ACTION3": (0, -1), "ACTION4": (0, 1)}
+STEP = 4
+FRONT, BACK = 9, 10
+
+
+def cursor_box(g, rmin=0, rmax=46):
+    """玩家光标：rows rmin..rmax 内 9/10 色格子的四连通块中，格数 <= 16 且实心矩形的那唯一一块，
+    返回 (top, left, h, w)；没有或不唯一则 None。（目标框是 9 环 + 10 心的大块，格数 > 16。）"""
+    from geo import components
+    cells = [(r, c) for r in range(rmin, rmax + 1) for c in range(64) if g[r][c] in (9, 10)]
+    cand = []
+    for comp in components(cells):
+        if len(comp) > 16:
+            continue
+        r0 = min(r for r, _ in comp); c0 = min(c for _, c in comp)
+        h = max(r for r, _ in comp) - r0 + 1; w = max(c for _, c in comp) - c0 + 1
+        if h * w == len(comp):
+            cand.append((r0, c0, h, w))
+    return cand[0] if len(cand) == 1 else None
+
+
+def cursor(g, rmin=0, rmax=46):
+    b = cursor_box(g, rmin, rmax)
+    return None if b is None else (b[0], b[1])
+
+
+PANEL_R = (49, 54, 59)
+PANEL_C = (24, 29, 34)
+
+
+def panel(g):
+    """中部 3x3 面板：每格 3x3 色块，取左上角颜色，返回 3x3 列表。"""
+    return [[g[r][c] for c in PANEL_C] for r in PANEL_R]
+
+
+def panel_hit(x, y):
+    """点击坐标落在哪个面板格 (i, j)；落空 None。"""
+    for i, r in enumerate(PANEL_R):
+        for j, c in enumerate(PANEL_C):
+            if r <= y < r + 3 and c <= x < c + 3:
+                return (i, j)
+    return None

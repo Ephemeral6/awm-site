@@ -1,0 +1,87 @@
+"""Pixel-level abstract model of level 5 (see work/MODEL.md). Used to FIND plans; Lean checks them."""
+import json, heapq, sys
+g = json.load(open('work/l5_start.json'))
+# rectangles (r0,r1,c0,c1) inclusive
+FLOOR = [(25,40,13,28),(13,24,21,22),(33,36,32,36),(25,40,37,52),(21,24,45,46),
+         (17,20,41,48),(15,16,41,54),(5,10,33,36),(14,20,33,36)]
+BARC = [(33,36,29,31)]
+BARD = [(11,13,33,36)]
+SWC = [(9,12,20,23)]
+SWD = [(14,17,55,58)]
+GOAL = [(1,4,33,36)]
+PICK = (37,38,49,50)
+TELE = {4:(17,33), 2:(37,15)}
+def inr(rs,y,x): return any(a<=y<=b and c<=x<=d for a,b,c,d in rs)
+# sanity: rectangles agree with the frame
+OK = {2,9,10,11,14,15}
+for r in FLOOR:
+    for y in range(r[0],r[1]+1):
+        for x in range(r[2],r[3]+1): assert g[y][x] in OK,(y,x,g[y][x])
+for y in range(64):
+    for x in range(62):
+        v=g[y][x]
+        if v==2: assert inr(FLOOR,y,x) or inr(BARC+BARD,y,x) or y>=47 or x<10,(y,x)
+def passable(y,x,co,do):
+    return inr(FLOOR,y,x) or inr(GOAL,y,x) or (co and inr(BARC,y,x)) or (do and inr(BARD,y,x))
+D = {'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+def win_ok(t,l,s,co,do): return all(passable(t+i,l+j,co,do) for i in range(s) for j in range(s))
+def touches(t,l,s,rect):
+    a,b,c,d=rect; return not (t+s-1<a or t>b or l+s-1<c or l>d)
+def beam(t,l,s,f,co,do):
+    if f=='U': ys=[t-1]; xs=[l,l+1]; dy,dx=-1,0
+    elif f=='D': ys=[t+s]; xs=[l+s-2,l+s-1]; dy,dx=1,0
+    elif f=='R': xs=[l+s]; ys=[t,t+1]; dy,dx=0,1
+    else: xs=[l-1]; ys=[t+s-2,t+s-1]; dy,dx=0,-1
+    cells=[(y,x) for y in ys for x in xs]
+    while True:
+        if all(inr(SWC,y,x) for y,x in cells): return 'C'
+        if all(inr(SWD,y,x) for y,x in cells): return 'D'
+        if not all(0<=y<64 and 0<=x<64 and inr(FLOOR,y,x) for y,x in cells): return None
+        cells=[(y+dy,x+dx) for y,x in cells]
+def step(st, a):
+    """returns (newstate, cost, win). st=(t,l,s,f,co,do,pk)"""
+    t,l,s,f,co,do,pk = st
+    if a in D:
+        dy,dx=D[a]
+        for k in range(s,0,-1):
+            nt,nl=t+dy*k,l+dx*k
+            if win_ok(nt,nl,s,co,do):
+                npk = pk or touches(nt,nl,s,PICK)
+                won = any(touches(nt,nl,s,G) for G in GOAL)
+                return (nt,nl,s,a,co,do,npk), (1 - (9 if npk and not pk else 0)), won
+        return (t,l,s,a,co,do,pk), 1, False
+    if a=='SHRINK':
+        if s==4:
+            dt,dl={'U':(0,0),'L':(2,0),'D':(2,2),'R':(0,2)}[f]   # front-left corner
+            return (t+dt,l+dl,2,f,co,do,pk), EXTRA+4, False
+        return st, EXTRA+4, False
+    if a=='GROW':
+        if s==2:
+            dt,dl={'D':(0,-2),'U':(-2,0),'R':(0,0),'L':(-2,-2)}[f]  # small square ends at back-left corner
+            if t+dt>=0 and l+dl>=0 and win_ok(t+dt,l+dl,4,co,do): return (t+dt,l+dl,4,f,co,do,pk), EXTRA+4, False
+        return st, EXTRA+4, False
+    if a=='SIX':
+        b=beam(t,l,s,f,co,do)
+        return (t,l,s,f,co or b=='C',do or b=='D',pk), EXTRA+3, False
+    if a=='TELE':
+        nt,nl=TELE[s]
+        return (nt,nl,s,f,co,do,pk), EXTRA+3, False
+EXTRA = int(sys.argv[1]) if len(sys.argv)>1 else 1
+start=(29,17,4,'U',False,False,False)
+ACTS=['U','D','L','R','SHRINK','SIX','TELE','GROW']
+# Dijkstra on spent energy (pickup gives -9 once; handle via potential: spent>=0 relaxation, label-correcting)
+best={start:0}; pq=[(0,0,start,[])]; res=None; n=0
+while pq:
+    c,nact,st,path=heapq.heappop(pq)
+    if best.get(st,1e9)<c: continue
+    for a in ACTS:
+        ns,cost,won=step(st,a)
+        nc=c+cost
+        if won:
+            if res is None or nc<res[0]: res=(nc,path+[a])
+            continue
+        if nc<best.get(ns,1e9):
+            best[ns]=nc; heapq.heappush(pq,(nc,nact+1,ns,path+[a]))
+print('EXTRA',EXTRA,'states',len(best))
+print('min net spent',res[0],'actions',len(res[1]))
+print(' '.join(res[1]))

@@ -1,0 +1,2 @@
+这是打包时的工作区快照，可能已包含后续修复。初始阶段以 recorded_initial_evidence、逐轮哈希和 raw_sessions 为准；不要用此快照倒推早期模型。
+未包含 .olean 等可重建二进制或登录凭据。

@@ -1,0 +1,165 @@
+import M15fwModel
+
+/-!
+# m15fw level 4 — a winning plan in the full model (attempt-4 amendments)
+
+Quantifies over every switch rule `fires` satisfying the explicit hypothesis `HypCol`:
+"the switch fires exactly when the cursor's left column is 31 or 32" — independent of facing,
+size and row. Facing-independence is NOT established: every observed firing had the cursor
+facing up; in this plan it faces left. That is the premise a reader should check.
+-/
+
+namespace M15fw
+
+def recipes4 : List Recipe := [⟨shrinkMask, .shrink⟩, ⟨switchMask, .openSwitch⟩]
+
+/-- level 4 with its budget as a named constant. -/
+def B4 : Nat := 18
+def level4 : Level := { board := board4, recipes := recipes4, budget := B4 }
+
+def start4 : Pos := { cur := ⟨25, 37, 4, .down⟩, marks := emptyMarks, opened := false, spent := 0 }
+
+/-- run a plan: stop with `won = true` on a winning move; a step that overdraws (spent > budget)
+    is fatal and checked BEFORE the win (the conservative order). -/
+def runA (L : Level) (fires : Pos → Bool) (p : Pos) (as : List Act) (rs : RefillSem := {}) :
+    Pos × Bool :=
+  match as with
+  | [] => (p, false)
+  | a :: as =>
+      let r := stepPos L fires p a rs
+      -- attempt-5 amendment: if the refill is NOT applied before the overdraw check, a move is
+      -- fatal when p.spent + 1 exceeds the budget even if it lands on the item.
+      let chk := if rs.beforeCheck then r.1.spent else max r.1.spent (p.spent + 1)
+      if overdrawn L.budget chk then (r.1, false)
+      else if r.2 then (r.1, true) else runA L fires r.1 as rs
+
+/-- panel cell indices: 3*row + col (x 25/30/35 → col 0/1/2, y 50/55/60 → row 0/1/2). -/
+def shrinkClicks : List Act := [.click 1, .click 3, .click 5, .click 7]
+def switchClicks : List Act := [.click 1, .click 4, .click 7]
+
+def plan : List Act :=
+  [.move .down, .move .down, .move .left] ++ shrinkClicks ++      -- 2x2 at (33,33)
+  [.move .left] ++ switchClicks ++                                -- (33,31), barrier opens
+  [.move .left, .move .left, .move .left, .move .left] ++         -- 4th: onto the item, refill
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .up] ++
+  shrinkClicks ++                                                 -- grow: 4x4 at (29,31)
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .right]
+
+def firesCol (p : Pos) : Bool := p.cur.c == 31 || p.cur.c == 32
+
+def HypCol (fires : Pos → Bool) : Prop := ∀ p, fires p = true ↔ (p.cur.c = 31 ∨ p.cur.c = 32)
+
+theorem hypCol_eq (fires : Pos → Bool) (h : HypCol fires) : fires = firesCol := by
+  funext p
+  cases hf : fires p <;> cases hc : firesCol p <;> simp_all [firesCol, HypCol] <;>
+    first | rfl | (have := (h p).1 hf; simp_all) | (have := (h p).2; simp_all)
+
+def resetSem : RefillSem := { reset := true, amt := 0 }   -- REFUTED in attempt 6
+
+theorem plan_wins_col : (runA level4 firesCol start4 plan resetSem).2 = true := by decide
+
+/-- **Main theorem**: under `HypCol`, the 38-action plan wins level 4 within the budget `B4`. -/
+theorem l4_winnable (fires : Pos → Bool) (h : HypCol fires) :
+    (runA level4 fires start4 plan resetSem).2 = true := by
+  rw [hypCol_eq fires h]; exact plan_wins_col
+
+/-- cost bookkeeping: the plan ends with spent = 18 = B4 (after the refill reset). -/
+theorem plan_spent : (runA level4 firesCol start4 plan resetSem).1.spent = 18 := by decide
+
+/-- non-vacuity ①: without the refill item the same plan dies (overdraws), so the refill rule
+    is load-bearing. -/
+def level4noItem : Level := { level4 with board := { board4 with item := fun _ _ => false } }
+theorem plan_dies_without_refill : (runA level4noItem firesCol start4 plan resetSem).2 = false := by decide
+
+/-- non-vacuity ②: if the switch never fires, the plan does not win. -/
+theorem plan_needs_switch : (runA level4 (fun _ => false) start4 plan resetSem).2 = false := by decide
+
+/-! ## Attempt-5 amendment
+
+`HypCol` was REFUTED in attempt 5: at column 31 facing left the switch did not fire, facing up it
+did. `l4_winnable` above stays as a theorem about a premise now known false (record of attempt 4).
+Current switch hypothesis: `HypColUp`. -/
+
+def firesColUp (p : Pos) : Bool := (p.cur.c == 31 || p.cur.c == 32) && p.cur.facing == .up
+
+def HypColUp (fires : Pos → Bool) : Prop :=
+  ∀ p, fires p = true ↔ ((p.cur.c = 31 ∨ p.cur.c = 32) ∧ p.cur.facing = .up)
+
+theorem hypColUp_eq (fires : Pos → Bool) (h : HypColUp fires) : fires = firesColUp := by
+  funext p
+  have hp := h p
+  cases hf : fires p <;> cases hc : firesColUp p <;> simp_all [firesColUp] <;>
+    first | rfl | (cases hd : p.cur.facing <;> simp_all) | omega
+
+/-- the attempt-4 plan fails under the attempt-5 rule (it casts facing left) — as observed. -/
+theorem plan_fails_colUp : (runA level4 firesColUp start4 plan resetSem).2 = false := by decide
+
+/-- revised plan: arrive at column 31 by moving UP, cast, refill at spent 18, grow, run. -/
+def plan2 : List Act :=
+  [.move .down, .move .down, .move .left] ++ shrinkClicks ++      -- 2x2 at (33,33)    [8]
+  [.move .down, .move .left, .move .up] ++ switchClicks ++        -- (33,31) facing up [15]
+  [.move .left, .move .left, .move .left, .move .left] ++         -- 4th onto the item [18 → 1]
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .up] ++
+  shrinkClicks ++                                                 -- grow: 4x4 (29,31)  [12]
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .right]  -- [18]
+
+theorem plan2_wins_colUp : (runA level4 firesColUp start4 plan2 resetSem).2 = true := by decide
+
+/-- **Main theorem (attempt 5).** Under `HypColUp`, with the refill semantics fixed as
+    reset-then-charge and applied before the overdraw check (`RefillSem` defaults — explicit
+    premises, not established), plan2 wins level 4 within `B4`. -/
+theorem l4_winnable2 (fires : Pos → Bool) (h : HypColUp fires) :
+    (runA level4 fires start4 plan2 resetSem).2 = true := by
+  rw [hypColUp_eq fires h]; exact plan2_wins_colUp
+
+/-- premise (a) is load-bearing: if the overdraw is checked before the refill, plan2 dies. -/
+theorem plan2_dies_check_first :
+    (runA level4 firesColUp start4 plan2 { resetSem with beforeCheck := false }).2 = false := by decide
+
+/-- premise (b) is load-bearing: under "refund exactly 10" plan2 dies. -/
+theorem plan2_dies_refund10 :
+    (runA level4 firesColUp start4 plan2 { reset := false, amt := 10 }).2 = false := by decide
+
+theorem plan2_needs_switch : (runA level4 (fun _ => false) start4 plan2 resetSem).2 = false := by decide
+
+/-! ## Attempt-6 amendment
+The refill is a fixed refund of 10 (now the `RefillSem` default). `l4_winnable2` holds only under the
+refuted `resetSem`. Under the observed semantics plan2 dies, as it did in attempt 6: -/
+theorem plan2_dies_observed : (runA level4 firesColUp start4 plan2).2 = false := by decide
+
+/-- the 28-action route found by the full-model search for refund ≥ 14
+    (DDLLL, shrink, L = refill, D, R, grow, R, R, U, switch, R×6 — gross 31 units). -/
+def plan3 : List Act :=
+  [.move .down, .move .down, .move .left, .move .left, .move .left] ++ shrinkClicks ++
+  [.move .left, .move .down, .move .right] ++ shrinkClicks ++
+  [.move .right, .move .right, .move .up] ++ switchClicks ++
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .right]
+theorem plan3_dies_observed : (runA level4 firesColUp start4 plan3).2 = false := by decide
+
+/-- attempt 7 played plan3: it died on the 4th of the final six right-moves, i.e. on action 26 of 28.
+    The model reproduces exactly that: the 25-action prefix is alive with spent 18 (= B4), and the
+    26-action prefix overdraws. -/
+theorem plan3_prefix25_spent : (runA level4 firesColUp start4 (plan3.take 25)).1.spent = 18 := by decide
+theorem plan3_prefix26_dead : (runA level4 firesColUp start4 (plan3.take 26)).2 = false ∧
+    (runA level4 firesColUp start4 (plan3.take 26)).1.spent = 19 := by decide
+
+/-- off-panel clicks are free no-ops, so they never help: inserting one changes nothing. -/
+theorem offClick_noop (p : Pos) : stepPos level4 firesColUp p .offClick = (p, false) := rfl
+-- (work/search_l4.py lets spent go negative on a refund and finds plan3 winning for refund ≥ 14;
+--  this Lean model truncates at 0 (a capped bar). Whether the game caps is untested, but with the
+--  observed refund 10 neither variant wins: search_l4.py (uncapped) and reach_l4.py (capped).)
+
+#print axioms plan2_dies_observed
+#print axioms plan3_dies_observed
+#print axioms plan3_prefix26_dead
+#print axioms offClick_noop
+#print axioms l4_winnable2
+#print axioms plan2_dies_check_first
+#print axioms plan2_dies_refund10
+#print axioms plan_fails_colUp
+#print axioms l4_winnable
+#print axioms plan_spent
+#print axioms plan_dies_without_refill
+#print axioms plan_needs_switch
+
+end M15fw

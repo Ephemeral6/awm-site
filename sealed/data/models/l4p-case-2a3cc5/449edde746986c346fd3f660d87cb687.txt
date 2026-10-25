@@ -1,0 +1,41 @@
+# Dijkstra over the L4 model (attempt-3 rules): moves cost 1, F-macro 5, 6-macro 4, refill k-=10 (or k:=5)
+import heapq, sys
+def box(y0,y1,x0,x1): return lambda y,x: y0<=y<=y1 and x0<=x<=x1
+room=box(21,36,21,44); shaft=box(9,20,31,32); bar_=box(29,32,45,47); corr=box(29,32,48,56); slot=box(29,32,57,60); bx=box(5,8,30,33)
+marker={(34,23),(34,24),(35,23),(35,24)}
+def floor(op,y,x): return room(y,x) or shaft(y,x) or corr(y,x) or (op and (bar_(y,x) or bx(y,x)))
+D={'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+def fp(r,c,n): return [(r+i,c+j) for i in range(n) for j in range(n)]
+def move(op,n,d,r,c):
+    dy,dx=D[d]
+    if any(slot(y,x) for y,x in fp(r+dy*n,c+dx*n,n)): return 'WIN'
+    k=0
+    while k<n and all(floor(op,y,x) for y,x in fp(r+dy*(k+1),c+dx*(k+1),n)): k+=1
+    return (r+dy*k,c+dx*k)
+REFILL=sys.argv[1] if len(sys.argv)>1 else 'minus'
+B=int(sys.argv[2]) if len(sys.argv)>2 else 18
+start=(25,37,4,'D',False,False)  # r,c,n,face,op,refilled
+pq=[(0,0,start,[])]; seen={}
+while pq:
+    k,_,s,path=heapq.heappop(pq)
+    r,c,n,f,op,rf=s
+    if seen.get(s,99)<=k: continue
+    seen[s]=k
+    def push(k2,s2,a):
+        if k2<=B: heapq.heappush(pq,(k2,len(path)+1,s2,path+[a]))
+    for d in 'UDLR':
+        m=move(op,n,d,r,c)
+        if m=='WIN':
+            if k+1<=B: print('WIN cost',k+1,len(path)+1,path+[d]); sys.exit()
+            continue
+        r2,c2=m; rf2=rf; k2=k+1
+        if n==2 and not rf and set(fp(r2,c2,2))&marker:
+            rf2=True; k2=max(k2-10,0) if REFILL=='minus' else 5
+        push(k2,(r2,c2,n,d,op,rf2),d)
+    # F macro
+    if n==4: push(k+5,(r,c,2,f,op,rf),'F')
+    else:
+        r2,c2=r-2,c-2
+        if all(floor(op,y,x) for y,x in fp(r2,c2,4)): push(k+5,(r2,c2,4,f,op,rf),'F')
+    if not op and c==31: push(k+4,(r,c,n,f,True,rf),'M6')
+print('no win within',B)

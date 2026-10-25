@@ -1,0 +1,7 @@
+'L5.l5_impossible' depends on axioms: [propext, Quot.sound]
+'L5.witness10_wins' does not depend on any axioms
+'L5.witness11_wins' does not depend on any axioms
+
+real	2m56.578s
+user	0m0.078s
+sys	0m0.078s

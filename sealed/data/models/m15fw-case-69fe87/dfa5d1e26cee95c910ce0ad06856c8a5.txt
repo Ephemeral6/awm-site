@@ -1,0 +1,100 @@
+# Formal system (attempt 1 -> amended after attempt 1). Lean: lean/M15L4.lean
+
+## a. Objects (slot ; pair of positions that become indistinguishable if dropped)
+- Block: size big/small ; (big@x=4, small@x=4): shot opens only for small.
+  column x=(col-21)/2 ; (small@x=5, small@x=8): distance to exit and to the stalk.
+  row, facing ; DROPPED in the Lean model (looser, see audit).
+- Barrier+switch: opened ; (opened, closed) at the exit: goal needs opened.
+- Grid: sel = number of selected cells ; (sel=2, sel=0): castShot fires or only selects.
+  Which cells are selected is abstracted to a count (looser: any 3rd/4th click may fire).
+- Budget: used units (outside the step function; the theorem bounds costSum).
+- Card panel, exit box, the e pad: fixed level data. The e pad has NO slot (mechanism unknown, "not in the model").
+
+## b. Rules as functions (domain -> change)   [evidence: transitions.jsonl index, attempt 1]
+- MOVE(dir): any state -> x +-2 (big) / +-1 (small), or unchanged if blocked. Cost 1. [1-6,18-24,41]
+- SELECT/DESELECT(cell): sel +-1. Cost 1. [7,8,50]
+- CAST(p): click completing an enabled card pattern -> sel:=0, effect, cost 2. [17,28,35,47,62,76,79,83 + fit]
+   - shrink: big:=false (top-left kept) [17]
+   - shot: opened := opened || opens(big,x) [62 success; 76,79 fail; 83 frames]
+   - patterns of cards not shown on the level: no effect [54]
+- FREE: clicks on world objects or the card panel: cost 0 (the panel click also re-marks holes) [9,42,43,44,55]
+- GOAL: opened and the block overlaps the exit column (x_right >= 18). [25,32,70]
+- BUDGET: GAME_OVER on the action that makes used > B; B(L4)=18 [85,86 + fit]
+
+## c. Simplification
+Rows/facing/walls are dropped and the barrier is kept only as "goal requires opened".
+Pattern identity is replaced by the count sel, and castBoth is added for superset firing.
+These changes only ADD transitions. Observed L4 transitions that changed x/big/sel map to the same verdicts.
+Not machine-checked frame by frame.
+
+## d. Lean status
+- definitions: St, Act, cost, step, goal, start, L4budget
+- consequence: hstep, pot_le_cost, L4_unwinnable
+- explicit hypothesis (not a definition): hopen : opens b x = true -> b = false and x = 5
+- NOT IN MODEL: the e pad, teleport (no card on L4), rows/facing, grow-back, a shot destroying d directly
+
+## Audit of dropped mechanisms
+- rows, facing, walls: dropping them gives more transitions -> OK
+- teleport/other spells: not enabled on L4 (rule [54]) -> model has fewer transitions only if that rule is wrong
+- e pad: unknown -> MUST NOT be silently dropped; listed as a gap
+- shot hitting d barrier from a distance (never tested): excluded by hopen -> stricter -> this is the risk
+
+# Amendments after attempt 2 (row-aware model: lean/M15L4Map.lean; M15L4.lean kept as the attempt-1 x-only model)
+## a. Objects (changes)
+- Block: + row r (top-left), on the odd lattice. Pair: big at (21,31) vs big at (23,31): only rows 21/25/29/33 fit the corridor rows 29-32.
+- Refill pad: + slot `pad` (used?). Pair: same position, pad used vs unused: a 10-unit refund is available or not.
+- sel is dropped: spells are macro actions (diamond 5, shot 4). Interleaving clicks with moves never changes the total cost, and the macro charges the cost LATER (looser).
+## b. Rules (changed or new)
+- DIAMOND: big -> small at the same top-left; small -> big at (r-2, c-2) if it fits, else no-op.  [a2 tr 102, 107, 111; a1 tr 17]
+- PAD: when a SMALL block first overlaps the pad cells -> pad used, net cost -10. [a2 tr 103; fit2: "sub 10" or "set 8"]
+- SHOT: may open only if the block's left column = 31 (hypothesis hopen; any size, any row, facing ignored).
+   decisive negatives: a1 tr 76/79 (big at col 29 facing up: shot died), a2 tr 93 (shot into the barrier from 1 cell away: barrier stays).
+- SUPERSET firing (one click completing two patterns): parameter `superset`, assumed false (never tested).
+- MOVES: blocked if any target cell is not floor; the barrier counts as floor once opened.
+## c. Simplification
+- facing dropped (looser); sel dropped (macro, cost-neutral); grid identity dropped.
+- Checked: the Lean model and the Python model in work/gen_lean.py are the same code shape; 798 valid states; Bellman V(start)=20.
+## d. Lean status (M15L4Map.lean)
+- definitions: St, Act, floorCell, fits, onPad, atExit, valid, goal, post, mv, toggle, step, winsWithin, start, L4budget, V (table)
+- consequences: checkAll_true (kernel-checked edge inequalities), goalCheck_true, edge, goal_le, step_mem, inv, L4_unwinnable
+- hypotheses: hopen (explicit argument); superset = false (fixed argument `false` in the theorem statement)
+- not in model: facing, the identity of selected cells, any spell not shown on the L4 cards, a big block triggering the pad
+
+# Amendments after attempt 3 (M15L4Map.lean amended in place)
+- floorCell: once opened, the switch box area rows 5-8 cols 30-33 becomes floor [a3 tr 127]. Valid rows extended to 5..35 (802 valid states). V(start) unchanged = 20.
+- grow placement (r-2, c-2) now observed for facings right [a2 tr 107] AND up [a3 tr 124].
+- hopen: still an explicit hypothesis. Its positive side was confirmed (big block with left column 31, facing up, rows 21-24 -> opened, a3 tr 127). The bound uses only the negative side.
+- cost fit (work/fit3.py, all three attempts): 2 survivors (refund sub 10 | set 8), both B=18, completing click 2, ordinary 1.
+
+# After attempt 4: no definition changed
+- fit4 (all four attempts, two pad events: tr 103 and 142): ONE survivor — refund subtracts 10 (set-8 refuted at tr 142: the bar read 2 rows, set-8 predicted 28).
+  The Lean model already used subtract-10.
+- The shot from big (29,31) facing up opened the barrier (tr 154). The Lean model already allowed any row at column 31.
+
+# After attempt 5: no definition changed
+- Shots from column 33 (big at (21,33) and small at (21,33), facing up) did not open the barrier. This is consistent with hopen; it is a test of hopen's negative side, not a change.
+- Card clicks are free hint-only (replace the grid holes with that card's pattern). Already in the model as `free`.
+- fit5 (all five attempts): 1 survivor, unchanged.
+
+# Amendments after attempt 6 (M15L4Map.lean amended in place)
+- RULE CHANGED (grow): v3 said "small -> big at (r-2,c-2) if it fits, else no-op". a6 showed: with (r-2,c-2) blocked the grow still happens, at (r,c-2).
+  New: growOuts(s) = [(r-2,c-2)] if it fits; else [(r,c-2)] if it fits; else every other fitting placement {(r-2,c),(r,c)} or staying small (never observed, so left permissive).
+  Lean: `growOuts`, `toggleWith gp`, hypothesis `hgp : gp s ∈ growOuts s`; `gpReal` (observed order) satisfies it (gpReal_ok).
+  The old no-op version was STRICTER than the game on that branch; it is fixed now. V(start) is still 20.
+- PREMISE NOW TESTED: exact pattern matching. A superset click (5 cells containing both the diamond and the column) fired nothing (a6). The `superset = false` argument stands on this.
+- Patterns are checked after every grid click, including deselects (a6: the deselect that left an exact diamond fired the shrink, cost 2). The macro costs (5/4) remain the cheapest way to fire.
+- fit6 (all six attempts): 1 survivor (unchanged).
+
+# Amendments after attempt 7 (M15L4Map.lean amended in place)
+- RULE CHANGED (pad): v2 said "first time a SMALL block overlaps the pad -> refund 10". a7 (tr 214): a BIG block landing by grow at (31,23),
+  partly covering the pad, triggered the refund (bar 46 -> 16 rows).
+  New definition: any overlap by a block of either size, after any action, triggers the refund once. This is LOOSER than the game:
+  a2 tr 98, a big block moving to cover it fully, did not trigger.
+  Effect: V(start) 20 -> 19. Facing-aware planner (shot needs facing up): min net 19 as well.
+- Blocked moves turn the facing (a7). Facing is not in the Lean model (looser), so no definition change.
+- fit7 (all seven attempts, three pad events): 1 survivor (unchanged).
+
+# After attempt 8: no definition changed
+- Full cover of the pad by a big block arriving by grow triggered the refund (tr 242). The Lean `onPad` (any overlap) already allowed it.
+- A move that reaches the exit but takes used to 19 > 18 gives GAME_OVER (tr 254). Lean `winsWithin` already rejects any step with u + cost > B before looking at the next state.
+- fit8 (all eight attempts, four pad events): 1 survivor (unchanged).

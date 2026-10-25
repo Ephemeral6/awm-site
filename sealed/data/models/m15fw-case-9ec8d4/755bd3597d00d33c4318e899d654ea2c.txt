@@ -1,0 +1,90 @@
+  | click k =>
+    simp only [pre]
+    split
+    · exact ⟨rfl, hd, hn, hm⟩
+    · split
+      · next hk hboth =>
+        simp only [hD st, Bool.and_false, Bool.false_eq_true] at hboth
+      · split
+        · next hk _ hS =>
+          -- shrink recipe completed (exact match, or a superset if `u.sup`)
+          have hdm : miss SHR st.m ≤ 1 := by
+            simp only [Bool.and_eq_true, beq_iff_eq] at hS
+            have := miss_le_toggle SHR st.m k; omega
+          have hgm := hG st
+          have hf := fact_grow st.q hd
+          simp only [factGrow, List.all_eq_true] at hf
+          have hq := hf _ hgm
+          simp only [Bool.and_eq_true, beq_iff_eq] at hq
+          obtain ⟨⟨hd2, hit⟩, hrest⟩ := hq
+          have hN : NN st ≤ BS st.q + miss SHR st.m := min3_le_mid _ _ _
+          have hM : MM st ≤ BMS st.q + miss SHR st.m := min3_le_mid _ _ _
+          cases hw : wins (u.res st)
+          · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+              Bool.not_eq_true'] at hrest
+            obtain ⟨hbs, hbm⟩ := hrest
+            refine ⟨rfl, hd2, ?_, ?_⟩
+            · rw [NN_empty]; simp only at hN ⊢; omega
+            · intro hi
+              simp only at hi
+              rw [MM_empty]
+              try rw [hit] at hi
+              rcases hbm with hbm | hbm
+              · rw [hbm] at hi; simp at hi
+              · have := hm hi
+                simp only at hM ⊢; omega
+          · simp only [hw, ite_true, Nat.ble_eq] at hrest
+            omega
+        · split
+          · next hk _ _ hW =>
+            -- switch recipe completed (exact match, or a superset if `u.sup`)
+            have hdm : miss SW st.m ≤ 1 := by
+              simp only [Bool.and_eq_true, beq_iff_eq] at hW
+              have := miss_le_toggle SW st.m k; omega
+            have hmem : { st.q with op := st.q.op || u.fires st } ∈ switchOpts st.q := by
+              cases hfi : u.fires st
+              · simp only [Bool.or_false]
+                unfold switchOpts; split <;> simp
+              · have hc := hF st hfi
+                simp only [Bool.or_true]
+                unfold switchOpts
+                simp [hc]
+            have hf := fact_switch st.q hd
+            simp only [factSwitch, List.all_eq_true] at hf
+            have hq := hf _ hmem
+            simp only [Bool.and_eq_true, beq_iff_eq] at hq
+            obtain ⟨⟨hd2, hit⟩, hrest⟩ := hq
+            have hN : NN st ≤ BW st.q + miss SW st.m := min3_le_right _ _ _
+            have hM : MM st ≤ BMW st.q + miss SW st.m := min3_le_right _ _ _
+            cases hw : wins { st.q with op := st.q.op || u.fires st }
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+                Bool.not_eq_true'] at hrest
+              obtain ⟨hbw, hbm⟩ := hrest
+              refine ⟨rfl, hd2, ?_, ?_⟩
+              · rw [NN_empty]; simp only at hN ⊢; omega
+              · intro hi
+                simp only at hi
+                rw [MM_empty]
+                try rw [hit] at hi
+                rcases hbm with hbm | hbm
+                · rw [hbm] at hi; simp at hi
+                · have := hm hi
+                  simp only at hM ⊢; omega
+            · simp only [hw, ite_true, Nat.ble_eq] at hrest
+              omega
+          · -- ordinary click: each missing count moves by at most one
+            refine ⟨rfl, hd, ?_, ?_⟩
+            · have : NN st ≤ 1 + NN { st with m := toggle st.m k, sp := st.sp + 1 } := by
+                simp only [NN]
+                have := miss_le_toggle SHR st.m k
+                have := miss_le_toggle SW st.m k
+                exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+              simp only at this ⊢; omega
+            · intro hi
+              have := hm hi
+              have : MM st ≤ 1 + MM { st with m := toggle st.m k, sp := st.sp + 1 } := by
+                simp only [MM]
+                have := miss_le_toggle SHR st.m k
+                have := miss_le_toggle SW st.m k
+                exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+              simp only at this ⊢; omega
