@@ -1,0 +1,75 @@
+import M15fwModel
+
+/-!
+# m15fw level 4 — a winning plan in the full model (attempt-4 amendments)
+
+Quantifies over every switch rule `fires` satisfying the explicit hypothesis `HypCol`:
+"the switch fires exactly when the cursor's left column is 31 or 32" — independent of facing,
+size and row. Facing-independence is NOT established: every observed firing had the cursor
+facing up; in this plan it faces left. That is the premise a reader should check.
+-/
+
+namespace M15fw
+
+def recipes4 : List Recipe := [⟨shrinkMask, .shrink⟩, ⟨switchMask, .openSwitch⟩]
+
+/-- level 4 with its budget as a named constant. -/
+def B4 : Nat := 18
+def level4 : Level := { board := board4, recipes := recipes4, budget := B4 }
+
+def start4 : Pos := { cur := ⟨25, 37, 4, .down⟩, marks := emptyMarks, opened := false, spent := 0 }
+
+/-- run a plan: stop with `won = true` on a winning move; a step that overdraws (spent > budget)
+    is fatal and checked BEFORE the win (the conservative order). -/
+def runA (L : Level) (fires : Pos → Bool) : Pos → List Act → Pos × Bool
+  | p, [] => (p, false)
+  | p, a :: as =>
+      let r := stepPos L fires p a
+      if overdrawn L.budget r.1.spent then (r.1, false)
+      else if r.2 then (r.1, true) else runA L fires r.1 as
+
+/-- panel cell indices: 3*row + col (x 25/30/35 → col 0/1/2, y 50/55/60 → row 0/1/2). -/
+def shrinkClicks : List Act := [.click 1, .click 3, .click 5, .click 7]
+def switchClicks : List Act := [.click 1, .click 4, .click 7]
+
+def plan : List Act :=
+  [.move .down, .move .down, .move .left] ++ shrinkClicks ++      -- 2x2 at (33,33)
+  [.move .left] ++ switchClicks ++                                -- (33,31), barrier opens
+  [.move .left, .move .left, .move .left, .move .left] ++         -- 4th: onto the item, refill
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .up] ++
+  shrinkClicks ++                                                 -- grow: 4x4 at (29,31)
+  [.move .right, .move .right, .move .right, .move .right, .move .right, .move .right]
+
+def firesCol (p : Pos) : Bool := p.cur.c == 31 || p.cur.c == 32
+
+def HypCol (fires : Pos → Bool) : Prop := ∀ p, fires p = true ↔ (p.cur.c = 31 ∨ p.cur.c = 32)
+
+theorem hypCol_eq (fires : Pos → Bool) (h : HypCol fires) : fires = firesCol := by
+  funext p
+  cases hf : fires p <;> cases hc : firesCol p <;> simp_all [firesCol, HypCol] <;>
+    first | rfl | (have := (h p).1 hf; simp_all) | (have := (h p).2; simp_all)
+
+theorem plan_wins_col : (runA level4 firesCol start4 plan).2 = true := by decide
+
+/-- **Main theorem**: under `HypCol`, the 38-action plan wins level 4 within the budget `B4`. -/
+theorem l4_winnable (fires : Pos → Bool) (h : HypCol fires) :
+    (runA level4 fires start4 plan).2 = true := by
+  rw [hypCol_eq fires h]; exact plan_wins_col
+
+/-- cost bookkeeping: the plan ends with spent = 18 = B4 (after the refill reset). -/
+theorem plan_spent : (runA level4 firesCol start4 plan).1.spent = 18 := by decide
+
+/-- non-vacuity ①: without the refill item the same plan dies (overdraws), so the refill rule
+    is load-bearing. -/
+def level4noItem : Level := { level4 with board := { board4 with item := fun _ _ => false } }
+theorem plan_dies_without_refill : (runA level4noItem firesCol start4 plan).2 = false := by decide
+
+/-- non-vacuity ②: if the switch never fires, the plan does not win. -/
+theorem plan_needs_switch : (runA level4 (fun _ => false) start4 plan).2 = false := by decide
+
+#print axioms l4_winnable
+#print axioms plan_spent
+#print axioms plan_dies_without_refill
+#print axioms plan_needs_switch
+
+end M15fw

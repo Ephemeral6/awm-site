@@ -1,0 +1,65 @@
+"""Exact values in the abstract L4 model (x-only, the same model as lean/M15L4.lean).
+state (big, opened, pad, sel, x); x in 0..20 clamped; sel in 0..4 saturating.
+Actions/costs: moveL/moveR 1 (big +-2, small +-1), moveOther 1 (no-op), select 1, deselect 1,
+diamond-complete 2 (sel>=3: big->small same x; small->big x-1), shot-complete 2 (sel>=2: may open iff x==5, either size),
+free 0. Pad: after an action, if small and x==1 and not pad -> pad, refund 10 (net cost -10)."""
+import itertools, sys
+REF=10
+def clamp(v,lo,hi): return max(lo,min(hi,v))
+def succ(s):
+    big,op,pad,sel,x=s
+    out=[]
+    def fin(ns,c):
+        b,o,p,se,xx=ns
+        if (not b) and xx==1 and not p: ns=(b,o,True,se,xx); c-=REF
+        out.append((c,ns))
+    st=2 if big else 1
+    fin((big,op,pad,sel,clamp(x-st,0,20)),1)
+    fin((big,op,pad,sel,clamp(x+st,0,20)),1)
+    fin(s,1)
+    fin((big,op,pad,min(sel+1,4),x),1)
+    fin((big,op,pad,max(sel-1,0),x),1)
+    if sel>=3:
+        fin((False,op,pad,0,x) if big else (True,op,pad,0,max(x-1,0)),2)
+    else: fin((big,op,pad,min(sel+1,4),x),2)
+    if sel>=2:
+        fin((big,op,pad,0,x),2)
+        if x==5: fin((big,True,pad,0,x),2)
+    else: fin((big,op,pad,min(sel+1,4),x),2)
+    return out
+def goal(s):
+    big,op,pad,sel,x=s
+    return op and ((x+1 if big else x)>=18)
+S=list(itertools.product((False,True),(False,True),(False,True),range(5),range(21)))
+INF=10**9
+V={s:(0 if goal(s) else INF) for s in S}
+for it in range(200):
+    ch=False
+    for s in S:
+        if goal(s): continue
+        best=min(c+V[n] for c,n in succ(s))
+        if best<V[s]: V[s]=best; ch=True
+    if not ch: break
+start=(True,False,False,0,8)
+print('iterations',it,'V(start)=',V[start])
+# budget-constrained exact search (prefix u<=B)
+B=int(sys.argv[1]) if len(sys.argv)>1 else 18
+from collections import deque
+seen={(start,0)}; dq=deque([(start,0)]); win=False
+while dq:
+    s,u=dq.popleft()
+    if goal(s): win=True;break
+    for c,n in succ(s):
+        nu=u+c
+        if nu>B: continue
+        if (n,nu) not in seen: seen.add((n,nu)); dq.append((n,nu))
+print('B',B,'winnable(prefix-constrained)=',win)
+import json
+json.dump({repr(k):v for k,v in V.items()},open('work/absV.json','w'))
+# extract optimal path from V
+s=start; path=[]; names=['L','R','other','sel','desel','diamond','shot','shot-open']
+while not goal(s) and len(path)<40:
+    for idx,(c,n) in enumerate(succ(s)):
+        if c+V[n]==V[s] and n!=s:
+            path.append((idx,c,n)); s=n; break
+for p in path: print(p)

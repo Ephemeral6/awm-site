@@ -1,0 +1,16 @@
+"""同一关内，计时条（列62的14色格数）从不增加，每步减少量是偶数且 <= 6。"""
+LEVEL = "L4"
+SCOPE = "全部动作；换关 NA；计时条回满(nxt=64 且比 prev 多)视为本关重开 NA；玩家踩上 14 色补时块(计时条上升)NA"
+NOTE = "v3: 597dec78 (L5 2x2 踩上 e 块，计时条 0->20) 判 FALSE —— e 块是补时；不再声称管上升的那一步。v2: 7db9739d (GAME_OVER 后本关重开，计时条 0->64) 判 FALSE；那是重开而非同一关内的一步，缩 scope"
+EVIDENCE = ["597dec78c8f27524", "7db9739d1c43e062", "827b6b560fc0b5bb", "0968b3c0e714f5c9", "2b3e5ed8fe7b90de"]
+
+from _lib import timer, same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not same_level(ctx):
+        return "NA"
+    d = timer(prev) - timer(nxt)
+    if d < 0:
+        return "NA"
+    return "TRUE" if 0 <= d <= 6 and d % 2 == 0 else "FALSE"

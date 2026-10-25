@@ -1,0 +1,21 @@
+"""ACTION1-4（上下左右）在同一关内：玩家位移只沿该方向、且 0 <= 位移量 <= 玩家边长（边长不变时）。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION1-4；换关 NA；前后任一帧定位不到玩家 NA；玩家边长变了 NA"
+NOTE = ""
+EVIDENCE = ["3f5956007e12ca17", "827b6b560fc0b5bb", "5580ee1a82842888", "440bffc248b3cc0e", "75503bf4c1242f54"]
+
+from _lib import player, DIRS, same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or not same_level(ctx):
+        return "NA"
+    a, b = player(prev), player(nxt)
+    if a is None or b is None or a["size"] != b["size"]:
+        return "NA"
+    dy, dx = b["top"] - a["top"], b["left"] - a["left"]
+    uy, ux = DIRS[action]
+    if uy == 0 and dy != 0 or ux == 0 and dx != 0:
+        return "FALSE"
+    m = dy * uy + dx * ux
+    return "TRUE" if 0 <= m <= a["size"] else "FALSE"

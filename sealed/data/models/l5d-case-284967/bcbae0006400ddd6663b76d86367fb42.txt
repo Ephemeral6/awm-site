@@ -1,0 +1,5 @@
+import json,sys
+sys.path.insert(0,'concepts');sys.path.insert(0,'.')
+from _lib import bar,cursor
+g=json.load(open('.last_frame.json'))['frame'];j=json.load(open('work/last_resp.json'))
+print('bar',bar(g),'cursor',cursor(g),j['state'],j['level'],j['levels_completed'])

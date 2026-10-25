@@ -1,0 +1,14 @@
+import json,sys
+L=[json.loads(l) for l in open('transitions.jsonl')]
+n=int(sys.argv[1]) if len(sys.argv)>1 else -1
+r=L[n]
+print(r['action'],r['ctx'])
+from collections import defaultdict
+g=defaultdict(list)
+for y in range(64):
+  for x in range(64):
+    a,b=r['prev'][y][x],r['nxt'][y][x]
+    if a!=b: g[(a,b)].append((y,x))
+for k,v in g.items():
+  ys=[p[0] for p in v]; xs=[p[1] for p in v]
+  print(k,len(v),'rows',min(ys),max(ys),'cols',min(xs),max(xs))

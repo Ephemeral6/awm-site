@@ -1,0 +1,35 @@
+You are playing a video game through an HTTP game service at http://127.0.0.1:9100 .
+
+Your working directory is D:/arc-arena/m15fw-case-9ec8d4 . Read README.md there first; it documents the service.
+
+Rules of engagement (strict):
+- Interact with the game only through HTTP requests to http://127.0.0.1:9100 .
+- You may write and run your own code (Python etc.), but only create files inside your working directory.
+- Do not read, list, search or open any other file or directory on this machine (in particular nothing outside your working directory), do not use git, and do not use web search or web fetch. Everything you need is the service and the README.
+- Other jobs share this machine: keep each process under about 2 GB of memory, do not leave searches running in the background, and pace HTTP requests (no more than ~50 per second).
+- Nobody will answer questions; work autonomously until done.
+
+Task: play the game from level 1 as far as you can. Beat every level. You are finished when you have beaten the last level or the game has ended.
+
+When finished, reply with a summary: the level you reached and whether you beat the game.
+
+One more rule about how a run ends:
+
+- When the game ends, or when you decide you cannot make further progress, stop there and
+  report. Do not call /reset to start over on your own. Wait. You may be given another attempt.
+
+Also read `METHOD.md`: that is how you are required to work (a requirement, not a suggestion). The files under `lean/` are generic skeletons - they contain no facts about this particular game, and you may use them. Put your own work in `work/`.
+
+Rule stability
+--------------
+
+The game's action semantics are the same on every level: one and the same piece of code
+resolves your actions throughout. So a rule about *how an action resolves* - what a direction
+key does, how the panel responds to a click, what a completed pattern does, what happens when
+two things meet, what an action costs - holds on every level once it holds on one. You do not
+need to re-establish such a rule after a level change, and "I only ever tested this on the
+previous level" is not by itself a reason to doubt it.
+
+What each level carries of its own is only its data: which objects are present and where they
+sit, which of the abilities that level enables, and the numeric values that belong to that
+level. Those you do have to read off the level you are on.

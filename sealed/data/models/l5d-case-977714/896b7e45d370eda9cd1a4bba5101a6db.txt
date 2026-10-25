@@ -1,0 +1,255 @@
+# -*- coding: utf-8 -*-
+"""强制结算：把每条概念放到**它没声明过的那些转移**上考一遍。
+
+    python play.py settle        # 正常入口
+    python settle.py             # 也能直接跑
+
+## 判据（和打之前登记的一样，事后不许改）
+
+对每条在册概念 X：
+
+```
+held_out(X)   全部去重转移 − X 自己声明的 EVIDENCE
+N             held_out 上返回 TRUE 或 FALSE 的条数（NA 不算）
+S             TRUE / N；N = 0 时记 UNMEASURABLE
+C             N / |held_out|，覆盖率
+seen          held_out 里曾因**别的概念**作为反例披露给你的转移数（污染量，显式报，不剔除）
+反例           held_out 上任何一条返回 FALSE 的转移 —— **有反例即闸关**
+```
+
+**报数纪律：S 必须与 C、N、seen 同报。** 只报 S 是在报一个把分母藏起来的数。
+
+## 硬要求（缺一不入册，闸不开）
+
+```
+1  EVIDENCE 非空
+2  assert_ 三或四参
+3  返回值 ∈ {TRUE, FALSE, NA}
+4  曾作为 X 的反例披露过的 tid，必须在 X 的 EVIDENCE 里
+5  X 在自己 EVIDENCE 里的转移上**不许判 FALSE**
+   —— 把打脸的那条抄进依据里，等于宣称「我是从它推出来的」，而它判自己错
+```
+
+跑不起来的概念（import 失败 / 抛异常 / 返回值不合法 / 超时）以 `error` 进 PENDING，
+**同样关闸**：没被检验不等于没被推翻。
+
+## apply 那一侧（只报不拦）
+
+所有概念的 `apply` 合起来就是这一局的世界模型。逐格对答案，报：
+
+```
+P      这条概念预测的格子里对了多少
+E      规则图完成度 —— 帧差里被解释的格子占比（**唯一一个写得越多越涨的数**）
+冲突   两条概念对同一格给了不同颜色 —— 那一步优先去走
+残差   没人预测对的格子 —— 地图上没人管的地方
+```
+"""
+from __future__ import annotations
+
+import importlib.util
+import inspect
+import io
+import json
+import sys
+import time
+from pathlib import Path
+
+VALID = {"TRUE", "FALSE", "NA"}
+
+
+def _load(path: Path):
+    spec = importlib.util.spec_from_file_location("concept_" + path.stem, path)
+    m = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(m)
+    return m
+
+
+def _transitions(here: Path) -> list:
+    p = here / "transitions.jsonl"
+    if not p.exists():
+        return []
+    seen, out = set(), []
+    for line in io.open(p, encoding="utf-8"):
+        line = line.strip()
+        if not line:
+            continue
+        r = json.loads(line)
+        if r["tid"] in seen:          # 去重：同一条转移只考一次
+            continue
+        seen.add(r["tid"])
+        out.append(r)
+    return out
+
+
+def _frame_diff(prev, nxt) -> set:
+    out = set()
+    for y in range(len(nxt)):
+        for x in range(len(nxt[y])):
+            if prev[y][x] != nxt[y][x]:
+                out.add((y, x))
+    return out
+
+
+def run(here: Path) -> int:
+    # **别重复包 stdout**：play.py 调过来时它已经包过了，再包一次会把前一个关掉
+    # （实测：ValueError: I/O operation on closed file）。
+    if getattr(sys.stdout, "encoding", "").lower() not in ("utf-8", "utf8"):
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+    # **concepts/ 也要进 sys.path**：概念写的是 `from _lib import …`、`from geo import …`，
+    # 而 `_lib.py` 和概念放在一起。只加跑场根目录的话 26 条全部 import 失败 ——
+    # 在真跑场里才撞出来的（临时目录测试时 _lib.py 恰好在根下）。
+    for q in (str(here), str(here / "concepts")):
+        if q not in sys.path:
+            sys.path.insert(0, q)
+    cdir = here / "concepts"
+    trans = _transitions(here)
+    disc_p = here / "disclosed.json"
+    disclosed = json.loads(disc_p.read_text(encoding="utf-8")) if disc_p.exists() else {}
+
+    names = sorted(p for p in cdir.glob("*.py")
+                   if p.name not in ("_lib.py", "TEMPLATE.py")) if cdir.exists() else []
+    rows, bad, errs = [], [], []
+
+    for p in names:
+        name = p.stem
+        try:
+            m = _load(p)
+        except Exception as e:                                   # noqa: BLE001
+            errs.append({"concept": name, "why": "import 失败：%s: %s" % (type(e).__name__, e)})
+            continue
+        ev = list(getattr(m, "EVIDENCE", []) or [])
+        if not ev:
+            errs.append({"concept": name, "why": "硬要求 1：EVIDENCE 不能为空"})
+            continue
+        fn = getattr(m, "assert_", None)
+        if fn is None:
+            errs.append({"concept": name, "why": "没有 assert_"})
+            continue
+        np_ = len(inspect.signature(fn).parameters)
+        if np_ not in (3, 4):
+            errs.append({"concept": name, "why": "硬要求 2：assert_ 要三或四参，现在是 %d" % np_})
+            continue
+
+        # 硬要求 4：披露过的反例 tid 必须在 EVIDENCE 里
+        owed = [t for t, who in disclosed.items() if name in who and t not in ev]
+        if owed:
+            errs.append({"concept": name,
+                         "why": "硬要求 4：这些披露过的反例 tid 不在 EVIDENCE 里：%s" % owed[:4]})
+            continue
+
+        held, n, tru, seen_ct, blew = [], 0, 0, 0, False
+        for r in trans:
+            v = None
+            try:
+                v = fn(r["prev"], r["action"], r["nxt"], r.get("ctx")) if np_ == 4 \
+                    else fn(r["prev"], r["action"], r["nxt"])
+            except Exception as e:                               # noqa: BLE001
+                errs.append({"concept": name,
+                             "why": "在 tid %s 上抛异常：%s: %s" % (r["tid"], type(e).__name__, e)})
+                blew = True
+                break
+            if v not in VALID:
+                errs.append({"concept": name,
+                             "why": "硬要求 3：返回了 %r，只许 TRUE/FALSE/NA" % (v,)})
+                blew = True
+                break
+            if r["tid"] in ev:
+                # 硬要求 5：在自己的 EVIDENCE 上判 FALSE，视为反例未处理
+                if v == "FALSE":
+                    bad.append({"concept": name, "tid": r["tid"],
+                                "why": "硬要求 5：在自己 EVIDENCE 里的这条上判 FALSE"})
+                continue
+            held.append(r["tid"])
+            if v == "NA":
+                continue
+            n += 1
+            if v == "TRUE":
+                tru += 1
+            else:
+                bad.append({"concept": name, "tid": r["tid"], "why": "held_out 上判 FALSE"})
+                disclosed.setdefault(r["tid"], [])
+                if name not in disclosed[r["tid"]]:
+                    disclosed[r["tid"]].append(name)
+            if r["tid"] in disclosed and any(w != name for w in disclosed[r["tid"]]):
+                seen_ct += 1
+        if blew:
+            continue
+        rows.append({"concept": name, "N": n, "S": (tru / n) if n else None,
+                     "C": (n / len(held)) if held else 0.0, "seen": seen_ct,
+                     "held": len(held), "apply": hasattr(m, "apply"),
+                     "level": getattr(m, "LEVEL", "?"),
+                     "blocking": bool(getattr(m, "BLOCKING", False))})
+
+    # ---- apply 那一侧：逐格对答案 ----
+    claimed = hit = diffsum = 0
+    conflicts = 0
+    for r in trans:
+        d = _frame_diff(r["prev"], r["nxt"])
+        diffsum += len(d)
+        pred = {}
+        for p in names:
+            try:
+                m = _load(p)
+                ap = getattr(m, "apply", None)
+                if ap is None:
+                    continue
+                g = ap(r["prev"], r["action"], r.get("ctx"))
+            except Exception:                                    # noqa: BLE001
+                continue
+            if not g:
+                continue
+            for cell, col in g.items():
+                if cell in pred and pred[cell] != col:
+                    conflicts += 1
+                pred[cell] = col
+        for cell, col in pred.items():
+            claimed += 1
+            y, x = cell
+            if 0 <= y < len(r["nxt"]) and 0 <= x < len(r["nxt"][y]) and r["nxt"][y][x] == col:
+                hit += 1
+    explained = sum(1 for r in trans
+                    for cell in _frame_diff(r["prev"], r["nxt"]))
+    E = (hit / diffsum) if diffsum else 0.0
+
+    # ---- 落盘 ----
+    (here / "disclosed.json").write_text(json.dumps(disclosed, ensure_ascii=False, indent=1),
+                                         encoding="utf-8")
+    (here / "PENDING.json").write_text(json.dumps(
+        {"t": time.strftime("%Y-%m-%d %H:%M:%S"), "settled_through": len(trans),
+         "counterexamples": bad, "errors": errs}, ensure_ascii=False, indent=1), encoding="utf-8")
+    (here / "scores.json").write_text(json.dumps(
+        {"rows": rows, "P": {"claimed": claimed, "hit": hit},
+         "E": round(E, 4), "conflicts": conflicts, "diff_cells": diffsum},
+        ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # ---- 报 ----
+    print("转移 %d 条（去重后）" % len(trans))
+    print()
+    print("%-22s %-5s %6s %7s %7s %6s  %s" % ("概念", "LEVEL", "N", "S", "C", "seen", "apply"))
+    for r in sorted(rows, key=lambda x: x["concept"]):
+        s = "UNMEASURABLE" if r["S"] is None else "%.3f" % r["S"]
+        print("%-22s %-5s %6d %7s %7.3f %6d  %s%s"
+              % (r["concept"], r["level"], r["N"], s, r["C"], r["seen"],
+                 "有" if r["apply"] else "—", "  [阻断]" if r["blocking"] else ""))
+    print()
+    print("apply 合起来：预测 %d 格，对 %d 格；帧差共 %d 格；**E = %.3f**；冲突 %d 处"
+          % (claimed, hit, diffsum, E, conflicts))
+    print("（E 是规则图完成度：帧差里被解释的格子占比，写得越多越涨。只报不拦。）")
+    print()
+    if bad:
+        print("**反例 %d 处 —— 闸关**，处理完才能再 act：" % len(bad))
+        for b in bad[:10]:
+            print("   %s @ %s  %s" % (b["concept"], b["tid"], b["why"]))
+        print("   三条出路：改断言判 TRUE / 缩 scope 判 NA / retire 撤册。")
+        print("   **抄 tid 进 EVIDENCE 只是登记，不是修好**（硬要求 5 会再考它一遍）。")
+    if errs:
+        print("**跑不起来的概念 %d 条 —— 闸关**：" % len(errs))
+        for e in errs[:10]:
+            print("   %s：%s" % (e["concept"], e["why"]))
+    if not bad and not errs:
+        print("闸开。可以接着 act。")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(run(Path(__file__).resolve().parent))

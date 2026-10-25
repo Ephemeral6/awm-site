@@ -1,0 +1,14 @@
+"""On a level change the budget bar is full again: 128 colour-14 cells in columns 62-63."""
+LEVEL = "L4"
+SCOPE = "only transitions where level_next > level_prev"
+NOTE = ""
+EVIDENCE = ["0ba05691632adb10"]
+from _lib import bar
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not ctx or ctx.get("level_prev") is None or ctx.get("level_next") is None:
+        return "NA"
+    if ctx["level_next"] <= ctx["level_prev"]:
+        return "NA"
+    return "TRUE" if bar(nxt) == 128 else "FALSE"

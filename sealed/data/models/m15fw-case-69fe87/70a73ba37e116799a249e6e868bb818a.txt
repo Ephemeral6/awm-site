@@ -1,0 +1,90 @@
+# Rule notes (attempt 1)
+
+Observation: frame 64x64, frame[y][x]; ACTION6 x=col,y=row (verified: click x=31,y=50 toggled cell at rows49-51 cols29-31).
+
+## Rules (scope: cross-level per "rule stability" statement; evidence = transitions.jsonl indices)
+- R1 ACTION1/2/3/4 = up/down/left/right; block moves by its own side (4 or 2); front (colour 9) turns to face move direction even when blocked. (tr 1-6, 18-24)
+- R2 Blocked move (wall = background 5, d barrier) costs budget, no movement. (tr 12, 41, 48)
+- R3 First action after reset was a no-op (tr 0).
+- R4 3x3 grid (rows 49-61, cols 24-36, 3x3 cells pitch 5): clicking a cell toggles selected (14) / base (0 or 2). (tr 7,8,50)
+- R5 When the selected set equals an enabled spell's pattern, grid resets to all-2 and spell fires. Only spells shown in the level's card panel(s) fire (diamond did nothing on L3; tr 54).
+- R6 Spell f-diamond {(0,1),(1,0),(1,2),(2,1)}: block shrinks 4x4 -> 2x2, keeps top-left, step becomes 2. (tr 17)
+- R7 Spell b-L {(0,0),(0,1),(1,1)}: block teleports into the square framed by b corner marks. (tr 28)
+- R8 Spell 6-column {(0,1),(1,1),(2,1)}: block charges (flashes 6), fires a block-sized shot 2 cells/frame in the facing direction over floor; stops at wall with 7 flash. (tr 83 frames)
+   In L3 (block rows13-16 cols29-32 facing up, 6/d box at rows0-3 cols28-31 via stalk cols29-30) the shot removed the 6/d box AND the d barrier. (tr 62)
+   In L4 the same set-up (block rows21-24 cols29-32, box rows5-8 cols30-33, stalk cols31-32) failed: shot vanished immediately at row 19. Cause unknown (distance 13 vs 10? stalk on right half vs left half?).
+- R9 Clicking a card in the panel (outside grid) re-marks the card's cells as 0 holes in the grid (hint), does not deselect. Free (no budget). (tr 44, 55)
+- R10 Clicks on world objects: no-op, free. (tr 9, 42, 43)
+- R11 Entering the exit box (9 ring with 10 interior) with any overlap completes the level. (tr 25, 32, 70)
+- R12 Budget bar: column 62-63, fills with 0 from top; cost per action differs per level (L1 ~1 row, L2 ~2, L4 ~3.2) and scales with animation frames (cast/teleport cost more).
+
+## Outcome attempt 1
+- Levels 1-3 beaten; GAME_OVER on level 4 (tr 86) when the budget bar (cols 62-63) was full and one more action was taken.
+- R13 Budget exhaustion: the action that fills the bar to 64 is still accepted; the next action ends the game with GAME_OVER (tr 85, 86).
+
+## Open question for L4 (for a next attempt)
+- The column spell's shot is the size of the block and travels over floor. Facing up from rows 21-24 cols 29-32 it died right away (stalk cols 31-32, background cols 29-30).
+  In L3 the same kind of cast removed the 6/d box. Unexplained difference: it could be the distance (10 vs 13 rows) or where the stalk sits under the block (left half vs right half).
+- The 2x2 'e' pad at rows 34-35 cols 23-24 in the L4 room was never examined.
+- L4 budget is about 20 actions, and casts cost extra. Do not spend actions on probing.
+
+## Mechanisms not written as concepts (audit)
+- spell effects R6-R8, teleport, exit: not concepts, so the concept model allows MORE transitions (looser), recorded here.
+- Untested actions: ACTION5 and ACTION7 (README only lists 1-4 and 6), and clicking the second card in a two-card panel.
+
+## Cost fit (work/fit.py) - all attempt-1 readings
+One surviving combination in the searched grid (display granularity 1|2 rows; floor|round|ceil;
+cast cost 1..10 in 1/4 steps; first action after reset counted or not; B in 8..80 in 1/4 steps):
+granularity 2 rows, floor, ordinary 1, completing click 2, first post-reset action free, refund 0 (the bar never decreased);
+B: L1 in {50, 50.25}, L2 in {25, 25.25, 25.5}, L3 = 50, L4 = 18.
+
+## Attempt 2 (level 4 only, restarted with fresh budget)
+- tr ~91-94: shot fired right from big at rows29-32 cols37-40 travels to col 44, dies on the d barrier; barrier NOT removed. (hopen survives the decisive test)
+- tr 103: SMALL block moving onto the e pad (rows34-35 cols23-24) removes the pad and refunds the budget: bar 60 -> 28 rows (u 18 -> 8, refund 10).
+  A BIG block fully covering the pad (tr 98) did not trigger it.
+- tr 107: diamond on a SMALL block grows it back: small at (33,23) -> big at (31,21) (the small block becomes the big one's bottom-right). Facing is kept.
+- tr 111: diamond on big facing right shrinks it, keeping the top-left (absolute) -> shrink keeps top-left for every facing seen (down x2, right x1).
+- consequence: shrink+grow shifts the 4-lattice by (-2,-2); moving the small block in between gives any lattice.
+- the planner (work/plan_l4.py) under these rules: the cheapest win with no budget limit = 24 units (if a big block at cols 31-34 can shoot) or 28 (small-only shot); B=18 and the pad does not close the gap.
+- stopped with the bar full (u=18) and NOT_FINISHED. The next action would be GAME_OVER.
+- tr 112: a free click on the card panel at a full bar (u=18) is accepted and the game stays NOT_FINISHED (cost 0 confirmed at the limit).
+- tr 113: the next costed move (u=19) is applied and returns GAME_OVER. Attempt 2 ended on level 4.
+
+## Attempt 3 (level 4)
+- tr 115-124: L, shrink (small (25,33)), U (small (23,33) facing up), grow -> big at (21,31) facing up: grow puts the small block at the big block's bottom-right for facing UP too (absolute rule).
+- tr 127: column shot from a BIG block whose left column is 31 (rows 21-24), facing up: the shot climbs the stalk (left half on the stalk, right half over background), reaches the 6-box;
+  the box becomes 4x4 floor (rows 5-8, cols 30-33) and the d barrier is removed. POSITIVE confirmation of the col-31 rule. Cost so far 16 units.
+- tr 128: clicking the block itself: no-op, cost 0. ACTION5: rejected by the service ("action must be one of [1,2,3,4,6]").
+- Confirmed minimum for that route: 16 + 2 down + 6 right = 24 > 18. The pad cannot pay for its own detour (planner).
+- tr 129-131: D, D (bar full at u=18), then R -> GAME_OVER (third attempt ended on level 4).
+
+## Attempt 4 (level 4)
+- Route: L L L D D (big (33,25)), shrink, L onto pad at u=11 -> bar 2 rows => u=1: refund is SUBTRACT 10 ("set to 8" refuted; it predicted 28 rows).
+- R, D (small (35,25)), grow -> big (33,23) [absolute rule, facing down], R R, U -> big (29,31) facing up, shot -> barrier opened from ROW 29 (col-31 rule does not depend on the row).
+- u=15 after the shot; R x3 -> u=18 at (29,43); the 4th R -> GAME_OVER. The net 21 route was 3 units short, as the model predicted.
+
+## Attempt 5 (level 4)
+- free: card clicks show ONLY that card's holes (replace, not union); idempotent; cost 0 (tr ~160-162).
+- tr ~165: column shot from BIG at (21,33) facing up: barrier stays closed (hopen negative, column 33, big).
+- tr ~173: column shot from SMALL at (21,33) facing up: barrier stays closed (hopen negative, column 33, small).
+- end: small moved into the stalk (17,31) at u=18; the next move -> GAME_OVER.
+
+## Attempt 6 (level 4)
+- SUPERSET: selecting (0,1),(1,0),(1,2),(1,1) and then clicking (2,1) (a superset of both the diamond and the column) fires NOTHING; cost 1. Exact matching confirmed.
+- Deselecting (1,1) from that 5-cell set leaves the exact diamond -> the shrink FIRES on the deselect click (cost 2). Patterns are checked after every grid click.
+- GROW FALLBACK: small at (21,37) facing up, usual target (19,35) blocked -> big at (21,35), i.e. (r, c-2). Planner with fallback order [(-2,-2),(0,-2),...]: min still 24 (big31) / 21 net (col31any + pad) > 18.
+- end: D D R R to big (29,39) at u=18; the next move -> GAME_OVER.
+
+## Attempt 7 (level 4)
+- free: world clicks on the pad (23,34), the exit (58,30), the stalk (31,15) and room floor (40,30): no-op, cost 0.
+- L L L D D, shrink (small (33,25), not on the pad), GROW -> big (31,23) partially covering the pad (34,23),(34,24): REFUND fired (bar 52->16 rows; u 15 -> 5).
+  => the pad is NOT small-only. Partial overlap by a big block (arriving via grow) triggers it. A big block MOVING to fully cover it (a2 tr 98) did not.
+- planner with "pad triggers on 0<overlap<4, any size, any action": the fresh-start minimum is still 21 net > 18.
+- shot from big (27,31) facing up (rows-27 grid) opened the barrier (u=12). From that row grid the big block cannot enter the corridor (rows 29-32): confirmed.
+- A BLOCKED move turns the facing (D then R blocked: the 9-side moved to the right, no displacement). Cost 1.
+- ran out at u=18; the next move -> GAME_OVER.
+
+## Attempt 8 (level 4)
+- Route: L L L D D (big (33,25)), shrink, D (small (35,25)), grow -> big (33,23) FULLY covering the pad: refund FIRED (bar 56 would mean none; it read 20 rows => u 16 -> 6).
+- R R U -> big (29,31) facing up, shot -> barrier open (u=13). R x5 -> (29,51), u=18, NOT_FINISHED.
+- The 6th R (into the exit, u -> 19): GAME_OVER. The budget check comes before / regardless of reaching the exit. Net 19 > 18 confirmed lethal.

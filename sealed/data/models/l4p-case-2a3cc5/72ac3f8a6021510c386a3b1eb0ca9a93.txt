@@ -1,0 +1,116 @@
+import L4ModelV3Tab
+
+/-! Attempt-3 amendment, proof part. Definitions and the kernel-checked table are in
+    `L4ModelV3Tab.lean` (which imports `L4Model.lean`). -/
+
+namespace L4.V3
+open L4 (Dir shift inSlot box)
+
+theorem ok_all (p : P) (g : Nat) (h : allActs.all (ok p g) = true) (a : Act) : ok p g a = true := by
+  rw [List.all_eq_true] at h
+  cases a with
+  | mv d => cases d <;> exact h _ (by simp [allActs])
+  | M6 => exact h _ (by simp [allActs])
+  | F i =>
+    rcases i with _ | _ | _ | _ | i
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · have h4 := h (.F 4) (by simp [allActs])
+      have e : ok p g (.F (i + 4)) = ok p g (.F 4) := rfl
+      rw [e]; exact h4
+
+theorem decode_key (p : P) (h1 : p.r < 64) (h2 : p.c < 64) (h3 : p.n < 8) :
+    decode (key p) = p := by
+  obtain ⟨r, c, n, op, rf⟩ := p
+  simp only at h1 h2 h3
+  cases op <;> cases rf <;> simp [key, decode] <;> omega
+
+def J (B : Nat) (s : St) : Prop :=
+  s.won = false ∧ s.k ≤ B ∧ s.p.r < 64 ∧ s.p.c < 64 ∧ s.p.n < 8 ∧
+  ∃ v, gk (key s.p) = some v ∧ v ≤ s.k
+
+theorem cost_pos (a : Act) : 1 ≤ cost a := by cases a <;> simp [cost]
+
+theorem pres (B : Nat) (hB : B ≤ 18) (s : St) (a : Act) (h : J B s) : J B (step B s a) := by
+  obtain ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩ := h
+  unfold step
+  by_cases hg : s.won = false ∧ s.k + cost a ≤ B
+  · rw [if_pos hg]
+    have hc := chk_all (key s.p) (by simp only [key]; split <;> split <;> omega)
+    simp only [chk, hv, decode_key s.p h1 h2 h3] at hc
+    have hok := ok_all _ _ hc a
+    have cp := cost_pos a
+    unfold ok at hok
+    split at hok
+    · rename_i hres
+      simp at hok; omega
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+  · rw [if_neg hg]; exact ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩
+
+theorem run_J (B : Nat) (hB : B ≤ 18) (as : List Act) : ∀ s, J B s → J B (run B s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (pres B hB s a h)
+
+theorem start_in : gk (key startP) = some 0 := by decide +kernel
+
+theorem J_start (B : Nat) : J B start :=
+  ⟨rfl, Nat.zero_le _, by decide, by decide, by decide, 0, start_in, Nat.le_refl _⟩
+
+/-- MAIN (attempt 3): with any budget B ≤ 18 units, no action sequence wins level 4 in the V3
+    model (refill, grow with any of 5 anchors, trigger at c = 31 regardless of facing). -/
+theorem never_wins (B : Nat) (hB : B ≤ 18) (as : List Act) : (run B start as).won = false :=
+  (run_J B hB as start (J_start B)).1
+
+/-- Non-vacuity: one more unit (B = 19) and the same model has a winning route. -/
+def route19 : List Act :=
+  [.mv .D, .mv .D, .mv .L, .mv .L, .mv .L, .F 0, .mv .L, .mv .U, .F 3, .mv .R, .mv .R, .M6,
+   .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R]
+
+theorem route19_wins : (run 19 start route19).won = true := by decide +kernel
+theorem route19_at18 : (run 18 start route19).won = false := by decide +kernel
+
+end L4.V3
+
+
+#print axioms L4.V3.never_wins
+#print axioms L4.V3.route19_wins
+#print axioms L4.V3.route19_at18
+
+-- appended by recheck_l4c_main.py
+#check @L4.V3.never_wins
+#print axioms L4.V3.never_wins
+#check @L4.V3.route19_wins
+#print axioms L4.V3.route19_wins
+#check @L4.V3.route19_at18
+#print axioms L4.V3.route19_at18
+#check @L4.V3.pres
+#print axioms L4.V3.pres
+#check @L4.V3.step
+#print axioms L4.V3.step
+#check @L4.V3.cost
+#print axioms L4.V3.cost
+#check @L4.V3.chk_all
+#print axioms L4.V3.chk_all

@@ -1,0 +1,124 @@
+"""Facing-free level-4 model (mirror of lean/FinalProof.lean). Computes the certificate tables,
+writes lean/FinalTables.lean, and searches a witness at the least winning budget.
+Semantics: a winning move counts even if it overdraws (win checked before the budget)."""
+import heapq, sys
+INF = 200
+def inR(r0, r1, c0, c1, r, c): return r0 <= r <= r1 and c0 <= c <= c1
+def passc(op, r, c):
+    return (inR(21,36,21,44,r,c) or (op and inR(29,32,45,47,r,c)) or inR(29,32,48,56,r,c)
+            or inR(28,33,57,61,r,c) or inR(9,20,31,32,r,c) or (op and inR(5,8,30,33,r,c)))
+def foot_ok(op, r, c, s): return all(passc(op, r+i, c+j) for i in range(s) for j in range(s))
+def overlaps(f, r, c, s): return any(f(r+i, c+j) for i in range(s) for j in range(s))
+goal = lambda r, c: inR(28,33,57,61,r,c)
+itemc = lambda r, c: inR(34,35,23,24,r,c)
+DIRS = [(-1,0), (1,0), (0,-1), (0,1)]
+def moveK(op, r, c, s, d):
+    dr, dc = DIRS[d]; k = 0
+    for j in range(1, s+1):
+        rr, cc = r+dr*j, c+dc*j
+        if rr < 0 or cc < 0 or not foot_ok(op, rr, cc, s): break
+        k = j
+    return k
+def moveQ(q, d):
+    s, r, c, op, it = q
+    k = moveK(op, r, c, s, d); dr, dc = DIRS[d]
+    return (s, r+dr*k, c+dc*k, op, it)
+def wins(q): s, r, c, op, it = q; return overlaps(goal, r, c, s)
+def growOpts(q):
+    s, r, c, op, it = q
+    if s == 4: return [(2, r, c, op, it)]
+    if r >= 2 and c >= 2 and foot_ok(op, r-2, c-2, 4): return [(4, r-2, c-2, op, it)]
+    out = [q]
+    for (r2, c2) in [(r-2, c), (r, c-2), (r, c)]:
+        if r2 >= 0 and c2 >= 0 and foot_ok(op, r2, c2, 4): out.append((4, r2, c2, op, it))
+    return out
+def switchOpts(q):
+    s, r, c, op, it = q
+    return [q, (s, r, c, True, it)] if c in (31, 32) else [q]
+def eligible(q): s, r, c, op, it = q; return it and s == 2 and overlaps(itemc, r, c, s)
+RMAX, CMAX = 40, 64
+def domain():
+    return [(s, r, c, op, it) for s in (2, 4) for r in range(RMAX) for c in range(CMAX)
+            for op in (False, True) for it in (False, True) if foot_ok(op, r, c, s)]
+def tables():
+    D = domain()
+    T = {k: {q: INF for q in D} for k in ('AN0','BS','BW','AM0','BMS','BMW')}
+    AN0,BS,BW,AM0,BMS,BMW = (T[k] for k in ('AN0','BS','BW','AM0','BMS','BMW'))
+    nz = lambda q: min(AN0[q], BS[q]+4, BW[q]+3)
+    mz = lambda q: min(AM0[q], BMS[q]+4, BMW[q]+3)
+    changed = True
+    while changed:
+        changed = False
+        for q in D:
+            a0, bs, bw = AN0[q], BS[q], BW[q]
+            for d in range(4):
+                q2 = moveQ(q, d)
+                if wins(q2): a0 = min(a0, 1); continue
+                a0 = min(a0, 1+AN0[q2]); bs = min(bs, 1+BS[q2]); bw = min(bw, 1+BW[q2])
+            bs = min([bs] + [0 if wins(q2) else 1 + nz(q2) for q2 in growOpts(q)])
+            bw = min([bw] + [0 if wins(q2) else 1 + nz(q2) for q2 in switchOpts(q)])
+            if (a0, bs, bw) != (AN0[q], BS[q], BW[q]): AN0[q], BS[q], BW[q] = a0, bs, bw; changed = True
+            if not q[4]: continue
+            m0, ms, mw = AM0[q], BMS[q], BMW[q]
+            if eligible(q):
+                qn = q[:4] + (False,); m0 = min(m0, AN0[qn]); ms = min(ms, BS[qn]); mw = min(mw, BW[qn])
+            for d in range(4):
+                q2 = moveQ(q, d)
+                if wins(q2): continue
+                m0 = min(m0, 1+AM0[q2]); ms = min(ms, 1+BMS[q2]); mw = min(mw, 1+BMW[q2])
+            ms = min([ms] + [1 + mz(q2) for q2 in growOpts(q) if not wins(q2)])
+            # selfaudit repair R12.4: a grow that leaves a 4x4 over the item may refill
+            if q[0] == 2:
+                for q2 in growOpts(q):
+                    if q2[0] == 4 and not wins(q2) and overlaps(itemc, q2[1], q2[2], 4):
+                        ms = min(ms, 1 + nz(q2[:4] + (False,)))
+            mw = min([mw] + [1 + mz(q2) for q2 in switchOpts(q) if not wins(q2)])
+            if (m0, ms, mw) != (AM0[q], BMS[q], BMW[q]): AM0[q], BMS[q], BMW[q] = m0, ms, mw; changed = True
+    return D, T
+SHR = (False, True, False, True, False, True, False, True, False)
+SW = (False, True, False, False, True, False, False, True, False)
+def witness(B):
+    """Dijkstra over full states with the concrete reading: fire at col 31/32, exact grow,
+    refill triggers whenever eligible, refund exactly 10 (spent - 10, floored at 0)."""
+    start = ((4, 25, 37, False, True), (False,)*9, 0)
+    pq = [(0, 0, start, ())]; seen = set(); n = 0
+    while pq:
+        g, _, st, path = heapq.heappop(pq)
+        if st in seen: continue
+        seen.add(st)
+        q, m, sp = st
+        acts = [('m', d) for d in range(4)] + [('c', k) for k in (1, 3, 4, 5, 7)]
+        for a in acts:
+            if a[0] == 'm':
+                q2 = moveQ(q, a[1]); m2 = m; sp2 = sp + 1
+                if wins(q2):
+                    if sp2 <= B: return g + 1, path + (a,)   # strict order (pinned: selfaudit att.2)
+                    continue
+            else:
+                m2 = tuple(not v if i == a[1] else v for i, v in enumerate(m))
+                if m2 == SHR:
+                    s, r, c, op, it = q
+                    q2 = (2, r, c, op, it) if s == 4 else growOpts(q)[0]; m2 = (False,)*9; sp2 = sp + 2
+                    if wins(q2):
+                        if sp2 <= B: return g + 1, path + (a,)
+                        continue
+                    if s == 2 and q2[0] == 4 and q2[4] and overlaps(itemc, q2[1], q2[2], 4):
+                        q2 = q2[:4] + (False,); sp2 = max(0, sp2 - 10)
+                elif m2 == SW:
+                    s, r, c, op, it = q
+                    q2 = (s, r, c, op or c in (31, 32), it); m2 = (False,)*9; sp2 = sp + 2
+                else:
+                    q2 = q; sp2 = sp + 1
+            if eligible(q2):
+                q2 = q2[:4] + (False,); sp2 = max(0, sp2 - 10)
+            if sp2 > B: continue
+            n += 1; heapq.heappush(pq, (g + 1, n, (q2, m2, sp2), path + (a,)))
+    return None
+if __name__ == '__main__':
+    D, T = tables()
+    q0 = (4, 25, 37, False, True)
+    N0 = min(T['AN0'][q0], T['BS'][q0]+4, T['BW'][q0]+3); M0 = min(T['AM0'][q0], T['BMS'][q0]+4, T['BMW'][q0]+3)
+    print('|D|', len(D), 'N0', N0, 'M0', M0, 'strict-order bound B <=', min(N0-1, M0-11), flush=True)
+    for B in (17, 18, 19):
+        print('witness B', B, witness(B), flush=True)
+    import pickle; pickle.dump((D, T), open('work/final/tables.pkl', 'wb'))

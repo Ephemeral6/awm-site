@@ -1,0 +1,65 @@
+# click-level mirror of the corrected model (must match lean/L5Panel.lean)
+import json,math,sys,os
+os.environ.setdefault('PADGAIN','10')
+sys.path.insert(0,'concepts');sys.path.insert(0,'.');sys.path.insert(0,'work')
+src=open('work/l5_search3.py').read().split('start=(29,17')[0]
+os.environ['COSTS']='[1,1,1,1,5,4,4,5]'
+exec(src)
+from _lib import bar,cursor
+N0=35
+PAT={0b010101010:'f',0b010010010:'6',0b000010011:'b'}   # bit 3*r+c
+def disp(rem): return 4*max(0,min(32,math.ceil(32*rem/35-1e-9)))
+def step(st,act):
+    """st=(r,c,s,f,cc,dd,pad,sel,rem); act=('mv',d)|('click',i)|('free',)
+    returns (st', won) or None (game over)"""
+    r,c,s,f,cc,dd,pad,sel,rem=st
+    w=(r,c,s,f,cc,dd,pad)
+    if act[0]=='free': return st,False
+    if act[0]=='mv':
+        if rem<1: return None
+        n,_,g,won=nxt3(w,act[1]); return n+(sel,rem-1+g),won
+    i=act[1]; s2=sel^(1<<i)
+    if s2 in PAT:
+        if rem<2: return None
+        p=PAT[s2]; a={'f':(4 if s==4 else 7),'6':5,'b':6}[p]
+        n,_,_,_=nxt3(w,a); return n+(0,rem-2),False
+    if rem<1: return None
+    return w+(s2,rem-1),False
+def decode(a):
+    if not a.startswith('ACTION6'): return ('mv',int(a[6])-1)
+    x,y=map(int,a.split(':')[1].split(','))
+    for rr in range(3):
+        for cc_ in range(3):
+            if abs(x-(25+5*cc_))<=1 and abs(y-(50+5*rr))<=1: return ('click',3*rr+cc_)
+    return ('free',)
+def sel(g): return sum(1<<(3*r+c) for r in range(3) for c in range(3) if g[50+5*r][25+5*c]==14)
+START=(29,17,4,1,False,False,False,0,N0)
+if __name__=='__main__':
+    L=[json.loads(l) for l in open('transitions.jsonl')]
+    segs=[];curs=None
+    for r in L:
+        if r['ctx']['level_prev']!=5: continue
+        if bar(r['prev'])==128 and (cursor(r['prev']) or (0,0,0))[:3]==(29,17,4) and sel(r['prev'])==0 and (curs is None or len(curs)>2):
+            curs=[];segs.append(curs)
+        curs.append(r)
+    tot=bad=0;exp=[]
+    for k,sg in enumerate(segs):
+        st=START;e=[]
+        for r in sg:
+            a=decode(r['action']);res=step(st,a);g=r['nxt'];tot+=1
+            dead=r['ctx']['state_next']=='GAME_OVER'
+            ob_c=cursor(g)
+            if res is None:
+                ok=dead; e.append((r['action'],None))
+            else:
+                st,won=res
+                cov=lambda y,x: st[0]<=y<st[0]+st[2] and st[1]<=x<st[1]+st[2]
+                ok=not dead and bar(g)==disp(st[8]) and sel(g)==st[7] and (cov(34,30) or (g[34][30]==2)==st[4]) and (cov(12,34) or (g[12][34]==2)==st[5])
+                if ob_c: ok=ok and ob_c[:3]==(st[0],st[1],st[2]) and ob_c[3]=='UDLR'[st[3]]
+                e.append((r['action'],st))
+            if not ok:
+                bad+=1;print('MISMATCH seg',k,r['action'],'model',None if res is None else st,'obs',ob_c,bar(g),sel(g),dead);break
+            if res is None: break
+        exp.append(e)
+    print('transitions checked',tot,'mismatches',bad)
+    json.dump([[(a, None if s is None else list(map(lambda v:int(v) if isinstance(v,bool) else v,s))) for a,s in e] for e in exp],open('work/l5_replay.json','w'))

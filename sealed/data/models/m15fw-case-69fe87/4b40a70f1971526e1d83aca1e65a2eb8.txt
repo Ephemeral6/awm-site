@@ -1,0 +1,14 @@
+"""ACTION1-4 never change the 3x3 panel (rows 47-63, cols 22-38) within a level."""
+LEVEL = "L1"
+SCOPE = "ACTION1-4 only; NA on level change"
+NOTE = ""
+EVIDENCE = ["3f5956007e12ca17", "1c5847c7b9388ac8"]
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in ("ACTION1", "ACTION2", "ACTION3", "ACTION4"):
+        return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"):
+        return "NA"
+    same = all(prev[r][c] == nxt[r][c] for r in range(47, 64) for c in range(22, 39))
+    return "TRUE" if same else "FALSE"

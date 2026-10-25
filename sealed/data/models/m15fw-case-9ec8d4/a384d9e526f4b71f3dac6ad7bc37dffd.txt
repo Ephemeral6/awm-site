@@ -1,0 +1,24 @@
+"""Full-model level-4 reachability with dominance: T[state] = min spent reachable (refund 10, applied
+before the overdraw check; spent never below 0). Reports |T| and whether any won state is reachable."""
+import sys, heapq, time
+sys.path.insert(0, 'work')
+import search_l4 as S
+S.REFUND = 10
+def reach():
+    start = (25, 37, 4, 'D', False, True, frozenset())
+    T = {start: 0}; pq = [(0, 0, start)]; n = 0; won = False
+    while pq:
+        sp, _, st = heapq.heappop(pq)
+        if T.get(st, 99) < sp: continue
+        for a in list(S.D) + list(range(9)):
+            if isinstance(a, str):
+                st2, hit, w = S.move(st, a); sp2 = max(0, sp + 1 - (S.REFUND if hit else 0))
+            else:
+                st2, comp = S.click(st, a); w = False; sp2 = sp + (2 if comp else 1)
+            if sp2 > S.B: continue
+            if w: won = True; continue
+            if sp2 < T.get(st2, 99):
+                T[st2] = sp2; n += 1; heapq.heappush(pq, (sp2, n, st2))
+    return T, won
+t = time.time(); T, won = reach()
+print('states', len(T), 'won reachable:', won, 'secs', round(time.time() - t, 1))

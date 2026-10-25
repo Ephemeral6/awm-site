@@ -1,0 +1,19 @@
+"""ACTION6 on a position outside the right panel (cols 22-38, rows 47-63) changes nothing except possibly the bar."""
+LEVEL = "L1"
+SCOPE = "ACTION6 with x,y outside the right panel; same level"
+NOTE = ""
+EVIDENCE = ["129267c6180bfa25"]
+from _lib import same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not action.startswith("ACTION6:") or not same_level(ctx):
+        return "NA"
+    x, y = map(int, action.split(":")[1].split(","))
+    if 22 <= x <= 38 and 47 <= y <= 63:
+        return "NA"
+    for r in range(64):
+        for c in range(62):
+            if prev[r][c] != nxt[r][c]:
+                return "FALSE"
+    return "TRUE"

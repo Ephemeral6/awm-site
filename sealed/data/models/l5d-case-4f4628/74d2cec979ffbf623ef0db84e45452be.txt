@@ -1,0 +1,37 @@
+"""ACTION6 点在右下 3x3 面板的某格（格 3x3 像素，左上 (49+5i, 24+5j)）上：该格若为 0 或 2 就变 14(e)，
+除非这次点击让面板「完成」——那时面板全部变回 2。（e 点回 0 的那一支只在原为 0 的格见过，不主张。）"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION6；state_next 非 NOT_FINISHED（GAME_OVER 帧整面板变色）NA；点不在 9 个格块内 NA；被点格原为 14 NA；换关 NA"
+NOTE = "GAME_OVER 那一步（d5668ad1）整面板变 11 —— 终局帧不归这条管，scope 缩掉 state_next != NOT_FINISHED"
+EVIDENCE = ["e1803909835b3829", "948ef70ac122a6b1", "a045c4519ea82456", "d5668ad1d15ee43f"]
+
+
+def _cell(x, y):
+    for i in range(3):
+        for j in range(3):
+            if 49 + 5 * i <= y < 52 + 5 * i and 24 + 5 * j <= x < 27 + 5 * j:
+                return i, j
+    return None
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not action.startswith("ACTION6:"):
+        return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"):
+        return "NA"
+    if ctx and ctx.get("state_next") != "NOT_FINISHED":
+        return "NA"
+    x, y = map(int, action.split(":")[1].split(","))
+    c = _cell(x, y)
+    if c is None:
+        return "NA"
+    i, j = c
+    y0, x0 = 49 + 5 * i, 24 + 5 * j
+    before = prev[y0][x0]
+    if before not in (0, 2):
+        return "NA"
+    after = nxt[y0][x0]
+    if after == 14:
+        return "TRUE"
+    allgrid = {nxt[49 + 5 * a + u][24 + 5 * b + v] for a in range(3) for b in range(3) for u in range(3) for v in range(3)}
+    return "TRUE" if allgrid == {2} else "FALSE"

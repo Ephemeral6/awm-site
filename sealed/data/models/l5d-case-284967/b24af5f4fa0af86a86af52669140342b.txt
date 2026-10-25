@@ -1,0 +1,77 @@
+import json,heapq
+M=json.load(open('work/l5_rows.json'))
+def rect(r,c,a,b,x,y): return a<=r<=b and x<=c<=y
+def sf(r,c): return 0<=r<=41 and 0<=c<=63 and (M[r]>>c)&1
+def fl(cc,dd,r,c): return sf(r,c) or (cc and (rect(r,c,33,36,29,31) or rect(r,c,9,12,20,23))) or (dd and (rect(r,c,11,13,33,36) or rect(r,c,14,17,55,58)))
+def ball(p,r,c,s): return all(p(r+i,c+j) for i in range(s) for j in range(s))
+def bany(p,r,c,s): return any(p(r+i,c+j) for i in range(s) for j in range(s))
+DV=[(-1,0),(1,0),(0,-1),(0,1)]
+def nxt(st,a):
+    r,c,s,f,cc,dd,pad=st
+    P=lambda y,x: fl(cc,dd,y,x)
+    if a<4:
+        dr,dc=DV[a];k=0
+        for kk in range(1,s+1):
+            if all(ball(P,r+dr*j,c+dc*j,s) for j in range(1,kk+1)): k=kk
+        r,c=r+dr*k,c+dc*k; gain=0
+        if not pad and bany(lambda y,x:rect(y,x,37,38,49,50),r,c,s): pad=True;gain=8
+        won=bany(lambda y,x:rect(y,x,1,4,33,36),r,c,s)
+        return (r,c,s,a,cc,dd,pad),1,gain,won
+    if a==4: return (r,c,2 if s==4 else s,f,cc,dd,pad),4,0,False
+    if a==5:
+        dr,dc=DV[f];y,x=r,c
+        for _ in range(64):
+            y,x=y+dr,x+dc
+            if not cc and bany(lambda p,q:rect(p,q,9,12,20,23),y,x,2): cc=True;break
+            if not dd and bany(lambda p,q:rect(p,q,14,17,55,58),y,x,2): dd=True;break
+            if not ball(P,y,x,2): break
+        return (r,c,s,f,cc,dd,pad),3,0,False
+    if a==6: return ((18,34) if s==2 else (17,33))+(s,f,cc,dd,pad),3,0,False
+# minimise net units needed: search over (state) with value = min required start budget is path-dependent;
+# do Dijkstra on (cost spent, gained) -> track spent-gained with feasibility; approximate: Dijkstra on spent, pad as state bit.
+start=(29,17,4,1,False,False,False)
+best={start:0};pq=[(0,start)];res=None
+while pq:
+    d,st=heapq.heappop(pq)
+    if best.get(st,1e9)<d: continue
+    for a in range(7):
+        n,cst,g,won=nxt(st,a)
+        nd=d+cst
+        if won:
+            if res is None or nd<res[0]: res=(nd,n)
+            continue
+        if nd<best.get(n,1e9): best[n]=nd;heapq.heappush(pq,(nd,n))
+print('min total action units to win (ignoring budget):',res)
+# min spent among wins that used the pad
+
+def reach(B):
+    best={start:B};stack=[start]
+    import collections;q=collections.deque([start])
+    while q:
+        st=q.popleft();b=best[st]
+        for a in range(7):
+            n,cst,g,won=nxt(st,a)
+            if cst>b: continue
+            nb=b-cst+g
+            if won: return True
+            if nb>best.get(n,-1): best[n]=nb;q.append(n)
+    return False
+for B in range(30,40): print(B,reach(B))
+
+def path(B):
+    import collections
+    best={start:B};par={start:None};q=collections.deque([start])
+    while q:
+        st=q.popleft();b=best[st]
+        for a in range(7):
+            n,cst,g,won=nxt(st,a)
+            if cst>b: continue
+            nb=b-cst+g
+            if won:
+                seq=[a];x=st
+                while par[x]: x,aa=par[x];seq.append(aa)
+                return seq[::-1]
+            if nb>best.get(n,-1): best[n]=nb;par[n]=(st,a);q.append(n)
+N=['U','D','Lf','R','.shrink','.cast6','.tele']
+for B in (34,35):
+    p=path(B);print(B,len(p),sum([1,1,1,1,4,3,3][a] for a in p),', '.join(N[a] for a in p))

@@ -1,0 +1,32 @@
+import sys; sys.path.insert(0, 'work/selfaudit')
+import sim, json
+base = dict(sim.DEFAULT)
+cands = [
+ ('R1.1 move clamp (4x4)', 'precondition', dict(clamp_odd=True), None),
+ ('R4.1 col reach, column-aligned', 'constant', dict(T=11), None),
+ ('R4.2 col reach, row-aligned', 'constant', dict(T_row=11), dict(T_row=17)),
+ ('R4.3 col reach, unaligned', 'precondition', dict(unaligned=8), dict(unaligned=10)),
+ ('R4.4 col reach via barrier (facing it)', 'precondition', dict(barrier_near='facing'), dict(barrier_near='any')),
+ ('R4.5 col effect on over-budget step', 'ordering', dict(effect_at_over=True), None),
+ ('R5.1 refill trigger placement', 'precondition', dict(refill='topleft_in_tile'), dict(refill='not_topright')),
+ ('R5.2 refill trigger any overlap', 'precondition', dict(refill='any'), None),
+ ('R5.3 refill amount', 'constant', dict(refill_amt=11), None),
+ ('R6.1 completion surcharge', 'charge', dict(completion_extra=0), None),
+ ('R6.2 teleport charge', 'charge', dict(tele_cost=3), None),
+ ('R7.1 grow placements', 'effect', dict(grow_extra=True), None),
+ ('R8.1 win on the over-budget step', 'termination', dict(win_at_over=True), None),
+]
+rows = []
+L0 = sim.least_budget(base)
+print('L =', L0, 'replay', sim.replay(base)[:2])
+for name, kind, stepP, wideP in cands:
+    res = []
+    for ch in (stepP, wideP):
+        if ch is None: res.append(('-', '-', '-')); continue
+        P = dict(base, **ch)
+        n, a, bad = sim.replay(P)
+        Lb = sim.least_budget(P) if a == n else 'refuted'
+        res.append((json.dumps(ch), Lb, '%d/%d' % (a, n) + ('' if a == n else ' first bad: att%d %s %s' % bad[0][:3])))
+    rows.append((name, kind) + res[0] + res[1])
+    print(rows[-1], flush=True)
+json.dump({'L': L0, 'rows': rows}, open('work/selfaudit/table1.json', 'w'), indent=1)

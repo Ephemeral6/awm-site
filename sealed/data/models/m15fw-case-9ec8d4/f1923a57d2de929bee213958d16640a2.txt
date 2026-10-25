@@ -1,0 +1,55 @@
+"""Pass 2: base = full-evidence model + R12.4 repaired (a GROW that puts a 4x4 over the item refills)."""
+import sys, json
+sys.path[:0] = ['.', 'concepts', 'work/selfaudit']
+import engine as E
+from replay import replay
+BASE = dict(refill_on_click=False, uncapped=False, refill_4x4_grow=True)
+class OneFire(E.M):
+    def __init__(self, extra, **kw):
+        super().__init__(**kw); self.extra = set(extra)
+    def switch_res(self, q):
+        s, r, c, f, op, it = q
+        fire = (c in (31, 32) and f == 0) or (s, c, f) in self.extra
+        return [(s, r, c, f, True, it)] if fire else [q]
+class LeftGrow(E.M):
+    """R9.2: a 2x2 facing LEFT (never observed growing) may grow to any free quadrant."""
+    def shrink_res(self, q):
+        s, r, c, f, op, it = q
+        if s == 2 and f == 2:
+            out = [q]
+            for r2, c2 in ((r-2, c-2), (r-2, c), (r, c-2), (r, c)):
+                if self.foot_ok(op, r2, c2, 4): out.append((4, r2, c2, f, op, it))
+            return out
+        return super().shrink_res(q)
+class GrowTouch(E.M):
+    """R12.5: a grow whose 4x4 only TOUCHES the item also refills."""
+    def refill_ok(self, q, kind):
+        s, r, c, f, op, it = q
+        if it and s == 4 and kind == 'grow' and self.touch(E.item, r, c, 4): return True
+        return super().refill_ok(q, kind)
+rows = [
+  ('BASE', 'repaired full-evidence model', E.M(**BASE)),
+  ('R10.1b', 'switch fires for a 4x4 at col 41 facing down', OneFire({(4, 41, 1)}, **BASE)),
+  ('R10.1d', 'switch fires for a 4x4 at col 25 facing up', OneFire({(4, 25, 0)}, **BASE)),
+  ('R10.1g', 'switch fires for a 4x4 at col 33 facing down', OneFire({(4, 33, 1)}, **BASE)),
+  ('R10.2a', 'switch fires for a 4x4 at col 31 facing right', OneFire({(4, 31, 3)}, **BASE)),
+  ('R12.1', 'a 4x4 partly overlapping the item after a MOVE refills', E.M(refill_4x4_partial=True, **BASE)),
+  ('R12.2', 'a 2x2 put on the item by a shrink click refills', E.M(**dict(BASE, refill_on_click=True))),
+  ('R12.5', 'a grown 4x4 that only touches the item refills', GrowTouch(**BASE)),
+  ('R12.6', 'a 4x4 over the item refills after ANY panel click', E.M(refill_4x4_anyclick=True, **BASE)),
+  ('R12.7', 'a 4x4 over the item refills after an off-panel (free) click', E.M(refill_offclick=True, **BASE)),
+  ('R12.8', 'refill iff the item overlaps the cursor top-left 2x2 block, after any action', E.M(refill_anchor=True, **BASE)),
+  ('R9.2', 'a 2x2 facing LEFT may grow to any free quadrant', LeftGrow(**BASE)),
+  ('R13.1', 'spent may go below 0 after a refund', E.M(**dict(BASE, uncapped=True))),
+  ('R16', 'touching the goal wins', E.M(win_adjacent=True, **BASE)),
+  ('R17', 'a blocked move turns the cursor', E.M(blocked_turn=True, **BASE)),
+  ('R9', 'grow next to walls: any free quadrant', E.M(grow_alt=True, **BASE)),
+]
+if __name__ == '__main__':
+    out = []
+    for rid, desc, m in rows:
+        n, ok, bad = replay(m)
+        L, path = E.least_budget(m, want_path=True)
+        out.append((rid, desc, ok == n, ok, n, L, path, [b[:2] for b in bad[:3]]))
+        print(rid, desc, '| admissible', ok == n, '%d/%d' % (ok, n), [b[:2] for b in bad[:2]], '| L', L, path, flush=True)
+    json.dump(out, open('work/selfaudit/sensitivity_pass2.json', 'w'), default=str)

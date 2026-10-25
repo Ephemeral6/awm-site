@@ -1,0 +1,148 @@
+# Run report
+
+Result: reached **level 5**, beat levels 1–4 (levels_completed = 4). The game ended with GAME_OVER on level 5:
+the budget bar hit 0. The action after it hit 0 returned GAME_OVER.
+
+## Rules that went through the gate (concepts/, settled over 137 deduplicated transitions)
+
+| concept | claim (short) | N | S | C | seen | revisions |
+|---|---|---|---|---|---|---|
+| move_dir | ACTION1/2/3/4 move the cursor only up/down/left/right, by at most its side length | 92 | 1.000 | 0.676 | 2 | 0 |
+| facing | after an accepted ACTION1–4 the cursor's colour-9 half points in that direction | 90 | 1.000 | 0.667 | 1 | 1 (v1 hit by the first, swallowed action; zero-diff frames now NA) |
+| no_overlap_d | the cursor never moves onto a colour-13 (d) barrier | 93 | 1.000 | 0.684 | 2 | 0 |
+| bar_monotone | within a level the bar never grows, except when the cursor ends on an e-pad | 131 | 1.000 | 0.970 | 1 | 1 (v1 hit by 711d08fd973fc10e, the e-pad refill; widened) |
+| bar_full_on_new_level | the bar is full (128 cells) on every level change | 3 | 1.000 | 0.022 | 0 | 0 — only 3 samples |
+| click_outside_panel_inert | ACTION6 outside the right panel changes nothing | 1 | 1.000 | 0.007 | 0 | 0 — only 1 sample, weak |
+
+Abstentions: the NA share is 1−C. move_dir, facing and no_overlap_d abstain on clicks, on level changes and
+whenever the cursor can't be located.
+
+## Mechanisms seen but not written as concepts (observed only, not settled)
+
+- Spells: right-panel cells (3×3, click at x=25/30/35, y=50/55/60) toggle between 2/0 and 14 (e). A spell fires
+  only when the selected set **exactly** equals a spell pattern shown on the left (a superset did not fire, L3).
+  After firing, the panel goes back to all 2.
+  - f "plus edges" = shrink the 4×4 cursor to 2×2 at the top-left quadrant. Steps become 2.
+  - b "L-triple" = teleport into the square marked by b corner marks. The marks are sized to the current cursor.
+  - 6 "middle column" = a probe dashes in the facing direction. If it reaches a 6-bordered box, the box disappears
+    and the barrier in the box's inner colour (d or c) turns into floor. A misaligned 4×4 probe bounced
+    (L4, frames in the animation).
+- Win: the level ends when the cursor overlaps the interior of the 9/a goal box.
+- e-pad: stepping on a 2×2 colour-14 pad refills the bar by +32 cells. The pad is used up.
+- Bar cost per action changes by level (≈2 cells in L1, ≈4 in L5). Casting cost up to 8–12 on the firing click.
+  No mechanism found; logged as a table, not a rule.
+
+## Dropped-mechanism audit
+
+| dropped | direction | verdict |
+|---|---|---|
+| spells (shrink/teleport/6-probe) | model allows fewer transitions than the real game | **must not be dropped** in step 2 |
+| e-pad refill | model allows fewer (budget runs out earlier than it really does) | must not be dropped |
+| bar cost per level | unknown rate; a fixed cost would wrongly allow or forbid routes | must be measured per level |
+| first action swallowed | model allows more | can be dropped |
+| actions possibly not covered | ACTION5/7 never tried; ACTION6 tried only on the panel and on one barrier cell | listed |
+
+## Prediction check
+
+There are no `apply` generators, so E = 0 and nothing was checked cell by cell. Bets were written before every
+act (40 journal entries), but in free text. This part of METHOD is not met.
+
+## Lesson for another attempt (L5)
+
+Plan the route against the bar **before** spending actions. L5 costs about 4 cells per action, so the budget is
+~32 actions plus the e-pad's +8. The route I used (shrink, open cc, cross to the e-pad, climb the right stem)
+spent the bar before the dd-box cast and the teleport. The 2×2 stem on the right board is at cols 45–46.
+
+## Attempt 2 (level 5 only)
+
+The planned route worked through dd-open, and the bar matched the plan.
+- 4×4 cast from (25,21) with the stem under its left half: opened cc. This confirms the top-left-2×2 probe rule.
+- Pad picked up as a 4×4: +32.
+- Shrank at (25,45), climbed the stem, cast facing right from (15,47): the probe ran along the strip and opened dd.
+- **Teleport while 2×2 broke the model.** The cursor landed on the ff pad (rows 37-38, cols 15-16), inside the f corner
+  marks that appear after shrinking. It did not land at the corridor b-target. A second teleport from the ff pad did
+  not move the cursor and cost 16 cells. The ff pad is still there after stepping off it.
+- Revised R-tele: while 2×2 the destination is the f-marked square around the ff pad (one sample). A 4×4 lands on the
+  corridor b-target (L2 analogy, unchecked in L5).
+- Next attempt: be 4×4 at teleport time. Either skip the shrink, or find out how to grow back (f-cast while 2×2?
+  the f marks suggest growing happens at the ff pad). From (17,33) a 4×4 climbs to the goal in 4 moves.
+
+- Attempt 2 ended: two plus clicks used the last bar; GAME_OVER on the 2nd click (grow-back still untested).
+
+## Attempt 3 (level 5)
+
+Same route through opening dd (bar 40 after the dd cast, matching attempt 2), then:
+- **Grow exists:** the plus pattern cast while 2×2 grows the cursor back to 4×4, here at (15,45) (shifted to fit).
+  It cost 20 cells (5 units).
+- **A 4×4 teleport lands in the corridor at (17,33):** confirmed. It cost 16 cells.
+- The 4×4 climbed to (13,33) with bar 0, then reached (9,33) and the game returned GAME_OVER. That is 2 moves short
+  of the goal, which needed (5,33) and then (1,33).
+- The whole solution chain now works: cc probe, pad, shrink, stem, dd probe, grow, 4×4 teleport, climb. It needs
+  about 2 actions (~8 cells) more than this route spends.
+
+### Formal update after attempt 3
+- `lean/L5Model.lean` was amended, not rewritten. Changes:
+  - R-grow added (cost 5); R-tele cost 3 → 4.
+  - The floor map is now packed into one Nat; `floorBits_same` proves it equals the old encoding.
+  - floorCD/probeCore refactor: same semantics; the probe now reads only position, facing and door flags.
+- `lean/L5Bound.lean` (+ L5BoundDefs, L5BoundRows0-6) contains the main theorem `L5B.l5_needs_36`:
+  - It holds for every legal action list, starting from the L5 start with budget b < 36 units: the model never wins.
+  - Method: a potential table (min net cost-to-win for 4701 reachable states, found in Python). The kernel re-checks
+    it row by row, and the induction is proved in Lean.
+  - `route3_wins_36` shows the bound is tight.
+- Effective real budget, from the death points:
+  - attempt 1: 43 units survived;
+  - attempt 3: 42 units survived;
+  - so roughly 34-35 start units plus the pad's 8. The bar's nominal 32 understates it because of free actions.
+  - The death-turn move still renders, so 35-36 is possible if a winning move on that turn counts.
+
+## Attempt 4 (level 5)
+I ran the optimal route from the model search (`route3`).
+- Grow from 2×2 (19,45) landed at (17,43), not (17,45). The R-grow offset order was wrong, but the cost was the
+  same: U, then R slides 2 to (15,45).
+- The dd cast, the 4×4 teleport and the climb all worked. Bar 0 at (9,33). The next move rendered (5,33) and the
+  game returned GAME_OVER.
+- **One move short.** The death-turn move does not win. That confirms the effective budget is below the model's 36.
+
+### Formal update after attempt 4
+- R-grow offset order revised to (-2,-2),(0,-2),(-2,0),(0,0). The old order predicted (17,45); attempt 4 observed
+  (17,43). Φ(start) is still 36 over 4866 reachable states, and the table and all 42 row checks were rebuilt.
+- In units, the start budget of 34 reproduces the death points of attempts 2, 3 and 4 exactly. `att4_replay` and
+  `att4_death` check the attempt-4 one in Lean. The main instance is `L5B.l5_unwinnable_at_34`.
+
+## Attempt 5 (level 5): probing for unmodelled shortcuts. None found.
+- ACTION5 and ACTION7 are refused by the service ("action must be one of [1, 2, 3, 4, 6]").
+- Clicking a left spell panel (e.g. x5 y4) is free. It only marks that spell's cells with 0 on the right panel as a
+  hint. Casting on the hint still costs the usual clicks; the shrink cost 20 cells.
+- Stepping onto the ff pad does nothing, as 4×4 or as 2×2.
+- Probed 17 more right-panel selection sets (single cell up to all 9, built up and taken down): no hidden spell fired.
+- Clicks with no effect (board objects, goal, boxes, pad, cursor) are free: the bar does not change.
+- Concept `click_outside_panel_inert` was retired (left-panel clicks place hints).
+
+## Attempt 6 (level 5): panel-pattern sweep
+- I spent the whole budget testing new right-panel selection sets, one new set per click, with a greedy walk that
+  avoided the known spell sets (work/probe_sets.py; tested sets in work/tested_sets.json). That added 36 sets. None
+  fired: no animation, no panel reset, no cursor change.
+- 59 of the 512 sets have now been tested, plus the 3 known spells.
+- GAME_OVER when the bar ran out. No rule changed.
+
+## Attempt 7 (level 5): sweep continued
+- 36 more selection sets tested (95 of 512 now, plus the 3 spells); none fired. GAME_OVER when the bar ran out. No rule changed.
+
+## Attempt 8 (level 5): sweep continued
+- 36 more sets (131 of 512 tested, plus the 3 spells); none fired. GAME_OVER when the bar ran out. No rule changed.
+
+## Budget-rule correction (post-attempt task)
+- **Fit:** fitted a hidden-counter model to all 11 recorded L5 segments (427 transitions; work/fit_budget3.py).
+  Exactly one parameter set fits:
+  - start 35 steps; bar = 4·ceil(32·rem/35) cells;
+  - every move costs 1, blocked or not; every right-panel click costs 1; the spell-completing click costs 2;
+  - hint and board clicks cost 0; pad +10.
+- **E1:** 6-cast with no target, repeated. Death on click 27 with the predicted bar sequence; the old rule said 35.
+- **E2:** two blocked moves cost 2 steps (bar 124→120→116, cursor unmoved). The pad took rem 17 to 27; death on the
+  predicted action.
+- **Lean:** lean/L5Panel.lean holds the click-level model.
+  - `l5p_unwinnable`: no win for any start budget below 37, over all legal action sequences.
+  - `routeP_wins_37` is the relaxed-budget witness.
+  - `seg0_replay` … `seg10_replay` reproduce every recorded L5 transition.
+  - L5Model costs: shrink 5, cast6 4, pad +10. L5Bound: `l5_needs_37`.

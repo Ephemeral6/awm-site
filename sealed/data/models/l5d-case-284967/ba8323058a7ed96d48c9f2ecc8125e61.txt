@@ -1,0 +1,36 @@
+import json,sys
+sys.path.insert(0,'concepts');sys.path.insert(0,'.');sys.path.insert(0,'work')
+from _lib import bar,cursor
+from panel_sim import decode,sel
+L=[json.loads(l) for l in open('transitions.jsonl')]
+segs=[];cur=None
+for r in L:
+    if r['ctx']['level_prev']!=5: continue
+    if bar(r['prev'])==128 and (cursor(r['prev']) or (0,0,0))[:3]==(29,17,4) and sel(r['prev'])==0 and (cur is None or len(cur)>2):
+        cur=[];segs.append(cur)
+    cur.append(r)
+def pact(a):
+    d=decode(a)
+    return {'mv':f'.mv {d[1]}' if d[0]=='mv' else '', 'click':f'.click {d[1]}' if d[0]=='click' else '','free':'.free'}[d[0]]
+def B(b): return 'true' if b else 'false'
+out=[]
+for k,sg in enumerate(segs):
+    items=[]
+    for r in sg:
+        g=r['nxt'];alive=r['ctx']['state_next']!='GAME_OVER'
+        c=cursor(g)
+        if c:
+            t,l,s,f=c;cov=lambda y,x:t<=y<t+s and l<=x<l+s
+            cs=f"some ({t}, {l}, {s}, {'UDLR'.index(f)})"
+            cc='none' if cov(34,30) else f"some {B(g[34][30]==2)}"
+            dd='none' if cov(12,34) else f"some {B(g[12][34]==2)}"
+        else: cs='none';cc='none';dd='none'
+        items.append(f"({pact(r['action'])}, ⟨{B(alive)}, {bar(g)}, {sel(g)}, {cs}, {cc}, {dd}⟩)")
+    out.append(f"def seg{k} : List (PAct × Obs) := [\n  "+",\n  ".join(items)+"]\n\ntheorem seg{k}_replay : replayOK (startP 35) seg{k} = true := by decide +kernel\n")
+open('work/panel_segs.lean.txt','w',encoding='utf-8').write("\n".join(out))
+print(len(segs),[len(s) for s in segs])
+# fix-up: number the replay theorems
+t=open('work/panel_segs.lean.txt',encoding='utf-8').read().split('\ndef seg')
+t=[t[0]]+['def seg'+x for x in t[1:]]
+t=[blk.replace('seg{k}',f'seg{i}') for i,blk in enumerate(t)]
+open('work/panel_segs.lean.txt','w',encoding='utf-8').write('\n'.join(t))

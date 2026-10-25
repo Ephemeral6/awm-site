@@ -1,0 +1,82 @@
+"""Dijkstra planner for level 4 under the attempt-2 rule set.
+Rules: move = 1 unit (big step 4, small step 2; blocked if any target cell not floor);
+select click 1, completing click 2; diamond toggles size (shrink keeps top-left; grow: small at bottom-right of big);
+column shot (facing up only considered) opens barrier iff SHOT_OK(state); pad: small block overlapping pad cells,
+first time -> u -= REFUND. Budget: u must stay <= B after every action."""
+import heapq, json, sys
+B=int(sys.argv[3]) if len(sys.argv)>3 else 18; REFUND=int(sys.argv[1]) if len(sys.argv)>1 else 10
+MODE=sys.argv[2] if len(sys.argv)>2 else 'small'
+floor=set()
+for r in range(21,37):
+    for c in range(21,45): floor.add((r,c))
+for r in range(9,21):
+    for c in (31,32): floor.add((r,c))
+for r in range(29,33):
+    for c in range(48,57): floor.add((r,c))
+barrier={(r,c) for r in range(29,33) for c in range(45,48)}
+exitc={(r,c) for r in range(28,34) for c in range(57,62)}
+pad={(34,23),(34,24),(35,23),(35,24)}
+def cells(r,c,big):
+    s=4 if big else 2
+    return {(r+i,c+j) for i in range(s) for j in range(s)}
+def ok(r,c,big,op):
+    for p in cells(r,c,big):
+        if p in floor or p in exitc or (op and p in barrier): continue
+        return False
+    return True
+def shot_ok(r,c,big,f):
+    if MODE in ('smallbar','bigbar','smallanydir'):
+        pass
+    elif f!='U': return False
+    if MODE=='small': return (not big) and c==31 and r<=21
+    if MODE=='big31': return (c==31 and r<=21)
+    if MODE=='col31any': return c==31
+    if MODE=='any': return True
+    if MODE=='smallbar': return (not big) and f=='R' and 29<=r<=31 and c<=43
+    if MODE=='smallany': return not big
+    if MODE=='smallanydir': return not big
+    if MODE=='bigbar': return big and f=='R' and r==29 and c<=41
+    return False
+D={'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+start=(25,37,True,'D',False,False)
+dist={start:0}; prev={}
+pq=[(0,start)]
+best=None
+while pq:
+    u,s=heapq.heappop(pq)
+    if dist.get(s)!=u: continue
+    r,c,big,f,op,pu=s
+    if MODE=='touch' and (not big) and c==31 and r<=9: op=True; s=(r,c,big,f,op,pu)
+    if op and cells(r,c,big)&exitc: best=(u,s); break
+    nxt=[]
+    st=4 if big else 2
+    for d,(dr,dc) in D.items():
+        nr,nc=r+dr*st,c+dc*st
+        if ok(nr,nc,big,op): ns=(nr,nc,big,d,op,pu)
+        else: ns=(r,c,big,d,op,pu)
+        nxt.append((1,ns,'move'+d))
+    # diamond: 4 cells -> 3 clicks + completing(2) = 5
+    if big: ns=(r,c,False,f,op,pu)
+    else:
+        ns=None
+        for dr,dc in [(-2,-2),(0,-2),(-2,0),(0,0)]:
+            if ok(r+dr,c+dc,True,op): ns=(r+dr,c+dc,True,f,op,pu); break
+    if ns: nxt.append((5,ns,'diamond'))
+    if not op and shot_ok(r,c,big,f): nxt.append((4,(r,c,big,f,True,pu),'shot'))
+    nxt2=[]
+    for cost,ns,name in nxt:
+        if not ns[5]:
+            ov=len(cells(ns[0],ns[1],ns[2])&pad)
+            if 0<ov<4: ns=ns[:5]+(True,); cost-=REFUND
+        nxt2.append((cost,ns,name))
+    for cost,ns,name in nxt2:
+        nu=u+cost
+        if u+ (cost if cost>0 else 1) > B: continue   # the action itself must fit before refund
+        nu=max(nu,0)
+        if ns not in dist or nu<dist[ns]:
+            dist[ns]=nu; prev[ns]=(s,name); heapq.heappush(pq,(nu,ns))
+if best:
+    u,s=best; path=[]
+    while s in prev: s,n=prev[s]; path.append(n)
+    print('WIN cost',u,list(reversed(path)))
+else: print('no plan within budget')

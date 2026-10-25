@@ -1,0 +1,24 @@
+"""完成匹配钥匙色 6 时：盘面上 6 色框与 13 色格全部消失 ⇔ 块朝上(9 在上)且块的列范围盖住 6 色框下方竖井的全部列（竖井 = 框正下方那一行的 2 色格）。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION6 完成匹配且钥匙色 6；换关 NA；钥匙面板内的 6 不算"
+NOTE = ("v2: v1『列范围与 6 框相交』被 L4 打脸（块 cols33-36 朝上、只在 col33 与框 cols30-33 相交、"
+        "没盖住竖井 cols31-32，结果框不消失）。v1 当时因钥匙读法写死而对 L4 判 NA，没被闸抓到，是我读帧发现的。"
+        "现改为盖住竖井列。仍可能是『朝向射线经地板通达 6 框』，两者未分开。")
+EVIDENCE = ["47e65ae39a9fe1d2", "235e459221ec318a", "39fb35d00fe80a8b"]
+from _lib import piece, facing, matched_key, keys
+from geo import cells_of, bbox
+
+def assert_(prev, action, nxt, ctx=None):
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    if matched_key(prev, action) != 6: return "NA"
+    a = piece(prev)
+    panels = [(t, l) for _, _, (t, l) in keys(prev)]
+    inp = lambda r, c: any(t <= r <= t + 9 and l <= c <= l + 9 for t, l in panels)
+    six = [(r, c) for (r, c) in cells_of(prev, 6) if r < 46 and not inp(r, c)]
+    if a is None or not six: return "NA"
+    t, b, l, r = bbox(six)
+    shaft = [c for c in range(l, r + 1) if b + 1 < 64 and prev[b + 1][c] == 2]
+    if not shaft: return "NA"
+    pred = facing(prev, a) == 'U' and a[2] <= min(shaft) and a[3] >= max(shaft)
+    gone = not any(nxt[y][x] in (6, 13) for y in range(46) for x in range(62) if not inp(y, x))
+    return "TRUE" if pred == gone else "FALSE"

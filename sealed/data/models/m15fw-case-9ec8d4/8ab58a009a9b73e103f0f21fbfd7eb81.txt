@@ -1,0 +1,63 @@
+"""Selfaudit repair in Lean: (1) strict order (budget checked before the win; pinned by selfaudit att.2),
+(2) R12.4: a grow that leaves a 4x4 over the item may refill (selfaudit att.2, t307)."""
+def rep(s, old, new, path):
+    assert old in s, (path, old[:90])
+    return s.replace(old, new)
+
+# ---------------- FinalModel.lean
+p = 'lean/FinalModel.lean'; s = open(p, encoding='utf-8').read()
+s = rep(s, """        else if doS && (!doW || u.pick st) then
+          ({ q := u.res st, m := empty9, sp := st.sp + 2 }, wins (u.res st))""",
+"""        else if doS && (!doW || u.pick st) then
+          -- selfaudit repair R12.4: a GROW that leaves a 4x4 over the item may refill (observed)
+          if st.q.it && st.q.s == 2 && (u.res st).s == 4 && overl itemC (u.res st).r (u.res st).c 4 &&
+              u.refill { q := u.res st, m := empty9, sp := st.sp + 2 } then
+            ({ q := { u.res st with it := false }, m := empty9,
+               sp := u.refundTo { q := u.res st, m := empty9, sp := st.sp + 2 } }, wins (u.res st))
+          else
+            ({ q := u.res st, m := empty9, sp := st.sp + 2 }, wins (u.res st))""", p)
+s = rep(s, """/-- `true` iff the action list wins. A winning action (a move, or a completed recipe that leaves
+    the cursor on the goal) counts even if it overdraws: the order of the win and budget checks
+    was never observed, so the permissive order is used. Otherwise
+    the run dies as soon as spent exceeds the budget `B`. -/
+def run (u : U) (B : Nat) : St → List Act → Bool
+  | _, [] => false
+  | st, a :: as =>
+      let r := step u st a
+      if r.2 then true else if B < r.1.sp then false else run u B r.1 as""",
+"""/-- `true` iff the action list wins. The run dies as soon as spent exceeds the budget `B`, and
+    this is checked BEFORE the win (selfaudit attempt 2: the move onto the goal at spent 19 with
+    B = 18 gave GAME_OVER, not a win). The refill is applied before the check (attempt 6). -/
+def run (u : U) (B : Nat) : St → List Act → Bool
+  | _, [] => false
+  | st, a :: as =>
+      let r := step u st a
+      if B < r.1.sp then false else if r.2 then true else run u B r.1 as""", p)
+s = rep(s, """def factMove (q : Q) (d : Dir) : Bool :=
+  let q2 := moveQ q d
+  Dom q2 && q2.it == q.it &&
+  (if wins q2 then Nat.ble (AN0 q) 1""", """def factMove (q : Q) (d : Dir) : Bool :=
+  let q2 := moveQ q d
+  Dom q2 && q2.it == q.it &&
+  (if wins q2 then Nat.ble (AN0 q) 1 && !eligible q2""", p)
+s = rep(s, """def factGrow (q : Q) : Bool :=
+  (growOpts q).all fun q2 => Dom q2 && q2.it == q.it &&
+    (if wins q2 then Nat.ble (BS q) 0
+     else Nat.ble (BS q) (1 + Nz q2) && (!q.it || Nat.ble (BMS q) (1 + Mz q2)))""",
+"""def factGrow (q : Q) : Bool :=
+  (growOpts q).all fun q2 => Dom q2 && q2.it == q.it &&
+    (if wins q2 then Nat.ble (BS q) 0 && !overl itemC q2.r q2.c q2.s
+     else Nat.ble (BS q) (1 + Nz q2) && (!q.it || Nat.ble (BMS q) (1 + Mz q2)) &&
+       -- grow refill (R12.4): the refilled position is in the domain and M drops to N there
+       (!(q.it && q.s == 2 && q2.s == 4 && overl itemC q2.r q2.c 4) ||
+         (Dom { q2 with it := false } && Nat.ble (BMS q) (1 + Nz { q2 with it := false }))))""", p)
+open(p, 'w', encoding='utf-8').write(s)
+
+# ---------------- FinalProof.lean
+p = 'lean/FinalProof.lean'; s = open(p, encoding='utf-8').read()
+s = rep(s, """def Inv (B : Nat) (st : St) : Prop :=
+  Dom st.q = true ∧ B + 2 ≤ NN st + st.sp ∧ (st.q.it = true → B + 12 ≤ MM st + st.sp)""",
+"""def Inv (B : Nat) (st : St) : Prop :=
+  Dom st.q = true ∧ B + 1 ≤ NN st + st.sp ∧ (st.q.it = true → B + 11 ≤ MM st + st.sp)""", p)
+open(p, 'w', encoding='utf-8').write(s)
+print('patched')

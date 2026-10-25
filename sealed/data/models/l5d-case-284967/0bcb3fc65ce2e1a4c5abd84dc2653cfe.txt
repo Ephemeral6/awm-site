@@ -1,0 +1,49 @@
+import json
+rows=json.load(open('../work/l5_rows.json'))
+big=sum(m<<(64*r) for r,m in enumerate(rows))
+p='L5Model.lean'
+s=open(p,encoding='utf-8').read()
+new='''/-- attempt 3: same map as `floorMask`, packed into one Nat (bit 64*r + c) so the kernel reads a cell with
+    one GMP shift; `floorBits_same` checks the two encodings agree on every cell. -/
+def floorBits : Nat := BIGNUM
+
+def staticFloorOld (r c : Int) : Bool :=
+  if r < 0 || c < 0 || r > 41 || c > 63 then false
+  else Nat.testBit (floorMask.getD r.toNat 0) c.toNat
+
+def staticFloor (r c : Int) : Bool :=
+  if r < 0 || c < 0 || r > 41 || c > 63 then false
+  else (floorBits >>> (64 * r.toNat + c.toNat)) % 2 == 1
+
+theorem floorBits_same :
+    ((List.range 44).all fun r => (List.range 66).all fun c =>
+      staticFloor r c == staticFloorOld r c) = true := by decide +kernel
+'''.replace('BIGNUM',str(big))
+old='''def staticFloor (r c : Int) : Bool :=
+  if r < 0 || c < 0 || r > 41 || c > 63 then false
+  else Nat.testBit (floorMask.getD r.toNat 0) c.toNat
+'''
+assert old in s
+s=s.replace(old,new)
+a='''  | mv (d : Nat) | shrink | cast6 | tele
+deriving Repr, DecidableEq'''
+assert a in s
+s=s.replace(a,'''  | mv (d : Nat) | shrink | cast6 | tele | grow
+deriving Repr, DecidableEq''')
+a="  | .mv _ => 1 | .shrink => 4 | .cast6 => 3 | .tele => 3"
+assert a in s
+s=s.replace(a,"  | .mv _ => 1 | .shrink => 4 | .cast6 => 3 | .tele => 4 | .grow => 5\n  -- attempt 3: tele 3 -> 4 (16 cells in attempts 2 and 3); grow 5 (20 cells, attempt 3)")
+a="  | .tele => if st.s = 2 then { st with r := 37, c := 15 } else { st with r := 17, c := 33 }"
+assert a in s
+s=s.replace(a,a+'''
+  | .grow =>
+    if st.s ≠ 2 then st else
+    let fits : Int × Int → Bool := fun (dr, dc) => blockAll (floorAt st) (st.r + dr) (st.c + dc) 4
+    match [((0 : Int), (0 : Int)), (0, -2), (-2, 0), (-2, -2)].find? fits with
+    | some (dr, dc) => { st with s := 4, r := st.r + dr, c := st.c + dc }
+    | none => st''')
+s=s.replace("theorem route_cost : (route.map cost).foldl (· + ·) 0 = 44","theorem route_cost : (route.map cost).foldl (· + ·) 0 = 45")
+s=s.replace("theorem route2_cost : (route2.map cost).foldl (· + ·) 0 = 42","theorem route2_cost : (route2.map cost).foldl (· + ·) 0 = 43")
+s=s.replace("* R-tele    (atomic, 3 clicks)","* R-grow    (attempt 3, atomic, cost 5) s=2 => s=4 at the first of offsets (0,0),(0,-2),(-2,0),(-2,-2)\n            whose 4x4 is all floor (one observation: (15,47) -> (15,45)); else no change.\n* R-tele    (atomic, cost 4 since attempt 3)")
+s=s.replace("Not in the model: grow / f-cast while small,","Not in the model:")
+open(p,'w',encoding='utf-8').write(s)

@@ -1,0 +1,59 @@
+"""Fit budget parameters to every recorded bar reading (all attempts = attempt 1 only so far)."""
+import json, math
+from fractions import Fraction as F
+L=[json.loads(l) for l in open('transitions.jsonl')]
+# classify each transition within level: kind in {'free','ord','cast'}; reading = rows of 0 in col 62
+def kind(i,r):
+    p,n=r['prev'],r['nxt']
+    if r['ctx']['level_prev']!=r['ctx']['level_next']: return 'entry'
+    a=r['action']
+    if a.startswith('ACTION6'):
+        # free if nothing in grid changed
+        x,y=map(int,a.split(':')[1].split(','))
+        incell=any(49+5*i<=y<52+5*i and 24+5*j<=x<27+5*j for i in range(3) for j in range(3))
+        if not incell: return 'free'
+        # cast: selection count before click >= pattern-1 and after all 14 cleared
+        sel_after=sum(1 for y in range(47,64) for x in range(22,39) if n[y][x]==14)
+        sel_before=sum(1 for y in range(47,64) for x in range(22,39) if p[y][x]==14)
+        if sel_after==0 and sel_before>=9*2: return 'cast'
+        return 'ord'
+    return 'ord'
+levels={}
+for i,r in enumerate(L):
+    k=kind(i,r); lv=r['ctx']['level_next']
+    u=sum(1 for y in range(64) if r['nxt'][y][62]==0)
+    levels.setdefault(lv,[]).append((i,k,u,r['ctx']['state_next']))
+for lv,v in levels.items():
+    print(lv,' '.join('%d%s%d'%(i,k[0],u) for i,k,u,_ in v))
+rnd={'floor':math.floor,'round':lambda x: math.floor(x+F(1,2)),'ceil':math.ceil}
+sols=[]
+ks=[F(j,4) for j in range(4,41)]   # cast total cost 1..10 in quarter units
+for g in (1,2):
+  for rn,f in rnd.items():
+    for k in ks:
+      for c0 in (0,1):   # whether the level-entry step already counts 1 unit (no: entry reading always 0)
+        perlev={}
+        ok=True
+        for lv,v in levels.items():
+          good=[]
+          for B4 in range(4*8,4*80+1):
+            B=F(B4,4); u=F(0); fine=True
+            for i,kd,obs,st in v:
+              if kd=='entry': u=F(0); 
+              elif kd=='free': pass
+              elif kd=='ord': u+= (c0 if i==0 else 1)
+              else: u+=k
+              if kd!='entry' and i!=0 and not (lv==1 and i==0):
+                pass
+              cells=F(64,g)
+              disp=g*min(int(cells), f(u*cells/B))
+              if st=='GAME_OVER':
+                if not (u>B): fine=False;break
+                continue
+              if disp!=obs or u>B: fine=False;break
+            if fine: good.append(B)
+          if not good: ok=False;break
+          perlev[lv]=(min(good),max(good),len(good))
+        if ok: sols.append((g,rn,k,c0,perlev))
+print(len(sols))
+for s in sols: print(s)

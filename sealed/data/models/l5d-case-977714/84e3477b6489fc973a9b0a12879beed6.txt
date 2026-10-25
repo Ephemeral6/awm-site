@@ -1,0 +1,244 @@
+/-!
+# Level 5: recipe-level model and an impossibility certificate
+
+This amends the level-4 system in `L4Win.lean`. It keeps the same rules: R-move (step = side
+length, clamp to the largest free shift), R-win, R-plus (shrink keeps top-left), R-col, and the
+unit cost per action. The amendments, learned in attempt 2:
+* two colour-6 boxes, each paired with its own barrier (colour-12 interior ↔ colour-12 barrier,
+  colour-13 ↔ colour-13);
+* R-col made concrete (revised in attempt 3): `near` = aligned (zero gap on one axis) and gap ≤ T.
+  This fits all 9 observed firings exactly when 9 ≤ T ≤ 11; facing is ignored;
+* R-grow (attempt 3): plus while 2x2 grows back to 4x4 at (r, c-2), observed once;
+* R-move clamp (attempt 3): steps shorten by 2 at a time;
+* the timer-refill tile (colour 14): refunds 10 units once, when the player's top-left lands on (37,49)
+  (revised in attempt 7);
+* R-tele: the teleport recipe (colour 11) lands a 2x2 at (18,34) and a 4x4 at (17,33).
+
+**Self-audit amendment (attempts 9-12).** R-col's "aligned and gap <= T" is REFUTED: attempt 11, transition
+b2622be3, a 2x2 at (25,21) facing up cleared the c box at gap 12, where the old rule (T <= 11) predicted
+nothing. It is replaced by R-col' (`beam`). From the player's two anchor lanes (columns c, c+1 when facing
+up/down; rows r, r+1 when facing left/right), scan outward in the facing direction. Every lane cell must be
+floor until a box cell is reached; that box and its barrier are removed. No range limit (a 20-cell beam
+worked in attempt 12). The state now carries `face` (set by every move, kept by recipes and teleport).
+The grow fallbacks `growA`/`growB` and the duplicate `telef` are removed: the grow order (r-2,c-2) then
+(r,c-2) was confirmed in attempts 6-8, and the 2x2 landing (37,15) in attempts 4, 5 and 12.
+The old version of the rule is kept in work/L5Model_attempt7.lean.bak.
+
+**Modelling assumptions** (stated, not established):
+* M1 recipe macros. `plus`/`col`/`tele` cost 5/4/4 = |pattern| clicks + 1 for the completion.
+  Exact-set completion resets the panel, so no cheaper click sequence completes a recipe.
+* M2 the budget is checked only at the win (intermediate overruns are allowed). This is looser
+  than the game.
+* M3 no other actions or mechanics. The colour-15 tile alone does nothing (tested). Superset panel matches do
+  nothing (tested, att9). Barrier-facing firings do nothing (tested, att9). Stricter direction for anything untried.
+* M6 a win on the step that overruns the budget does not count. UNTESTABLE on L5 (needs a route <= 36);
+  loosening it gives a least budget of 36, still > 35.
+* M4 teleport landings: 4x4 → (17,33), 2x2 → (37,15), observed from several starting spots.
+* M5 grow: (r-2,c-2), else (r,c-2), else nothing (all three observed).
+* Not in the model: recipe-card clicks (free, they only redraw the panel hint) and map clicks (free no-ops).
+Floor rectangles were checked by `work/l5_table.py`: they match the first L5 frame cell for cell
+(0 mismatches).
+-/
+
+namespace L5
+
+set_option maxRecDepth 100000
+
+inductive Dir where
+  | up | down | left | right
+  deriving DecidableEq, Repr
+
+inductive Act where
+  | mv (d : Dir)
+  | plus
+  | col
+  | tele
+  deriving DecidableEq, Repr
+
+structure St where
+  r : Nat
+  c : Nat
+  sz : Nat
+  face : Dir   -- self-audit: the beam reads the facing direction
+  bc : Bool    -- colour-12 box + barrier present
+  bd : Bool    -- colour-13 box + barrier present
+  tile : Bool  -- refill tile present
+  deriving DecidableEq, Repr
+
+def inR (r c r0 r1 c0 c1 : Nat) : Bool := r0 ≤ r && r ≤ r1 && c0 ≤ c && c ≤ c1
+
+def floor (bc bd : Bool) (r c : Nat) : Bool :=
+  inR r c 25 40 13 28 || inR r c 13 24 21 22 || inR r c 33 36 32 36 || inR r c 25 40 37 52 ||
+  inR r c 21 24 45 46 || inR r c 15 16 41 54 || inR r c 17 20 41 48 || inR r c 5 10 33 36 ||
+  inR r c 14 20 33 36 || inR r c 1 4 33 36 ||
+  (!bc && (inR r c 9 12 20 23 || inR r c 33 36 29 31)) ||
+  (!bd && (inR r c 14 17 55 58 || inR r c 11 13 33 36))
+
+def free (bc bd : Bool) (r c s : Nat) : Bool :=
+  (List.range s).all fun i => (List.range s).all fun j => floor bc bd (r+i) (c+j)
+
+def hits (r c s r0 r1 c0 c1 : Nat) : Bool :=
+  (List.range s).any fun i => (List.range s).any fun j => inR (r+i) (c+j) r0 r1 c0 c1
+
+def shift (d : Dir) (r c k : Nat) : Nat × Nat :=
+  match d with
+  | .up => (r - k, c) | .down => (r + k, c) | .left => (r, c - k) | .right => (r, c + k)
+
+/-- attempt 3: the clamp shortens the step by 2 at a time (observed: 4x4 moved 2, not 3). -/
+def reach (bc bd : Bool) (d : Dir) (r c s : Nat) : Nat → Nat
+  | 0 => 0
+  | 1 => 0
+  | k+2 => let p := shift d r c (k+2); if free bc bd p.1 p.2 s then k+2 else reach bc bd d r c s k
+
+def hitCell (y x r0 r1 c0 c1 : Nat) : Bool := inR y x r0 r1 c0 c1
+
+/-- vertical beam upward from row y (inclusive) on lanes x, x+1 -/
+def scanU (bc bd : Bool) (x r0 r1 c0 c1 : Nat) : Nat → Bool
+  | 0 => hitCell 0 x r0 r1 c0 c1 || hitCell 0 (x+1) r0 r1 c0 c1
+  | y+1 =>
+    if hitCell (y+1) x r0 r1 c0 c1 || hitCell (y+1) (x+1) r0 r1 c0 c1 then true
+    else if floor bc bd (y+1) x && floor bc bd (y+1) (x+1) then scanU bc bd x r0 r1 c0 c1 y
+    else false
+
+/-- vertical beam downward from row y, with fuel -/
+def scanD (bc bd : Bool) (x r0 r1 c0 c1 : Nat) : Nat → Nat → Bool
+  | _, 0 => false
+  | y, n+1 =>
+    if 64 ≤ y then false
+    else if hitCell y x r0 r1 c0 c1 || hitCell y (x+1) r0 r1 c0 c1 then true
+    else if floor bc bd y x && floor bc bd y (x+1) then scanD bc bd x r0 r1 c0 c1 (y+1) n
+    else false
+
+/-- horizontal beam leftward from column x (inclusive) on lanes y, y+1 -/
+def scanL (bc bd : Bool) (y r0 r1 c0 c1 : Nat) : Nat → Bool
+  | 0 => hitCell y 0 r0 r1 c0 c1 || hitCell (y+1) 0 r0 r1 c0 c1
+  | x+1 =>
+    if hitCell y (x+1) r0 r1 c0 c1 || hitCell (y+1) (x+1) r0 r1 c0 c1 then true
+    else if floor bc bd y (x+1) && floor bc bd (y+1) (x+1) then scanL bc bd y r0 r1 c0 c1 x
+    else false
+
+/-- horizontal beam rightward from column x, with fuel -/
+def scanR (bc bd : Bool) (y r0 r1 c0 c1 : Nat) : Nat → Nat → Bool
+  | _, 0 => false
+  | x, n+1 =>
+    if 64 ≤ x then false
+    else if hitCell y x r0 r1 c0 c1 || hitCell (y+1) x r0 r1 c0 c1 then true
+    else if floor bc bd y x && floor bc bd (y+1) x then scanR bc bd y r0 r1 c0 c1 (x+1) n
+    else false
+
+/-- R-col' (self-audit): does the beam from the player's anchor lanes, in its facing direction, reach the box? -/
+def beam (s : St) (r0 r1 c0 c1 : Nat) : Bool :=
+  match s.face with
+  | .up => if s.r = 0 then false else scanU s.bc s.bd s.c r0 r1 c0 c1 (s.r - 1)
+  | .down => scanD s.bc s.bd s.c r0 r1 c0 c1 (s.r + s.sz) 64
+  | .left => if s.c = 0 then false else scanL s.bc s.bd s.r r0 r1 c0 c1 (s.c - 1)
+  | .right => scanR s.bc s.bd s.r r0 r1 c0 c1 (s.c + s.sz) 64
+
+/-- one step: next state, unit cost (Int: the refill makes it negative), and whether it wins. -/
+def step (s : St) : Act → St × Int × Bool
+  | .mv d =>
+    let k := reach s.bc s.bd d s.r s.c s.sz s.sz
+    let p := shift d s.r s.c k
+    -- attempt 7: the refill fires only when the player's top-left lands on the tile (37,49)
+    let onTile := s.tile && p.1 == 37 && p.2 == 49
+    ({ s with r := p.1, c := p.2, face := d, tile := s.tile && !onTile },
+     (if onTile then -9 else 1), hits p.1 p.2 s.sz 1 4 33 36)
+  | .plus =>
+    -- shrink keeps top-left; grow puts the 4x4 at (r-2,c-2) if free, else (r,c-2), else nothing
+    (if s.sz == 4 then { s with sz := 2 }
+     else if 2 ≤ s.r && 2 ≤ s.c && free s.bc s.bd (s.r - 2) (s.c - 2) 4 then
+       { s with r := s.r - 2, c := s.c - 2, sz := 4 }
+     else if 2 ≤ s.c && free s.bc s.bd s.r (s.c - 2) 4 then { s with c := s.c - 2, sz := 4 }
+     else s, 5, false)
+  -- R-col' (self-audit): both beams are evaluated on the state before the completion
+  | .col => ({ s with bc := s.bc && !beam s 9 12 20 23, bd := s.bd && !beam s 14 17 55 58 }, 4, false)
+  -- 2x2 → colour-15 tile (37,15); 4x4 → b marker (17,33)
+  | .tele => ((if s.sz == 2 then { s with r := 37, c := 15 } else { s with r := 17, c := 33 }), 4, false)
+
+/-- cumulative cost at the first winning step of `as` from `s` (none = never wins). -/
+def firstWin (s : St) : List Act → Option Int
+  | [] => none
+  | a :: as =>
+    let x := step s a
+    if x.2.2 then some x.2.1 else (firstWin x.1 as).map (x.2.1 + ·)
+
+def s0 : St := ⟨29, 17, 4, .down, true, true, true⟩
+
+def acts : List Act := [.mv .up, .mv .down, .mv .left, .mv .right, .plus, .col, .tele]
+
+/-- binary search tree of (state, lower bound h). -/
+inductive Tree where
+  | leaf
+  | node (l : Tree) (s : St) (h : Int) (r : Tree)
+
+def faceIdx : Dir → Nat
+  | .up => 0 | .down => 1 | .left => 2 | .right => 3
+
+def key (s : St) : Nat :=
+  (((((s.r * 64 + s.c) * 8 + s.sz) * 4 + faceIdx s.face) * 2 + (if s.bc then 1 else 0)) * 2
+    + (if s.bd then 1 else 0)) * 2 + (if s.tile then 1 else 0)
+
+def Tree.find : Tree → St → Option Int
+  | .leaf, _ => none
+  | .node l s h r, q =>
+    if q = s then some h else if key q < key s then l.find q else r.find q
+
+def Tree.all (p : St → Int → Bool) : Tree → Bool
+  | .leaf => true
+  | .node l s h r => p s h && l.all p && r.all p
+
+/-- the per-state certificate check: every action's successor is in the table, and h is a lower bound. -/
+def ok (t : Tree) (s : St) (h : Int) : Bool :=
+  acts.all fun a =>
+    let x := step s a
+    if x.2.2 then decide (h ≤ x.2.1)
+    else match t.find x.1 with
+      | some h' => decide (h ≤ x.2.1 + h')
+      | none => false
+
+theorem find_all {p : St → Int → Bool} :
+    ∀ (t : Tree) (s : St) (h : Int), t.find s = some h → t.all p = true → p s h = true
+  | .leaf, _, _, hf, _ => by simp [Tree.find] at hf
+  | .node l s' h' r, s, h, hf, ha => by
+    simp only [Tree.all, Bool.and_eq_true] at ha
+    simp only [Tree.find] at hf
+    by_cases e : s = s'
+    · subst e; simp at hf; subst hf; exact ha.1.1
+    · simp only [e, ite_false] at hf
+      by_cases lt : key s < key s'
+      · simp only [lt, ite_true] at hf; exact find_all l s h hf ha.1.2
+      · simp only [lt, ite_false] at hf; exact find_all r s h hf ha.2
+
+theorem acts_complete (a : Act) : a ∈ acts := by
+  cases a with
+  | mv d => cases d <;> simp [acts]
+  | plus => simp [acts]
+  | col => simp [acts]
+  | tele => simp [acts]
+
+/-- soundness of a checked certificate: from any table state, every winning run costs ≥ h. -/
+theorem lower_bound (t : Tree) (hall : t.all (ok t) = true) :
+    ∀ (as : List Act) (s : St) (h C : Int), t.find s = some h → firstWin s as = some C → h ≤ C
+  | [], _, _, _, _, hw => by simp [firstWin] at hw
+  | a :: as, s, h, C, hf, hw => by
+    have hok := find_all t s h hf hall
+    simp only [ok, List.all_eq_true] at hok
+    have ha := hok a (acts_complete a)
+    simp only [firstWin] at hw
+    by_cases w : (step s a).2.2 = true
+    · simp only [w, ite_true, Option.some.injEq] at hw ha
+      subst hw; exact of_decide_eq_true ha
+    · simp only [w, Bool.false_eq_true, ite_false] at hw ha
+      revert ha
+      cases hf' : t.find (step s a).1 with
+      | none => simp
+      | some h' =>
+        intro ha
+        have ha' := of_decide_eq_true ha
+        cases hw' : firstWin (step s a).1 as with
+        | none => simp [hw'] at hw
+        | some C' =>
+          simp only [hw', Option.map_some, Option.some.injEq] at hw
+          have := lower_bound t hall as _ h' C' hf' hw'
+          omega
+

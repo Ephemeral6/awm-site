@@ -1,0 +1,20 @@
+"""The cursor never occupies a cell whose colour in the previous frame was 13 (d barrier): moves into a d block are refused."""
+LEVEL = "L2"
+SCOPE = "ACTION1-4, same level, cursor located in both frames"
+NOTE = ""
+EVIDENCE = ["a644c7a41103a3af"]
+from _lib import cursor, same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in ("ACTION1", "ACTION2", "ACTION3", "ACTION4") or not same_level(ctx):
+        return "NA"
+    a, b = cursor(prev), cursor(nxt)
+    if not a or not b:
+        return "NA"
+    t, l, s, _ = b
+    for y in range(t, t + s):
+        for x in range(l, l + s):
+            if prev[y][x] == 13:
+                return "FALSE"
+    return "TRUE"

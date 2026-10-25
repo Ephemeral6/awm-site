@@ -1,0 +1,36 @@
+"""ACTION1-4 当目标 4x4 里有 5 或 13(d) 色格（墙/闸）时，可动块不平移，只把朝向改成该方向。"""
+LEVEL = "L2"
+SCOPE = "块位移超过 4（跨 reset / 传送的转移）NA；只看 ACTION1-4、4x4 块；换关 NA；定位不到 NA；目标窗含 9/10（目标框）NA；目标窗越界 NA；目标窗不含 5/13 NA"
+NOTE = "L1 第 2 格边界上的半步（左移只走 2）说明「部分可走」时会挪到贴墙；这里只管整窗第一行/列就撞墙的情形 —— 实际用：目标窗里与当前块相邻的那条（最近一条）含墙。"
+EVIDENCE = ["e280c93ff65b1365", "9205e9c66e42cf63", "54113d11d9bc13ae", "39cbb3e418c69d99"]
+
+from _lib import piece, DIRS
+
+FACE = {"ACTION1": "U", "ACTION2": "D", "ACTION3": "L", "ACTION4": "R"}
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS:
+        return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"):
+        return "NA"
+    p = piece(prev)
+    if p is None:
+        return "NA"
+    t, l, _ = p
+    # 与块紧贴的那一条（1 格宽）
+    if action == "ACTION1": strip = [(t - 1, x) for x in range(l, l + 4)]
+    elif action == "ACTION2": strip = [(t + 4, x) for x in range(l, l + 4)]
+    elif action == "ACTION3": strip = [(y, l - 1) for y in range(t, t + 4)]
+    else: strip = [(y, l + 4) for y in range(t, t + 4)]
+    if any(not (0 <= y < 64 and 0 <= x < 64) for y, x in strip):
+        return "NA"
+    vals = {prev[y][x] for y, x in strip}
+    if vals & {9, 10}:
+        return "NA"
+    if not (vals & {5, 13}):
+        return "NA"
+    q = piece(nxt)
+    if q is not None and (abs(q[0] - t) > 4 or abs(q[1] - l) > 4):
+        return "NA"   # 39cbb3e4: prev 是上一局 GAME_OVER 帧，nxt 是新一局 —— 不是一次移动
+    return "TRUE" if q == (t, l, FACE[action]) else "FALSE"

@@ -1,0 +1,106 @@
+# Run report (game m15fw)
+
+Result: levels 1-3 beaten, GAME_OVER on level 4 (bar ran out). 3 / ? levels completed (levels_total not shown in play.py output).
+
+## Rule table (concepts/, final settle: 67 deduplicated transitions)
+| concept | claim | scope | N | S | C | evidence / revision history |
+|---|---|---|---|---|---|---|
+| move_step4 (v5) | ACTION1-4 move the cursor along the axis by the largest k <= the cursor's side length, where every shifted footprint stays on passable colours {2,9,10,11,14} | ACTION1-4, cursor locatable, no level change; first action after reset NA (swallowed once) | 33 | 1.000 | 0.569 | v1 "always 4" broken by 2e399d75 (clamped to 2 at the edge); v2 broken by fb6f6860 and two others (2x2 cursor moves 2); v3 broken by 97fdc924 (colour 13 barrier blocks); v4 broken by 129267c6 (11 is passable) and ce55c06d (14 is passable) |
+| front_leads | after a move, the colour-9 half of the 4x4 cursor sits on the leading side, 10 trails | 4x4 cursor only | 33 | 1.000 | 0.508 | no revisions |
+| panel_click | clicking a centre-panel cell of colour 0 turns it into 14; other cells unchanged | ACTION6 on a 0 cell; NA when the panel resets | 6 | 1.000 | 0.091 | no revisions; low coverage (L4 panel cells start as 2, outside scope) |
+| goal_win | a move whose footprint overlaps the goal frame (a 9/10 block of more than 16 cells) completes the level; no overlap means no level change | ACTION1-4 | 45 | 1.000 | 0.682 | L1/L2/L3 wins plus every non-winning move |
+
+Observed but not written as concepts (all are single-level observations):
+- Completing the panel pattern (the cells shown on the recipe panel) resets the panel to 2 and fires an effect tied to the recipe colour:
+  15 (edge diamond) shrinks the cursor 4x4 -> 2x2 (L1); 11 teleports the cursor into the 11-bracket frame (L2);
+  6 (centre column) removes the 6-framed switch and the 13 barrier (L3, 2nd try, cursor facing up directly under the stalk).
+  On L4 the same 6 pattern was completed twice (once facing left, once facing up under the stalk) with **no** effect. Cause still unknown.
+- Bar (colour 14, cols 62-63): loses rows with every action, at a per-level rate (about 1/action on L1, 2 on L2/L3, 4 on L4). It refills on a level change.
+  GAME_OVER came on the action after the bar reached 0.
+- The 14-coloured 2x2 item on L4 did **not** refill the bar. It just sits under the cursor and reappears when the cursor leaves.
+
+## Audit of dropped mechanisms
+| mechanism left out of the model | effect of leaving it out | verdict |
+|---|---|---|
+| bar / action budget | model allows more transitions than reality (no death) | looser model, OK to drop, recorded |
+| panel-completion effects (shrink / teleport / switch) | model allows fewer transitions (cannot predict a teleport or a barrier opening) | **must not drop**: needed for planning; only described in prose above |
+| L4 switch failure condition | unknown precondition | open |
+| actions not covered: ACTION5/7, ACTION6 outside the panel, clicking a 14 cell again (toggle back?), clicking the recipe panels | the action set may be incomplete | listed as not tried |
+
+## Reconciliation (bet first, then act)
+I wrote a bet before every act batch: 27 batches. Concept-level per-transition checks after the final revision are the N/S above.
+Bets that missed (not deleted):
+1. 2nd ACTION3 at col 37 to the left edge: bet "blocked", actual moved 2 -> move_step4 v2.
+2. 2x2 cursor up the stalk: bet 4 per step, actual 2 -> v3.
+3. L3 first 6-pattern: bet a cursor reshape, actual no visible effect.
+4. Moving into the 13 barrier: bet pass (k=4), actual blocked -> v4.
+5. L4 6-pattern (twice): bet the switch opens, actual nothing (unexplained).
+6. L4 14 item: bet refill, actual no refill.
+7. Bar exhaustion: bet GAME_OVER on the step that reached 0; actual one step later.
+Hits: L1 goal entry (bet "not won", actually won), L2 teleport (bet "some effect"), L2/L3 win moves, the L3 switch opening, and every plain move after v4.
+
+## Step 2 (Lean)
+Not done during the run, per METHOD ("only at wrap-up / after the run").
+
+## Attempt 2 (level 4 restarted by the service; no /reset called)
+The level-4 restart had already applied my first ACTION2 (cursor at (29,37)). Bar readings matched the fit (B=18, cost 1, completing click 2) at every step.
+1. Bump hypothesis: A4 to col 41, A4 into the barrier (k=0), then the 6-pattern. **Nothing opened.** Refuted.
+2. Shrink with the cursor facing right at (29,41): the 2x2 lands at (29,41). Top-left anchor confirmed (2nd observation).
+3. 2x2 A4 to col 43, then A4 into the barrier: k=0. **Colour 13 also blocks the 2x2.**
+4. 6-pattern with the 2x2 at (29,43): **nothing opened.** "A small cursor suffices" is refuted.
+Stopped with spent = 18 = budget (the next action would be GAME_OVER). Level 4 not beaten.
+Switch-trigger observations now: fired once (L3: 4x4 at c=29, facing up, under the stalk, whose left column is 29).
+Failed five times (L3 c=37 facing down; L4 c=29 facing left; L4 c=29 facing up under the stalk, whose left column is 31; L4 big c=41 after a bump; L4 2x2 c=43).
+All of these fit Hyp (the cursor's left column must equal the stalk's left column). Under Hyp, L4 needs >= 20 units > 18 (lean/M15fwL4.lean).
+Final: one more ACTION1 at spent=18 -> GAME_OVER (spent 19 > 18), confirming the budget rule a second time.
+
+## Attempt 3 (level 4)
+1. 4x4 at (21,33), facing up, adjacent to the stalk; switch pattern: **no fire** (Hyp predicted no fire).
+2. A3 to (21,29), shrink (top-left anchor again, now at (21,29)), A4 to the 2x2 at (21,31), A1 to (19,31) inside the stalk facing up; switch pattern: **FIRED** (switch and barrier gone). Hyp's positive prediction is confirmed.
+Bar readings matched B=18, cost 1 per action, 2 per completing click throughout. Spent 18 at the firing, so no units remain to reach the goal (13 moves needed).
+Final ACTION2 at spent 18 -> GAME_OVER. Attempt 3 ended on L4; 3 levels completed.
+
+## Attempt 4 (level 4): three new rules
+- **Refill:** a 2x2 overlapping the 14-coloured item (2x2 at (33,23)) consumed it and the bar went to 62 rows (R = 17 after that move, i.e. the budget was reset to 18 before the move was charged). In attempt 1 a 4x4 covering it did not refill.
+- **The switch fires from the corridor rows:** 2x2 at (29,31), facing up, fired. The column rule is confirmed in the room too.
+- **Grow:** completing the shrink recipe on a 2x2 at (29,31) gave a 4x4 at (27,29), i.e. the 2x2 is the bottom-right quadrant. Facing was kept.
+
+## WINNING PLAN for L4 (36 units = 17 before the refill + 1 refill move + 17 after; only 1 unit of slack)
+Start: 4x4 at (25,37).
+Phase A: A2 (29,37), A2 (33,37), A3 (33,33) [3]; shrink clicks (30,50),(25,55),(35,55),(30,60) -> 2x2 (33,33) [5 → 8];
+         A3 -> (33,31) facing left [9]; switch clicks (30,50),(30,55),(30,60) [13] -- RISK: fires so far were all facing up;
+         A3 x3 -> (33,25) [16].
+Refill:  A3 -> (33,23) overlaps the item -> R = 17.
+Phase B: A4 x5 -> (33,33) [R 12]; A1 -> (31,33) [R 11]; shrink-recipe clicks = grow -> 4x4 (29,31) [R 6];
+         A4 x6 -> cols 35,39,43,47,51,55 -> overlaps goal (cols 57-61) on the 6th move [R 0]. WIN.
+Attempt 4 ended: GAME_OVER on L4 after spending the refilled budget on experiments.
+
+## Attempt 5 (level 4)
+- Harness fix: settle.py recorded the deduplicated transition count while the gate compares the raw count, so 2 duplicate transitions locked gate 2 permanently. settle now records the raw count; no gate was weakened.
+- Plan phase A ran exactly as predicted (2x2 at (33,33), spent 8). Then 2x2 at (33,31) **facing LEFT**: switch pattern -> **NO FIRE** (bar 18 rows = spent 13 as predicted).
+  HypCol (facing-independent) is refuted, and so is the attempt-4 plan.
+- A1 -> (31,31) **facing up**, switch pattern -> **FIRED**. Rule: column 31 AND facing up (towards the switch). All 4 firings so far were facing up; this is now a controlled pair (same column, same size, only facing varied).
+## Revised plan (needs two untested premises: (a) a refill move made at spent = 18 is processed before the overdraw check, (b) refill = reset, not refund-10)
+A2 A2 A3 [3] -> 4x4 (33,33); shrink [8] -> 2x2 (33,33); A2 (35,33) [9]; A3 (35,31) [10]; A1 (33,31) facing up [11]; switch [15];
+A3 x3 -> (33,25) [18]; A3 -> (33,23) item refill [spent 1]; A4 x5 -> (33,33) [6]; A1 -> (31,33) [7]; grow [12] -> 4x4 (29,31); A4 x6 -> win [18].
+Attempt 5 ended: GAME_OVER on L4 (final A3 at spent 18).
+
+## Attempt 6 (level 4)
+- plan2 ran exactly as predicted up to the refill: shrink, then the switch from (33,31) facing up FIRED, then 3 lefts (spent 18, bar 0, still NOT_FINISHED).
+- The refill move at spent 18 was **allowed** (premise (a) holds: the refill is applied before the overdraw check). But the bar read 32 rows => R = 9, so spent went 18+1-10 = 9.
+  **Refill = fixed refund of 10 units, NOT a reset** (attempt 4: 10+1-10 = 1; attempt 6: 18+1-10 = 9). plan2 was dead.
+- Clicking an already-marked panel cell UN-MARKS it (toggle), cost 1.
+- work/search_l4.py: exact Dijkstra over the model rules. With refund 10: no win from the level-4 start (and none from the post-refill state).
+  Sanity check: refund >= 14 gives a 28-action win (DDLLL,shrink,L(refill),D,R,grow,R,R,U,switch,R x6 = 31 units). Refund 12: none.
+- Spent the remainder on moves; GAME_OVER.
+
+## Attempt 7 (level 4)
+- Untested mechanisms checked: ACTION6 off the panel (switch, item, goal, barrier) does nothing and costs 0. Clicking a recipe box (5,5)/(5,15) only changes the 0-hint shown on the panel, cost 0. ACTION5/7 are rejected by the service.
+- Then played the cheapest route from the search (needs B=21): DDLLL, shrink, L (refill), D, R, grow, R, R, U, switch, R x6.
+  Every step behaved as modelled. New: a **4x4** at col 31 facing up fires the switch. GAME_OVER on the 4th final R (spent 19 > 18), exactly as predicted. The 4x4 ended at cols 47-50, 2 moves short of the goal.
+
+## Attempt 8 (level 4)
+- Further untested off-panel clicks: on the cursor (38,26) and on empty floor (25,33). Both are free no-ops.
+- Variant check (work/search_turn.py): even if blocked moves turned the cursor in place, there is no route at B = 18/19/20.
+- Replayed the cheapest route with the item collected from row 35 (2x2 at (35,23)): the refund is again exactly 10 (R = 16 after spent 12).
+  Every step matched the model. GAME_OVER on the 4th final right-move, as predicted.

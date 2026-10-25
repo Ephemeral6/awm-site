@@ -1,0 +1,11 @@
+import json,sys
+sys.path.insert(0,'.')
+from geo import diff
+j=json.load(open('work/last_resp.json'));F=j['frames']
+prev=None
+for i,f in enumerate(F):
+    if prev is not None:
+        d=diff(prev,f)
+        from collections import Counter
+        print(i,len(d),Counter((u,v) for _,_,u,v in d).most_common(6), sorted(set((r,c) for r,c,_,_ in d))[:6])
+    prev=f

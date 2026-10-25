@@ -1,0 +1,46 @@
+# Run report (attempt 1)
+
+Result: reached **level 4 of ?** (levels_completed = 3), **GAME_OVER** on level 4: the timer bar ran out.
+
+## Rule table (concepts/, settled on 97 deduplicated transitions)
+
+| concept | claim | N | S | C | seen | abstains (NA) |
+|---|---|---|---|---|---|---|
+| arrow_dir | ACTION1-4 moves the player only along that direction, by 0..side length | 46 | 1.000 | 0.500 | 1 | ~46 (clicks, level changes, player not found) |
+| facing | after ACTION1-4 the 9-half points in the action direction (turns even when blocked) | 47 | 1.000 | 0.505 | 0 | ~46 |
+| timer_down | within a level the bar never grows; each step it drops by an even amount <= 6 | 91 | 1.000 | 0.968 | 0 | 3 (level changes) |
+| click_keeps_player | a single-cell panel toggle (+-9 cells of colour 14) leaves the map unchanged | 23 | 1.000 | 0.245 | 0 | most |
+| level_only_by_arrow | a level only advances after ACTION1-4 | 95 | 1.000 | 1.000 | 1 | 0 |
+
+facing v2: it said FALSE on tid 2b3e5ed8 (the first ACTION1 of the game, where the whole frame stayed the same: the input was swallowed). Fix: return NA when the whole frame is unchanged.
+
+## Observed but not written as concepts (step-1 notes; scope is per level unless stated)
+
+- The player is a square of 9/10 colour (4x4 at the start of each level, 2x2 after shrinking). Its step equals its side length; at a wall it clamps (L1: it moved 2 instead of 4).
+- Goal: a box with a ring of 9 around 10. The level is won once the player overlaps the box interior.
+- HUD: the right 3x3 panel (cells at x in {25,30,35}, y in {50,55,60}). Clicking a cell toggles it between 14 and its original colour. When the set of 14 cells equals a **recipe** (3x3 pattern; L1-3 bottom-left, L4 top-left), the panel resets (costs extra timer) and an effect fires:
+  - colour 15 (plus) -> player shrinks to 2x2 (L1, L4).
+  - colour 11 -> player teleports to the colour-11 bracket marker (L2).
+  - colour 6 (middle column) -> the colour-6 box and the colour-13 barrier disappear. **This only fired sometimes**: it worked in L3 with the player at (13,29), and in L4 with the 2x2 player right under the 6 box. It failed in L3 at (17,37) facing down, and in L4 at (21,29) or (21,37) facing up. Working hypothesis (unconfirmed): it needs proximity to the 6 box.
+  - Patterns that match no recipe do nothing (L3: plus marked, no reset).
+  - In L1-3 the 0-coloured cells of the panel at level start showed the recipe.
+- Timer: the bar in cols 62-63 is **64 rows**, 2 rows per tick. L1: about 2 ticks per 3 moves. L4: 1 tick on every action. A completion costs 2-4 ticks. Clicks that do nothing cost nothing. Empty bar -> next action GAME_OVER. **Cause of the loss: I counted the bar as 128 rows (I mixed up cells and rows), so I thought I had about 38 ticks when I had 6.**
+- An unexplained 2x2 colour-14 tile in L4 at rows 34-35, cols 23-24 (maybe a timer refill; not tested).
+
+## Dropped-mechanism audit
+
+| dropped | effect on the model |
+|---|---|
+| wall clamp (partial step) | arrow_dir allows 0..side, so the model is looser: OK to drop |
+| recipe effects / proximity condition | no concept; the model allows no effects at all, which is **stricter**: must not be dropped (recorded above) |
+| timer rate per level | timer_down only bounds it, so it is looser: OK |
+| level-start swallowed input | handled by NA |
+| actions not fully explored | ACTION5/7 never tried (README lists only 1-4, 6); clicks on most map cells only tried in L1/L3 |
+
+## Reconciliation
+Bets were written before every act batch (journal.jsonl). The written bets that were checked had these misses: L3 first colour-6 completion (expected the barrier to open; it did not), L4 facing-up-only and under-stem completions (expected an effect; none), and the timer bet before the end (expected 2 rows left; that matched). No apply() generators were written (E = 0), so there is no cell-level reconciliation.
+
+Lean (step 2) was not done in this run.
+
+## Harness fix (attempt 3)
+play.py gate_pending compared the settle count (unique tids) against raw transitions.jsonl lines. Replaying the same level-5 opening as attempt 2 produced identical tids, so the gate could never open. Fix: gate_pending now counts unique tids, the same as settle.py. Nothing else changed.

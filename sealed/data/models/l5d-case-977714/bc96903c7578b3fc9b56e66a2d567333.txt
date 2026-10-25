@@ -1,0 +1,20 @@
+"""ACTION6 若只让右面板 e(14) 格数改变 9（单格切换、未完成图案），玩家位置与样子都不变。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION6；换关 NA；右面板区(行47-63,列22-38)的 14 色格数变化不是 ±9 时 NA"
+NOTE = ""
+EVIDENCE = ["a52a80990de71fb0", "fef7e78e920f2481", "68ac50e9e3375c1b"]
+
+from _lib import same_level
+
+
+def _e(g):
+    return sum(1 for r in range(47, 64) for c in range(22, 39) if g[r][c] == 14)
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not str(action).startswith("ACTION6") or not same_level(ctx):
+        return "NA"
+    if abs(_e(nxt) - _e(prev)) != 9:
+        return "NA"
+    same = all(prev[r][c] == nxt[r][c] for r in range(46) for c in range(62))
+    return "TRUE" if same else "FALSE"

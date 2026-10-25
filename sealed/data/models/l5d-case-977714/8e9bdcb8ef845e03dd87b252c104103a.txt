@@ -1,0 +1,79 @@
+"""Generate the Lean certificate table for the corrected (beam) level-5 model from work/selfaudit/sim.py."""
+import sys, json
+sys.path.insert(0, 'work/selfaudit')
+import sim
+P = dict(sim.DEFAULT, beam=True, B=10**6)
+ACTS = ['U', 'D', 'L', 'R', 'PLUS', 'COL', 'TELE']
+def mstep(st, a):
+    if a in sim.DIRS:
+        s2 = sim.step(P, st, a)
+    else:
+        s2 = st
+        for i in sim.MACROS[a]:
+            s2 = sim.step(P, s2, ('click', i))
+    return s2
+def norm(s): return (s[0], s[1], s[2], s[3], s[5], s[6], s[7])
+def full(n, u=0): return (n[0], n[1], n[2], n[3], sim.BLANK, n[4], n[5], n[6], u, False, False)
+s0 = norm(sim.S0)
+seen = {s0}; todo = [s0]; edges = []
+while todo:
+    n = todo.pop()
+    for a in ACTS:
+        s2 = mstep(full(n), a)
+        cost = s2[8]
+        w = s2[10]
+        m = norm(s2)
+        edges.append((n, a, m, cost, w))
+        if not w and m not in seen:
+            seen.add(m); todo.append(m)
+INF = 10**6
+h = {s: INF for s in seen}
+for _ in range(len(seen) + 1):
+    ch = False
+    for n, a, m, c, w in edges:
+        v = c if w else c + h[m]
+        if v < h[n]: h[n] = v; ch = True
+    if not ch: break
+print('states', len(seen), 'h(s0)', h[s0], 'unwinnable', sum(1 for v in h.values() if v >= INF))
+# witness
+path = []; n = s0
+while True:
+    for a in ACTS:
+        s2 = mstep(full(n), a); m = norm(s2); c = s2[8]
+        if s2[10] and c == h[n]: path.append(a); n = None; break
+        if not s2[10] and h[m] < INF and c + h[m] == h[n]: path.append(a); n = m; break
+    if n is None: break
+print('witness', len(path), path)
+FI = {'U': 0, 'D': 1, 'L': 2, 'R': 3}
+FN = {'U': '.up', 'D': '.down', 'L': '.left', 'R': '.right'}
+def key(n): return ((((((n[0]*64+n[1])*8+n[2])*4+FI[n[3]])*2+int(n[4]))*2+int(n[5]))*2+int(n[6]))
+def st(n):
+    b = lambda x: 'true' if x else 'false'
+    return '⟨%d, %d, %d, %s, %s, %s, %s⟩' % (n[0], n[1], n[2], FN[n[3]], b(n[4]), b(n[5]), b(n[6]))
+items = sorted((key(n), n, (h[n] if h[n] < INF else 1000)) for n in seen)
+def tree(lo, hi):
+    if lo >= hi: return '.leaf'
+    mid = (lo + hi) // 2
+    k, n, v = items[mid]
+    return '(.node %s %s (%d) %s)' % (tree(lo, mid), st(n), v, tree(mid + 1, hi))
+sys.setrecursionlimit(10000)
+nm = {'U': '.mv .up', 'D': '.mv .down', 'L': '.mv .left', 'R': '.mv .right', 'PLUS': '.plus', 'COL': '.col', 'TELE': '.tele'}
+
+DEPTH = 4
+chunks = []
+def tree2(lo, hi, d):
+    if lo >= hi: return '.leaf'
+    if d == DEPTH:
+        chunks.append(tree(lo, hi)); return 'tabC%d' % (len(chunks) - 1)
+    mid = (lo + hi) // 2
+    k, n, v = items[mid]
+    return '(.node %s %s (%d) %s)' % (tree2(lo, mid, d + 1), st(n), v, tree2(mid + 1, hi, d + 1))
+top = tree2(0, len(items), 0)
+out = ''.join('def tabC%d : Tree := %s\n\n' % (j, c) for j, c in enumerate(chunks))
+out += '/-- certificate table (%d states; h = least total cost to win, 1000 = no win reachable). -/\n' % len(items)
+out += 'def tab : Tree := %s\n\n' % top
+out += '/-- a cheapest winning route (cost %d). -/\ndef witness : List Act := [%s]\n\n' % (h[s0], ', '.join(nm[a] for a in path))
+out += ''.join('theorem tabC%d_ok : tabC%d.all (ok tab) = true := by decide +kernel\n' % (j, j) for j in range(len(chunks)))
+open('work/l5b_tables.lean.txt', 'w', encoding='utf-8').write(out)
+json.dump({'nchunks': len(chunks), 'top': top}, open('work/l5b_chunks.json', 'w'))
+print('chunks', len(chunks))

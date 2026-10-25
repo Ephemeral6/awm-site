@@ -1,0 +1,30 @@
+"""ACTION1/2/3/4 move the 9/10 player block by its own side length up/down/left/right, or leave it in place (blocked); the shape count of 9/10 cells is conserved."""
+LEVEL = "L1"
+SCOPE = "ACTION1-4, same level, rows 0-44 cols<62; NA if no player cells or level change. Exit box cells (fixed) are counted in both frames identically so they cancel."
+NOTE = ""
+EVIDENCE = ["3f5956007e12ca17", "1c5847c7b9388ac8", "59f55f6d5632956c"]
+from _lib import player_cells
+
+D = {"ACTION1": (-1, 0), "ACTION2": (1, 0), "ACTION3": (0, -1), "ACTION4": (0, 1)}
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in D:
+        return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"):
+        return "NA"
+    a, b = set(player_cells(prev)), set(player_cells(nxt))
+    if not a:
+        return "NA"
+    if len(a) != len(b):
+        return "FALSE"
+    ga, gb = a - b, b - a
+    if not ga:
+        return "TRUE"  # stayed (blocked)
+    rs = [r for r, _ in ga]; cs = [c for _, c in ga]
+    side = max(max(rs) - min(rs), max(cs) - min(cs)) + 1
+    dr, dc = D[action]
+    moved = {(r + dr * side, c + dc * side) for r, c in ga}
+    # block cells moved: union of old block shifted equals new block
+    blk = {p for p in a if p in ga or True}
+    return "TRUE" if {(r + dr * side, c + dc * side) for r, c in a if (r, c) in ga or (r, c) in (a & b)} >= gb else "FALSE"

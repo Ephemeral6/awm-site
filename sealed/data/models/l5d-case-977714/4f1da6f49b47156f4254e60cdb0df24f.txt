@@ -1,0 +1,163 @@
+# Self-audit: which rules does your bound rest on, and does the game obey them there?
+
+This is part of how you are required to work, like `METHOD.md`. It applies whenever you report a bound of the
+form "this level cannot be won within budget B" or "the least budget at which the level can be won is L".
+
+A bound of that kind is only as good as the rules of your model that it depends on. Most of your rules never
+matter to the bound. A few do, and for those few it is not enough that every transition you recorded agrees with
+them: what matters is whether the game obeys them **in the situations where the bound uses them**. Those are
+often situations you never played, because your model told you they were not worth playing.
+
+The audit has three steps. Do them in order and write each one down before starting the next.
+
+---
+
+## Step 1 — Rule sensitivity (on paper, before any new game action)
+
+Work on your model with **every rule as your evidence supports it** (not the weakened version with free unknowns
+that a theorem may quantify over). Let `L` be its least winning budget, in your model's units, computed the same
+way you computed your bound.
+
+**1a. List every rule of the model.** Everything the model's step function decides counts as a rule, including
+things you may think of as "just the encoding". Go through at least these kinds, and for each say which rule(s)
+of your model belong to it:
+
+```
+preconditions      when an action is allowed / has an effect / is blocked
+effects            what an action changes (each changed quantity separately)
+charges            what each action costs, and every rule that changes the amount spent or remaining
+constants          every number the model uses that you fitted or read off (thresholds, amounts, positions)
+ordering           in what order one action's effects, charges and checks are applied
+termination        when the game ends without a win; when a win counts
+abstraction        anything your proof's representation drops or bundles (macro-actions, state you do not track,
+                   options you removed because they were never observed)
+```
+
+**1b. Only loosenings your records allow.** A loosening is a candidate **only if the loosened model still
+reproduces every transition you have recorded** (all levels, all attempts). A loosening that contradicts a
+recorded transition is not a possibility the game might have. It is already refuted, so do not spend search on it.
+
+For each rule, find the range of admissible loosenings, in the direction that could only make winning easier:
+
+```
+current rule      what your model says now
+widest admissible the loosest version of this rule that still reproduces every recorded transition
+                  (the rule weakened exactly up to what the records pin down, and no further)
+```
+
+The candidates for that rule are only the versions between these two.
+
+**A rule usually has more than one place where it can be loosened.** A rule that forbids, blocks or charges
+something excludes several distinct cases, and each case that your records do not pin is a separate loosening.
+List them one by one, as sub-rows of the rule (`R3.1`, `R3.2`, …). Go through at least these:
+- **each thing the rule tests.** A condition on several quantities can be loosened in each of them separately.
+- **each way the situation can come about.** The same state can be produced by different kinds of action. A rule
+  you learned from one kind of action is only an extrapolation for the others, so each kind is its own case.
+- **each recorded counterexample, read narrowly.** A recorded transition where the rule "held" pins the rule only in
+  that transition's exact situation. A loosening that allows the case everywhere except where a recorded transition
+  forbids it, i.e. one that tells the recorded counterexamples apart by some other quantity of their situation, is
+  still admissible. State which quantity, and check by replay.
+
+For each case, give two loosenings and state each exactly:
+
+```
+step loosening    the smallest admissible change for that case: the case allowed / given its effect; one unit off a
+                  charge; one unit on a constant in the direction that helps winning; the other order of two checks —
+                  each only if it still reproduces every recorded transition
+widest loosening  the widest admissible version for that case
+```
+
+Check admissibility by replaying your recorded transitions through the loosened model, not by judgement.
+If a case is already at its widest admissible version, because the records pin it, write "pinned by records" and
+quote one or two of the pinning transitions. Such a case needs no search and no probe. A rule is pinned only when
+**all** of its cases are.
+Constants read directly off the frames (positions of objects) are pinned by the frames.
+If a rule is already the loosest reading (a "permissive choice"), say so; it has no loosening.
+
+Loosen **only** that one case; keep everything else exactly as in the full-evidence model. Recompute the least
+winning budget: `L_step` and `L_wide`.
+
+**1c. Write the sensitivity table** to `work/selfaudit/pass1.md` before you send any request to the game in
+this round:
+
+```
+rule | kind | step loosening (exact) | L_step | widest admissible loosening (exact) | L_wide | what pins it / recorded evidence
+```
+
+with one row per case, `L = …` at the top, and a separate short list of cases that are pinned by records, each with
+its pinning transition. A case is **load-bearing** for your bound if `L_step < L` or `L_wide < L`, **by any amount**.
+Mark also the cases for which `L_step` or `L_wide` is `≤` the level's measured budget: those are the ones your
+impossibility verdict depends on. **Every load-bearing case must be probed, including those that leave the least
+budget above the measured budget.** A least budget that is too high by one unit is still a wrong bound.
+
+---
+
+## Step 2 — Probe the load-bearing cases where the bound uses them, as cheaply as possible
+
+Game actions and attempts are limited, so **do not probe one rule at a time in table order by default.** First think
+carefully about which rules are most likely wrong and which experiments test the most of them at once.
+
+**2a. Bite steps.** For each load-bearing case, take the cheapest winning route of the loosened model (step
+loosening; also the widest one if its route differs) and find the **bite step**: the first step at which the
+loosened model and your full-evidence model disagree. Write down the state just before it, the action, and what
+each model predicts. This is the situation the game must be put in.
+
+**2b. Rank by how likely each rule is to be wrong**, not only by how much it lowers `L`. For each load-bearing
+rule, write one line on how likely it is to be wrong, judged from your records:
+- How close do the recorded transitions come to its bite situation? If they cover only *other* values of what the
+  rule looks at, the rule is an extrapolation into the bite situation, and extrapolations are the likeliest to be
+  wrong.
+- Was the rule generalised from one or two observations?
+- Was it chosen for convenience, as an encoding or abstraction, rather than read off the game?
+Order the probes by likelihood of being wrong times how much it would lower `L`. Write that order and the reasons
+down before playing.
+
+**2c. Design experiments that test many rules at once.** One action can test several rules if its outcome differs
+under each of them. One route can visit several bite situations if their prefixes are shared. Before you play:
+- write an **experiment plan**: the action list, and for each transition in it which rule(s) it tests and what each
+  of them predicts;
+- prefer actions whose predicted outcomes differ across several of your candidate rules (one observation splits
+  many hypotheses), and routes that reach many bite situations within one attempt's budget;
+- order the plan so that the likeliest-wrong rules are tested first, in case the attempt ends early.
+
+The simplest probe for one rule is to play the loosened route's prefix up to the bite step and then do the bite
+action. If that prefix is too expensive, design a cheaper way to reach a situation that agrees with the bite state
+in everything the rule looks at, and say why the differences do not matter to the rule. A recorded transition counts
+as a probe only if it is that same situation in every respect the rule looks at; quote it if you use it.
+
+**2d. Record each outcome**, per rule:
+
+```
+CONFIRMED     the game did what your rule says, at the bite step
+REFUTED       the game did what the loosened rule says (or something else your rule forbids)
+UNTESTABLE    you cannot make the game face the situation at all; say why
+```
+
+If **REFUTED**, do not stop at the one observation. Design further experiments, again many-at-once where possible,
+that separate the situations in which the rule held (your records) from the one in which it failed, until you can
+state the corrected rule and why it also fits every earlier observation. Then repair the rule as `METHOD.md` §7
+requires: what observation refutes it, re-run on every recorded transition, keep the old version in a note.
+
+Write the plan, and each experiment's outcome, to `work/selfaudit/pass1.md` under the table: the rules it tested,
+what you sent (attempt, steps), what the game did (before/after values), and the outcome per rule.
+
+---
+
+## Step 3 — Repair, repeat, re-close
+
+- If any rule was REFUTED, recompute `L` for the corrected model and **repeat steps 1–2** as a new pass
+  (`work/selfaudit/pass2.md`, …). The new transitions now count as records too: they may pin rules that were open.
+  Rules confirmed in an earlier pass need a new probe only if their bite step has changed. Stop when a pass ends with
+  no REFUTED rule, or after the third pass (say which it was).
+- The corrected model must still reproduce **every transition you have recorded**, including those played during
+  this audit. Report how many you replayed and how many agree.
+- Re-close the proof as the method requires for this level, with the corrected rules.
+- Report the least budget of the corrected model. If some load-bearing cases are UNTESTABLE, also report the least
+  budget with all of them loosened (step loosening), so the reader sees how much of your bound rests on rules the
+  game could not be made to show.
+
+## What you may and may not use
+
+- The game, through the service, and your own records, files and code. Nothing else.
+- You may be told in general terms that your bound may not match the game. You will not be told which rule. The
+  point of this audit is that **you** find it.

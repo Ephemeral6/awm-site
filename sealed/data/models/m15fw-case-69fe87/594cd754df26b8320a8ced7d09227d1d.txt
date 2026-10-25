@@ -1,0 +1,23 @@
+import sys
+sys.argv=['x']
+exec(open('work/gen_lean.py').read().split("S=[(b,o,p")[0])
+from collections import deque
+def succ2(s,a):
+    if a=='combo':
+        big,op,pad,r,c=s
+        if big: t=(False,op,pad,r,c)
+        else: t=(True,op,pad,r-2,c-2) if (r>=2 and c>=2 and fits(True,op,r-2,c-2)) else s
+        if t[4]==31: t=(t[0],True,t[2],t[3],t[4])
+        return [post(t,6)]
+    return succs(s,a)
+start=(True,False,False,25,37)
+for B in (18,):
+    seen={(start,0)}; dq=deque([(start,0,[])]); W=None
+    while dq:
+        s,u,p=dq.popleft()
+        if goal(s): W=(u,p);break
+        for a in ['U','D','L','R','dia','shot','combo']:
+            for cst,t in succ2(s,a)[-1:]:
+                if u+cst>B: continue
+                if (t,u+cst) not in seen: seen.add((t,u+cst)); dq.append((t,u+cst,p+[a]))
+    print(B,W)

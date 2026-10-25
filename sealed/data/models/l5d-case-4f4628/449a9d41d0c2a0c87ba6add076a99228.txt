@@ -1,0 +1,208 @@
+/-
+  Level 5 model (attempt 1). Objects / rules: see work/MODEL.md.
+  Pixel coordinates (row y, col x) of the 64x64 frame; piece = s×s square, top-left (t,l).
+  Panel clicks are abstracted into atomic spell macros (SHRINK = 4 clicks, SIX = 3, TELE = 3);
+  energy is charged per primitive click, so the energy accounting is per real action.
+-/
+namespace L5
+
+inductive Dir | U | D | L | R
+  deriving DecidableEq, Repr
+
+inductive Act | mv (d : Dir) | shrink | six | tele
+  deriving DecidableEq, Repr
+
+structure Rect where
+  r0 : Nat
+  r1 : Nat
+  c0 : Nat
+  c1 : Nat
+
+def Rect.mem (q : Rect) (y x : Nat) : Bool :=
+  decide (q.r0 ≤ y) && decide (y ≤ q.r1) && decide (q.c0 ≤ x) && decide (x ≤ q.c1)
+
+def Rect.touches (q : Rect) (t l s : Nat) : Bool :=
+  decide (q.r0 ≤ t + s - 1) && decide (t ≤ q.r1) && decide (q.c0 ≤ l + s - 1) && decide (l ≤ q.c1)
+
+/-! ## Static objects of level 5 (read off the start frame; checked in work/l5model.py) -/
+def floorR : List Rect :=
+  [⟨25,40,13,28⟩, ⟨13,24,21,22⟩, ⟨33,36,32,36⟩, ⟨25,40,37,52⟩, ⟨21,24,45,46⟩,
+   ⟨17,20,41,48⟩, ⟨15,16,41,54⟩, ⟨5,10,33,36⟩, ⟨14,20,33,36⟩]
+def barC : Rect := ⟨33,36,29,31⟩     -- colour 12 barrier
+def barD : Rect := ⟨11,13,33,36⟩     -- colour 13 barrier
+def swC  : Rect := ⟨9,12,20,23⟩      -- 6-box with 12 interior
+def swD  : Rect := ⟨14,17,55,58⟩     -- 6-box with 13 interior
+def goal : Rect := ⟨1,4,33,36⟩       -- a-interior of the 9-framed box
+def pick : Rect := ⟨37,38,49,50⟩     -- 2x2 colour-14 energy pickup
+
+def inFloor (y x : Nat) : Bool := floorR.any (·.mem y x)
+
+def passable (co dO : Bool) (y x : Nat) : Bool :=
+  inFloor y x || goal.mem y x || (co && barC.mem y x) || (dO && barD.mem y x)
+
+/-! ## Parameters that were fitted, not established. Kept outside the rules on purpose:
+    every theorem states which values it assumes. -/
+structure Params where
+  tele4 : Nat × Nat    -- teleport landing (top-left) of a 4x4 piece
+  tele2 : Nat × Nat    -- teleport landing of a 2x2 piece (NOT observed)
+  freeMod : Nat        -- primitive action number n (1-based, per level) is free iff n % freeMod = 1
+  surcharge : Nat      -- extra energy on the completing click of a spell
+  refill : Nat         -- energy given by the pickup
+  energy0 : Nat        -- energy at level start
+
+structure St where
+  t : Nat
+  l : Nat
+  s : Nat
+  f : Dir
+  co : Bool      -- barrier C open
+  dO : Bool      -- barrier D open
+  pk : Bool      -- pickup taken
+  e : Nat        -- energy units (bar = 2 rows per unit)
+  n : Nat        -- primitive actions taken in this level
+  won : Bool
+  over : Bool
+
+def start (p : Params) : St :=
+  ⟨29, 17, 4, .U, false, false, false, p.energy0, 0, false, false⟩
+
+/-! ## Rule E (energy): game over when an action is attempted with energy 0. -/
+def tickCost (p : Params) (n : Nat) : Nat := if n % p.freeMod = 1 then 0 else 1
+
+/-- pay for `k` primitive actions; the last one carries `sc`. `none` = game over. -/
+def pay (p : Params) : Nat → Nat → Nat → Nat → Option (Nat × Nat)
+  | 0, _, e, n => some (e, n)
+  | k+1, sc, e, n =>
+    if e = 0 then none
+    else pay p k sc (e - (tickCost p (n+1) + (if k = 0 then sc else 0))) (n+1)
+
+/-! ## Rule M (move, with clamp) and Rule B (blocked => turn only) -/
+def shift : Dir → Nat → Nat → Nat → Option (Nat × Nat)
+  | .U, t, l, k => if k ≤ t then some (t-k, l) else none
+  | .D, t, l, k => some (t+k, l)
+  | .L, t, l, k => if k ≤ l then some (t, l-k) else none
+  | .R, t, l, k => some (t, l+k)
+
+def windowOk (co dO : Bool) (t l s : Nat) : Bool :=
+  (List.range s).all fun i => (List.range s).all fun j => passable co dO (t+i) (l+j)
+
+def tryMove (d : Dir) (st : St) : Option (Nat × Nat) :=
+  ((List.range st.s).reverse.map (· + 1)).findSome? fun k =>
+    match shift d st.t st.l k with
+    | some (t', l') => if windowOk st.co st.dO t' l' st.s then some (t', l') else none
+    | none => none
+
+/-! ## Rule S6 (switch beam) -/
+def adv : Dir → Nat × Nat → Nat × Nat
+  | .U, (y, x) => (y-1, x) | .D, (y, x) => (y+1, x)
+  | .L, (y, x) => (y, x-1) | .R, (y, x) => (y, x+1)
+
+def beamStart (st : St) : List (Nat × Nat) :=
+  match st.f with
+  | .U => [(st.t-1, st.l), (st.t-1, st.l+1)]
+  | .D => [(st.t+st.s, st.l+st.s-2), (st.t+st.s, st.l+st.s-1)]
+  | .R => [(st.t, st.l+st.s), (st.t+1, st.l+st.s)]
+  | .L => [(st.t+st.s-2, st.l-1), (st.t+st.s-1, st.l-1)]
+
+/-- `some true` = hits switch C, `some false` = hits switch D. -/
+def beam : Nat → Dir → List (Nat × Nat) → Option Bool
+  | 0, _, _ => none
+  | fuel+1, d, cs =>
+    if cs.all (fun c => swC.mem c.1 c.2) then some true
+    else if cs.all (fun c => swD.mem c.1 c.2) then some false
+    else if cs.all (fun c => inFloor c.1 c.2) then beam fuel d (cs.map (adv d))
+    else none
+
+/-! ## One macro step -/
+def step (p : Params) (st : St) (a : Act) : St :=
+  if st.won || st.over then st else
+  match a with
+  | .mv d =>
+    match pay p 1 0 st.e st.n with
+    | none => { st with over := true }
+    | some (e, n) =>
+      match tryMove d st with
+      | none => { st with f := d, e := e, n := n }
+      | some (t, l) =>
+        let got := !st.pk && pick.touches t l st.s
+        { st with t := t, l := l, f := d, n := n,
+                  e := if got then e + p.refill else e,
+                  pk := st.pk || got,
+                  won := goal.touches t l st.s }
+  | .shrink =>
+    match pay p 4 p.surcharge st.e st.n with
+    | none => { st with over := true }
+    | some (e, n) =>
+      if st.s = 4 && st.f = .U then { st with s := 2, e := e, n := n }
+      else { st with e := e, n := n }
+  | .six =>
+    match pay p 3 p.surcharge st.e st.n with
+    | none => { st with over := true }
+    | some (e, n) =>
+      match beam 64 st.f (beamStart st) with
+      | some true => { st with co := true, e := e, n := n }
+      | some false => { st with dO := true, e := e, n := n }
+      | none => { st with e := e, n := n }
+  | .tele =>
+    match pay p 3 p.surcharge st.e st.n with
+    | none => { st with over := true }
+    | some (e, n) =>
+      let q := if st.s = 4 then p.tele4 else p.tele2
+      { st with t := q.1, l := q.2, e := e, n := n }
+
+def run (p : Params) (st : St) : List Act → St
+  | [] => st
+  | a :: as => run p (step p st a) as
+
+/-! ## The route found by search over this model (work/l5model.py) -/
+open Act Dir in
+def plan : List Act :=
+  [mv R, mv U, six, mv R, mv D, mv D, mv R, mv R, mv R, mv R, mv R, mv R, mv D,
+   mv U, mv U, mv L, mv U, shrink, mv U, mv U, mv U, mv U, mv U, mv R, six, tele,
+   mv U, mv U, mv U, mv U, mv U, mv U, mv U]
+
+def fitted : Params := ⟨(17,33), (18,34), 10, 1, 9, 32⟩
+
+end L5
+
+namespace L5
+
+/-- MAIN: under the fitted parameters (explicit hypotheses), some action sequence wins level 5
+    in this model. Witness: `plan` (42 primitive actions). -/
+theorem winnable_fitted (p : Params)
+    (h1 : p.tele4 = (17,33)) (h2 : p.tele2 = (18,34)) (h3 : p.freeMod = 10)
+    (h4 : p.surcharge = 1) (h5 : p.refill = 9) (h6 : p.energy0 = 32) :
+    ∃ as : List Act, (run p (start p) as).won = true := by
+  obtain ⟨a, b, c, d, e, f⟩ := p
+  simp only at h1 h2 h3 h4 h5 h6
+  subst h1 h2 h3 h4 h5 h6
+  exact ⟨plan, by decide⟩
+
+/-- the plan ends with energy exactly 0 after 42 primitive actions: zero slack. -/
+theorem plan_slack_zero :
+    (run fitted (start fitted) plan).e = 0 ∧ (run fitted (start fitted) plan).n = 42 := by
+  decide
+
+/-- non-vacuity 1: one unit less starting energy and the same plan dies. -/
+theorem plan_fails_31 :
+    (run {fitted with energy0 := 31} (start {fitted with energy0 := 31}) plan).won = false := by
+  decide
+
+/-- non-vacuity 2: without the free-tick rule (only action 1 free) the same plan dies. -/
+theorem plan_fails_nofree :
+    (run {fitted with freeMod := 1000} (start {fitted with freeMod := 1000}) plan).won = false := by
+  decide
+
+/-- non-vacuity 3: the barriers bind: with unlimited energy, dropping the switch casts loses. -/
+theorem plan_needs_six :
+    (run {fitted with energy0 := 1000} (start {fitted with energy0 := 1000})
+      (plan.filter (· != Act.six))).won = false := by
+  decide
+
+end L5
+
+#print axioms L5.winnable_fitted
+#print axioms L5.plan_slack_zero
+#print axioms L5.plan_fails_31
+#print axioms L5.plan_fails_nofree
+#print axioms L5.plan_needs_six

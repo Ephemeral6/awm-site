@@ -1,0 +1,16 @@
+"""Variant check: blocked moves (k=0) still turn the cursor to face d. Refund 10, B=18."""
+import sys; sys.path.insert(0, 'work')
+import search_l4 as S
+S.REFUND = 10
+orig = S.move
+def move2(st, d):
+    st2, hit, won = orig(st, d)
+    if st2 == st:   # blocked: turn in place
+        r, c, s, f, op, it, mk = st
+        st2 = (r, c, s, d, op, it, mk)
+    return st2, hit, won
+S.move = move2
+for B in (18, 19, 20):
+    S.B = B
+    r = S.search((25, 37, 4, 'D', False, True, frozenset()), 0)
+    print('turn-in-place, B', B, '->', None if r is None else (r[0], ''.join(map(str, r[1]))), flush=True)

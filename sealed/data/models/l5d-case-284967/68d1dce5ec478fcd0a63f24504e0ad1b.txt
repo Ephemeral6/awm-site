@@ -1,0 +1,45 @@
+"""本局词汇：两条以上概念共用的判据写在这里。
+
+**它们是假设，不是事实。** 改 `_lib` 不算改版，但依赖它的概念要一起重审 ——
+两条概念都从同一个词取值再互相核对，S=1 不等于这个词被检验过。
+要检验一个词，得有一条概念拿它和帧上**另一种**读法对。
+"""
+
+from geo import cells_of, components, bbox
+
+BAR_COLS = (62, 63)
+PANEL_CELLS = {(r, c): (25 + 5 * c, 50 + 5 * r) for r in range(3) for c in range(3)}  # (row,col) -> click (x,y)
+
+
+def cursor(g):
+    """the player: a square 4-connected blob of colours 9/10 (side 2 or 4), half 9 half 10.
+    Returns (top, left, side, facing) or None if not exactly one such blob."""
+    cells = [(r, c) for r, c in cells_of(g, (9, 10)) if c < 62]
+    found = []
+    for comp in components(cells):
+        n = len(comp)
+        if n not in (4, 16):
+            continue
+        t, b, l, r = bbox(comp)
+        s = b - t + 1
+        if s * s != n or r - l + 1 != s:
+            continue
+        h = s // 2
+        nine = {(y, x) for y, x in comp if g[y][x] == 9}
+        if len(nine) != n // 2:
+            continue
+        if all(y < t + h for y, x in nine): f = "U"
+        elif all(y >= t + h for y, x in nine): f = "D"
+        elif all(x < l + h for y, x in nine): f = "L"
+        elif all(x >= l + h for y, x in nine): f = "R"
+        else: continue
+        found.append((t, l, s, f))
+    return found[0] if len(found) == 1 else None
+
+
+def bar(g):
+    return sum(1 for row in g for c in BAR_COLS if row[c] == 14)
+
+
+def same_level(ctx):
+    return bool(ctx) and ctx.get("level_prev") == ctx.get("level_next")

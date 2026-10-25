@@ -1,0 +1,34 @@
+"""本局词汇：两条以上概念共用的判据写在这里。
+
+**它们是假设，不是事实。**
+- 地图区 = 行 < 46、列 < 62；HUD（面板）在行 >= 46；计时条在列 62-63。
+- 玩家 = 地图区里 {9,10} 的四连通块，且 9 格数 == 10 格数（目标框是 20 圈 9 + 16 格 10，不等）。
+"""
+from geo import components
+
+PLAYER_COLORS = (9, 10)
+DIRS = {"ACTION1": (-1, 0), "ACTION2": (1, 0), "ACTION3": (0, -1), "ACTION4": (0, 1)}
+
+
+def same_level(ctx):
+    return bool(ctx) and ctx.get("level_prev") is not None and ctx.get("level_prev") == ctx.get("level_next")
+
+
+def player(g):
+    """返回 {'cells9','cells10','top','left','size'} 或 None（找不到/不唯一）。"""
+    cells = [(r, c) for r in range(46) for c in range(62) if g[r][c] in PLAYER_COLORS]
+    cands = []
+    for comp in components(cells):
+        c9 = [p for p in comp if g[p[0]][p[1]] == 9]
+        c10 = [p for p in comp if g[p[0]][p[1]] == 10]
+        if c9 and len(c9) == len(c10):
+            rs = [p[0] for p in comp]; cs = [p[1] for p in comp]
+            h = max(rs) - min(rs) + 1; w = max(cs) - min(cs) + 1
+            if h == w and h * w == len(comp):
+                cands.append({"cells9": c9, "cells10": c10, "top": min(rs), "left": min(cs), "size": h})
+    return cands[0] if len(cands) == 1 else None
+
+
+def timer(g):
+    """计时条剩余行数：列 62 上颜色 14 的格数。"""
+    return sum(1 for r in range(len(g)) if g[r][62] == 14)

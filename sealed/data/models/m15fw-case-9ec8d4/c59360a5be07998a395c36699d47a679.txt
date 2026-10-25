@@ -1,0 +1,49 @@
+"""Reachability check for the refill trigger table: for each (action kind, contact kind, size),
+search the full-evidence model's reachable states (item present, spent <= 18) for a state from
+which that action produces that contact. Reports the number of states searched."""
+import sys, heapq
+sys.path[:0] = ['.', 'concepts', 'work/selfaudit']
+import engine as E
+m = E.M(refill_on_click=False, uncapped=False)
+item = E.item
+def contact(s, r, c):
+    cells = [(r+i, c+j) for i in range(s) for j in range(s)]
+    k = sum(1 for (y, x) in cells if item(y, x))
+    if k == 4: return 'full'
+    if k > 0: return 'partial'
+    if m.touch(item, r, c, s): return 'touch'
+    return None
+# enumerate reachable (q, marks) with item present, ignoring budget beyond 18 (BFS over states)
+start = ((4, 25, 37, 1, False, True), frozenset(), 0)
+seen = {start[:2]: 0}; frontier = [start]; found = {}
+SHR, SW = E.SHR, E.SW
+while frontier:
+    nf = []
+    for q, mk, sp in frontier:
+        acts = []
+        for d in range(4): acts.append(('move', m.move(q, d), mk, sp + 1))
+        for k in (1, 3, 4, 5, 7):
+            m2 = mk ^ {k}
+            if m2 == SHR:
+                for q2 in m.shrink_res(q): acts.append(('shrink' if q[0] == 4 else 'grow', q2, frozenset(), sp + 2))
+            elif m2 == SW:
+                for q2 in m.switch_res(q): acts.append(('switch', q2, frozenset(), sp + 2))
+            else: acts.append(('click', q, frozenset(m2), sp + 1))
+        for kind, q2, m2, sp2 in acts:
+            if sp2 > 18: continue
+            ct = contact(q2[0], q2[1], q2[2]) if q2[5] else None
+            if ct and kind in ('move', 'shrink', 'grow'):
+                key = (kind, ct, q2[0])
+                if key not in found: found[key] = (q, kind, q2, sp2)
+            if m.refill_ok(q2, kind == 'move'): q2 = q2[:5] + (False,)
+            if not q2[5]: continue          # only states with the item still present matter here
+            key2 = (q2, m2)
+            if seen.get(key2, 99) <= sp2: continue
+            seen[key2] = sp2; nf.append((q2, m2, sp2))
+    frontier = nf
+print('states searched (item present, spent<=18):', len(seen))
+for kind in ('move', 'shrink', 'grow'):
+    for ct in ('touch', 'partial', 'full'):
+        for s in (2, 4):
+            k = (kind, ct, s)
+            print(k, '->', 'REACHABLE e.g. %s --%s--> %s at spent %d' % found[k] if k in found else 'not reachable')

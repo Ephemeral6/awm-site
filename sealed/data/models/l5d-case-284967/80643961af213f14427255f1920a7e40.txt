@@ -1,0 +1,20 @@
+"""Within a level, the budget bar (colour-14 cells in cols 62-63) never increases, except on a step where the cursor ends on cells that were colour 14 (an e-pad) in the previous frame."""
+LEVEL = "L4"
+SCOPE = "same level only; increase is tolerated only if nxt cursor overlaps prev colour-14 cells off the bar"
+NOTE = ("v2: v1 ('never increases') was hit by 711d08fd973fc10e: L5, ACTION2 moved the 2x2 cursor onto the "
+        "ee pad at rows37-38 cols49-50 and the bar went 12 -> 44 cells. Widened (case 2 of METHOD 7), not retracted.")
+EVIDENCE = ["827b6b560fc0b5bb", "711d08fd973fc10e"]
+from _lib import bar, cursor, same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if not same_level(ctx):
+        return "NA"
+    if bar(nxt) <= bar(prev):
+        return "TRUE"
+    c = cursor(nxt)
+    if not c:
+        return "FALSE"
+    t, l, s, _ = c
+    on_pad = any(prev[y][x] == 14 for y in range(t, t + s) for x in range(l, l + s) if x < 62)
+    return "TRUE" if on_pad else "FALSE"

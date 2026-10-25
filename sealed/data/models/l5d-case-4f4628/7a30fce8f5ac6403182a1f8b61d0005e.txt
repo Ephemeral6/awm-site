@@ -1,0 +1,30 @@
+"""ACTION1/2/3/4 在可动块目标格全是 2 色时，把可动块平移 (-4,0)/(4,0)/(0,-4)/(0,4)，且 9 那一半朝向移动方向。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION1-4；换关 NA；找不到可动块 NA；目标 4x4 不全是 2 色 NA；整帧无差（未受理）NA"
+NOTE = "v1 用连通块定位可动块，L2 块贴着 9 边框时粘连判 FALSE（f1be93c0）—— 读法错不是规则错，_lib.piece 改成窗口匹配"
+EVIDENCE = ["66716913be23589d", "16cba58dd7696a08", "f1be93c04048173f", "f0981f496e94f18e", "9f22596c98456b4e"]
+
+from _lib import piece, DIRS
+
+FACE = {"ACTION1": "U", "ACTION2": "D", "ACTION3": "L", "ACTION4": "R"}
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS:
+        return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"):
+        return "NA"
+    p = piece(prev)
+    if p is None:
+        return "NA"
+    t, l, _ = p
+    dy, dx = DIRS[action]
+    ty, tx = t + dy, l + dx
+    if not (0 <= ty and ty + 4 <= 64 and 0 <= tx and tx + 4 <= 64):
+        return "NA"
+    if any(prev[y][x] != 2 for y in range(ty, ty + 4) for x in range(tx, tx + 4) if not (t <= y < t + 4 and l <= x < l + 4)):
+        return "NA"
+    if prev == nxt:
+        return "NA"
+    q = piece(nxt)
+    return "TRUE" if q == (ty, tx, FACE[action]) else "FALSE"

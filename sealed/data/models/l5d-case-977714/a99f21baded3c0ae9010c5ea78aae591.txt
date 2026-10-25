@@ -1,0 +1,303 @@
+"""Click-level level-5 model with switchable loosenings, a replay checker against every recorded L5
+transition, and a cheapest-win search. The rules are those of lean/L5Model.lean with every rule as the
+evidence supports it (full-evidence model); `P` holds the loosening switches.
+
+State: (r, c, sz, face, marks(9-tuple), bc, bd, tile, u, over, won)
+"""
+import json, heapq, sys
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parents[2]
+STATIC = [(25,40,13,28),(13,24,21,22),(33,36,32,36),(25,40,37,52),(21,24,45,46),
+          (15,16,41,54),(17,20,41,48),(5,10,33,36),(14,20,33,36),(1,4,33,36)]
+CB = [(9,12,20,23),(33,36,29,31)]; DB = [(14,17,55,58),(11,13,33,36)]
+CBOX, DBOX = (9,12,20,23), (14,17,55,58)
+GOAL = (1,4,33,36)
+PLUS = (0,1,0,1,0,1,0,1,0); COL = (0,1,0,0,1,0,0,1,0); TELE = (1,1,0,0,1,0,0,0,0)
+BLANK = (0,)*9
+DIRS = {'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+
+DEFAULT = dict(B=35, T=10, T_row=None, clamp_odd=False, refill='topleft', refill_amt=10,
+               win_at_over=False, grow_extra=False, completion_extra=1, unaligned=None,
+               effect_at_over=False, tele_cost=None, barrier_near=None, tele2_after_d=False, superset=False)
+
+def inr(r,c,R): return R[0]<=r<=R[1] and R[2]<=c<=R[3]
+def floor(bc,bd,r,c):
+    return any(inr(r,c,R) for R in STATIC) or (not bc and any(inr(r,c,R) for R in CB)) \
+        or (not bd and any(inr(r,c,R) for R in DB))
+def free(bc,bd,r,c,s):
+    return r >= 0 and c >= 0 and all(floor(bc,bd,r+i,c+j) for i in range(s) for j in range(s))
+def hits(r,c,s,R): return any(inr(r+i,c+j,R) for i in range(s) for j in range(s))
+def gaps(r,c,s,R):
+    vg = R[0]-(r+s) if R[0] >= r+s else (r-R[1]-1 if r > R[1] else 0)
+    hg = R[2]-(c+s) if R[2] >= c+s else (c-R[3]-1 if c > R[3] else 0)
+    return vg, hg
+
+def near(P, r,c,s, R):
+    vg, hg = gaps(r,c,s,R)
+    if hg == 0:                      # column-aligned
+        return vg <= P['T']
+    if vg == 0:                      # row-aligned
+        return hg <= (P['T_row'] if P['T_row'] is not None else P['T'])
+    return P['unaligned'] is not None and vg + hg <= P['unaligned']
+
+def bar_near(P, r, c, s, face, R):
+    """loosening: the recipe also reaches a pair through its BARRIER.
+    'facing': barrier aligned with the player, lying in the facing direction, gap <= T.
+    'any': barrier aligned in any direction, gap <= T."""
+    mode = P.get('barrier_near')
+    if mode is None: return False
+    vg, hg = gaps(r, c, s, R)
+    if vg != 0 and hg != 0: return False
+    if vg + hg > P['T']: return False
+    if mode == 'any': return True
+    if hg == 0 and vg > 0:
+        return face == ('U' if R[1] < r else 'D')
+    if vg == 0 and hg > 0:
+        return face == ('L' if R[3] < c else 'R')
+    return True  # overlapping / touching
+def _fire(P, st, p):
+    """apply recipe p's effect and surcharge (1 toggle + 1 completion) as the exact-match branch does."""
+    r,c,sz,face,marks,bc,bd,tile,u,over,won = st
+    q = list(p)
+    # re-use the exact-match code path: present marks equal to p minus one cell, then click that cell
+    k = next(k for k in range(9) if p[k])
+    q[k] = 0
+    return step(dict(P, superset=False), (r,c,sz,face,tuple(q),bc,bd,tile,u,over,won), ('click', k))
+def beam_hits(P, r, c, s, face, bc, bd, box):
+    """H-beam (attempt 11): from the player's two anchor lanes (top-left two columns when facing up/down,
+    top two rows when facing left/right), scan outward in the facing direction; every lane cell must be
+    floor until the box is reached.  P['beam'] = max range in cells (None = unlimited)."""
+    rng = P.get('beam_range')
+    dy, dx = DIRS[face]
+    if dy:   # vertical beam, lanes = columns c, c+1
+        lanes = [(None, c), (None, c+1)]
+        y = r - 1 if dy < 0 else r + s
+        d = 0
+        while 0 <= y < 64:
+            d += 1
+            if rng is not None and d > rng: return False
+            cells = [(y, c), (y, c+1)]
+            if any(inr(yy, xx, box) for yy, xx in cells): return True
+            if not all(floor(bc, bd, yy, xx) for yy, xx in cells): return False
+            y += dy
+        return False
+    if P.get('beam_hlanes_any') and s == 4:
+        return any(_hbeam(P, rr, c, s, dx, bc, bd, box) for rr in (r, r+1, r+2))
+    x = c - 1 if dx < 0 else c + s
+    d = 0
+    while 0 <= x < 64:
+        d += 1
+        if rng is not None and d > rng: return False
+        cells = [(r, x), (r+1, x)]
+        if any(inr(yy, xx, box) for yy, xx in cells): return True
+        if not all(floor(bc, bd, yy, xx) for yy, xx in cells): return False
+        x += dx
+    return False
+def _hbeam(P, r, c, s, dx, bc, bd, box):
+    x = c - 1 if dx < 0 else c + s
+    while 0 <= x < 64:
+        cells = [(r, x), (r+1, x)]
+        if any(inr(yy, xx, box) for yy, xx in cells): return True
+        if not all(floor(bc, bd, yy, xx) for yy, xx in cells): return False
+        x += dx
+    return False
+def refill_hit(P, r, c, s):
+    if P['refill'] == 'topleft':
+        return (r, c) == (37, 49)
+    if P['refill'] == 'topleft_in_tile':
+        return 37 <= r <= 38 and 49 <= c <= 50
+    if P['refill'] == 'not_topright':      # any overlap except the tile lying in the player's right half
+        if not hits(r, c, s, (37,38,49,50)): return False
+        return not (s == 4 and c + 2 <= 49 and 49 <= c + 3)
+    if P['refill'] == 'any':
+        return hits(r, c, s, (37,38,49,50))
+    raise ValueError(P['refill'])
+
+def charge(P, st, k):
+    r,c,sz,face,marks,bc,bd,tile,u,over,won = st
+    u2 = u + k
+    return (r,c,sz,face,marks,bc,bd,tile,u2, u2 > P['B'], won)
+
+def step(P, st, a):
+    """a = 'U'/'D'/'L'/'R' or ('click', i) for panel cell i, or 'noop' (card/map click: free)."""
+    r,c,sz,face,marks,bc,bd,tile,u,over,won = st
+    if over or won or a == 'noop':
+        return st
+    if a in DIRS:
+        dy, dx = DIRS[a]
+        ks = range(sz, 0, -1) if P['clamp_odd'] else range(sz, 0, -2)
+        k = 0
+        for kk in ks:
+            if free(bc,bd,r+dy*kk,c+dx*kk,sz): k = kk; break
+        nr, nc = r+dy*k, c+dx*k
+        st2 = (nr,nc,sz,a,marks,bc,bd,tile,u,over,won)
+        cost = 1
+        if tile and refill_hit(P, nr, nc, sz):
+            cost = 1 - P['refill_amt']
+            st2 = (nr,nc,sz,a,marks,bc,bd,False,u,over,won)
+        st2 = charge(P, st2, cost)
+        w = hits(nr,nc,sz,GOAL)
+        if w and (not st2[9] or P['win_at_over']):
+            st2 = st2[:9] + (False, True)
+        return st2
+    _, i = a
+    m = list(marks); m[i] = 1 - m[i]; m = tuple(m)
+    ce = P['completion_extra']
+    if P.get('superset'):
+        fired = [p for p in (PLUS, COL, TELE) if all(m[k] >= p[k] for k in range(9))]
+        if fired and not any(m == p for p in fired):
+            # loosening R10.1: marks containing a pattern fire it; each fired pattern clears only its cells
+            st2 = (r,c,sz,face,m,bc,bd,tile,u,over,won)
+            for p in fired:
+                rest = tuple(m[k] - p[k] for k in range(9))
+                st2 = st2[:4] + (p,) + st2[5:]
+                st2 = step(dict(P, superset=False), st2[:4] + (tuple(p[k] if k != i else 1 - p[k] for k in range(9)),) + st2[5:], ('click', i)) if False else _fire(P, st2, p)
+                st2 = st2[:4] + (rest,) + st2[5:]
+                m = rest
+            return st2
+    if m == PLUS:
+        if sz == 4:
+            ns = (r,c,2)
+            sa = P.get('shrink_anchor')     # loosening R7.2: shrink corner when facing left (never recorded)
+            if sa and face == 'L':
+                ns = {'tr': (r, c+2, 2), 'bl': (r+2, c, 2), 'br': (r+2, c+2, 2)}[sa]
+        else:
+            ns = (r,c,2)
+            for (rr,cc) in [(r-2,c-2),(r,c-2)] + ([(r-2,c),(r,c)] if P['grow_extra'] else []):
+                if free(bc,bd,rr,cc,4): ns = (rr,cc,4); break
+        st2 = (ns[0],ns[1],ns[2],face,BLANK,bc,bd,tile,u,over,won)
+        return charge(P, st2, 1 + ce)
+    if m == COL:
+        st2 = charge(P, (r,c,sz,face,BLANK,bc,bd,tile,u,over,won), 1 + ce)
+        if st2[9] and not P['effect_at_over']:
+            return st2
+        if P.get('beam'):
+            nbc = bc and not beam_hits(P, r,c,sz,face, bc,bd, CBOX)
+            nbd = bd and not beam_hits(P, r,c,sz,face, bc,bd, DBOX)
+        else:
+            nbc = bc and not (near(P, r,c,sz, CBOX) or bar_near(P, r,c,sz,face, CB[1]))
+            nbd = bd and not (near(P, r,c,sz, DBOX) or bar_near(P, r,c,sz,face, DB[1]))
+        return st2[:5] + (nbc, nbd) + st2[7:]
+    if m == TELE:
+        if sz == 2 and P.get('tele2_after_d') and not bd:
+            nr, nc = (18,34)          # loosening R9.1: with d cleared, a 2x2 lands in the b-marker's inner brackets
+        else:
+            nr, nc = (37,15) if sz == 2 else (17,33)
+        tc = P['tele_cost']
+        st2 = (nr,nc,sz,face,BLANK,bc,bd,tile,u,over,won)
+        return charge(P, st2, (1 + ce) if tc is None else tc)
+    return charge(P, (r,c,sz,face,m,bc,bd,tile,u,over,won), 1)
+
+S0 = (29,17,4,'D',BLANK,True,True,True,0,False,False)
+
+# ------------------------------------------------------------------ replay
+def tm(g): return sum(1 for y in range(64) if g[y][62] == 14)
+def observe(g):
+    cs = [(y,x) for y in range(5,46) for x in range(10,62) if g[y][x] in (9,10)
+          and not (y <= 4 and 32 <= x <= 37)]
+    if not cs: pos = None
+    else:
+        ys=[p[0] for p in cs]; xs=[p[1] for p in cs]
+        pos = (min(ys), min(xs), max(ys)-min(ys)+1)
+    marks = tuple(1 if g[y][x] == 14 else 0 for y in (50,55,60) for x in (25,30,35))
+    return dict(pos=pos, bc=(g[33][29] == 12), bd=(g[11][33] == 13), bar=tm(g), marks=marks)
+
+def act_of(s):
+    if s in ('ACTION1','ACTION2','ACTION3','ACTION4'):
+        return 'UDLR'['1234'.index(s[-1]) if False else 0] if False else {'ACTION1':'U','ACTION2':'D','ACTION3':'L','ACTION4':'R'}[s]
+    if s.startswith('ACTION6:'):
+        x, y = map(int, s.split(':')[1].split(','))
+        if 22 <= x <= 38 and 47 <= y <= 63:
+            col = 0 if x <= 27 else (1 if x <= 32 else 2)
+            row = 0 if y <= 52 else (1 if y <= 57 else 2)
+            return ('click', row*3 + col)
+        return 'noop'
+    raise ValueError(s)
+
+def load_attempts():
+    """Split every recorded level-5 transition into attempts.  An attempt starts after a level 4 -> 5 win
+    (that transition is not replayed) or at a restart after GAME_OVER (the first action's prev frame is the
+    old game-over frame; that transition is replayed from S0).  RESET transitions are excluded."""
+    L = [json.loads(l) for l in open(HERE / 'transitions.jsonl')]
+    atts = []; cur = None; prev_over = False
+    for r in L:
+        lp, ln = r['ctx'].get('level_prev'), r['ctx'].get('level_next')
+        if r['action'] == 'RESET':
+            # a reset that lands on level 5 restarts it from S0
+            if ln == 5:
+                cur = []; atts.append(cur)
+            else:
+                cur = None
+            prev_over = False; continue
+        if lp == 4 and ln == 5:
+            cur = []; atts.append(cur); prev_over = False; continue
+        if lp == 5 and ln == 5:
+            if prev_over:
+                cur = []; atts.append(cur)
+            if cur is not None:
+                cur.append(r)
+            prev_over = r['ctx'].get('state_next') == 'GAME_OVER'
+    return [a for a in atts if a]
+
+def bar_of(P, u):
+    return 64 - 2 * ((32 * u) // P['B']) if u <= P['B'] else 0
+
+def replay(P, verbose=False):
+    """Chain each attempt from S0; compare observables after every transition. Returns (n, agree, bad)."""
+    n = agree = 0; bad = []
+    for ai, att in enumerate(load_attempts()):
+        st = S0
+        for t in att:
+            st = step(P, st, act_of(t['action']))
+            o = observe(t['nxt'])
+            pred = dict(pos=(st[0], st[1], st[2]), bc=st[5], bd=st[6], bar=bar_of(P, st[8]), marks=st[4])
+            over_obs = t['ctx']['state_next'] == 'GAME_OVER'
+            ok = (o['bar'] == pred['bar'] and o['bc'] == pred['bc'] and o['bd'] == pred['bd']
+                  and o['marks'] == pred['marks'] and over_obs == st[9]
+                  and (o['pos'] is None or o['pos'] == pred['pos']))
+            n += 1; agree += ok
+            if not ok: bad.append((ai+2, t['tid'], t['action'], o, pred, over_obs, st[9]))
+    return n, agree, bad
+
+# ------------------------------------------------------------------ search
+MACROS = {'PLUS': [1,3,5,7], 'COL': [1,7,4], 'TELE': [0,1,4]}
+MACROS_SUPER = {'COL+TELE': [7,0,1,4], 'PLUS+COL': [3,5,7,1,4]}
+def least_budget(P, cap=80):
+    """Least budget B at which a win exists: search spent units with game-over disabled
+    (B = cap), recording the largest u ever reached on the cheapest winning path.  With refill the
+    max-prefix matters, so we search with B as a parameter, increasing until a win exists."""
+    for B in range(1, cap):
+        Q = dict(P, B=B)
+        if win_exists(Q): return B
+    return None
+
+def win_exists(P):
+    best = {}
+    st0 = S0
+    pq = [(0, 0, st0)]; n = 0
+    key = lambda s: (s[0],s[1],s[2],s[3],s[5],s[6],s[7])
+    best[key(st0)] = 0
+    while pq:
+        u, _, st = heapq.heappop(pq)
+        if best.get(key(st), 1e9) < u: continue
+        MS = dict(MACROS, **(MACROS_SUPER if P.get('superset') else {}))
+        for a in list(DIRS) + list(MS):
+            s2 = st
+            if a in DIRS: s2 = step(P, s2, a)
+            else:
+                for i in MS[a]: s2 = step(P, s2, ('click', i))
+            if s2[10]: return True
+            if s2[9]: continue
+            k = key(s2)
+            s2 = s2[:4] + (BLANK,) + s2[5:]
+            if s2[8] < best.get(k, 1e9):
+                best[k] = s2[8]; n += 1; heapq.heappush(pq, (s2[8], n, s2))
+    return False
+
+if __name__ == '__main__':
+    P = dict(DEFAULT)
+    n, a, bad = replay(P)
+    print('replay', n, a)
+    for b in bad[:10]: print(b)
+    print('L =', least_budget(P))

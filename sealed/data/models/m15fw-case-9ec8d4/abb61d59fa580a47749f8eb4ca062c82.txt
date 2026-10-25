@@ -1,0 +1,31 @@
+"""光标移动后，色 9 那一半（2x4 或 4x2）位于移动方向的前沿，色 10 在后半。"""
+LEVEL = "L1"
+SCOPE = "只看 4x4 光标、ACTION1-4 且光标位置变了；换关 NA"
+NOTE = ""
+EVIDENCE = ["3f5956007e12ca17", "3c367435761b27cf"]
+from _lib import DIRS, cursor, cursor_box
+
+
+def expect(r0, c0, action):
+    out = {}
+    for r in range(4):
+        for c in range(4):
+            if action == "ACTION1": col = 9 if r < 2 else 10
+            elif action == "ACTION2": col = 9 if r >= 2 else 10
+            elif action == "ACTION3": col = 9 if c < 2 else 10
+            else: col = 9 if c >= 2 else 10
+            out[(r0 + r, c0 + c)] = col
+    return out
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or (ctx and ctx.get("level_prev") != ctx.get("level_next")):
+        return "NA"
+    a, b = cursor(prev), cursor(nxt)
+    if a is None or b is None or a == b:
+        return "NA"
+    bx = cursor_box(nxt)
+    if bx[2:] != (4, 4) or cursor_box(prev)[2:] != (4, 4):
+        return "NA"
+    e = expect(b[0], b[1], action)
+    return "TRUE" if all(nxt[r][c] == v for (r, c), v in e.items()) else "FALSE"

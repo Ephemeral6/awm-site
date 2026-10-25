@@ -1,0 +1,107 @@
+"""Exact Python mirror of lean/FinalProof.lean's level-4 model, with every unverified rule widened
+to a set of allowed outcomes. Used to compute the certificate tables (N/M lower bounds)."""
+import itertools
+INF = 200
+def inR(r0, r1, c0, c1, r, c): return r0 <= r <= r1 and c0 <= c <= c1
+def passc(op, r, c):
+    return (inR(21,36,21,44,r,c) or (op and inR(29,32,45,47,r,c)) or inR(29,32,48,56,r,c)
+            or inR(28,33,57,61,r,c) or inR(9,20,31,32,r,c) or (op and inR(5,8,30,33,r,c)))
+def foot_ok(op, r, c, s): return all(passc(op, r+i, c+j) for i in range(s) for j in range(s))
+def overlaps(f, r, c, s): return any(f(r+i, c+j) for i in range(s) for j in range(s))
+goal = lambda r, c: inR(28,33,57,61,r,c)
+item = lambda r, c: inR(34,35,23,24,r,c)
+DIRS = {0: (-1,0), 1: (1,0), 2: (0,-1), 3: (0,1)}   # up, down, left, right
+def moveK(op, r, c, s, d):
+    dr, dc = DIRS[d]; k = 0
+    for j in range(1, s+1):
+        rr, cc = r+dr*j, c+dc*j
+        if rr < 0 or cc < 0 or not foot_ok(op, rr, cc, s): break
+        k = j
+    return k
+# fire variants
+FIRE = 'colUp'
+def fire_allowed(s, r, c, f):
+    if FIRE == 'colUp': return c in (31, 32) and f == 0
+    if FIRE == 'colNotLeft': return c in (31, 32) and f != 2
+    if FIRE == 'col': return c in (31, 32)
+# q = (s, r, c, f, op, it) ; f = facing 0..3 (up, down, left, right)
+def moves(q):
+    """yield (q', won) for each allowed outcome of each move."""
+    s, r, c, f, op, it = q
+    for d in range(4):
+        k = moveK(op, r, c, s, d)
+        if k == 0:
+            for f2 in {f, d}:      # blocked move: facing unknown (keep or turn)
+                yield (s, r, c, f2, op, it), False
+        else:
+            dr, dc = DIRS[d]; r2, c2 = r+dr*k, c+dc*k
+            yield (s, r2, c2, d, op, it), overlaps(goal, r2, c2, s)
+def eff_shrink(q):
+    s, r, c, f, op, it = q
+    if s == 4:
+        yield (2, r, c, f, op, it)
+    else:
+        yield q                      # grow may fail (unobserved near walls)
+        for (r2, c2) in {(r-2, c-2), (r-2, c), (r, c-2), (r, c)}:
+            if r2 >= 0 and c2 >= 0 and foot_ok(op, r2, c2, 4):
+                yield (4, r2, c2, f, op, it)
+def eff_switch(q):
+    s, r, c, f, op, it = q
+    yield q
+    if fire_allowed(s, r, c, f):
+        yield (s, r, c, f, True, it)
+def can_refill(q):
+    s, r, c, f, op, it = q
+    return it and s == 2 and overlaps(item, r, c, s)
+def domain():
+    out = []
+    for s in (2, 4):
+        for r in range(0, 40):
+            for c in range(15, 64):
+                for op in (False, True):
+                    if not foot_ok(op, r, c, s): continue
+                    for f in range(4):
+                        for it in (False, True):
+                            out.append((s, r, c, f, op, it))
+    return out
+def tables():
+    D = domain(); Dset = set(D)
+    AN0 = {q: INF for q in D}; BS = dict(AN0); BW = dict(AN0)
+    AM0 = dict(AN0); BMS = dict(AN0); BMW = dict(AN0)
+    def nz(T0, TS, TW, q): return min(T0[q], TS[q] + 5, TW[q] + 4)
+    changed = True; it_n = 0
+    while changed:
+        changed = False; it_n += 1
+        for q in D:
+            # ---- N tables (gross cost, refunds ignored)
+            a0 = AN0[q]; bs = BS[q]; bw = BW[q]
+            for q2, won in moves(q):
+                if won: a0 = min(a0, 1); continue
+                a0 = min(a0, 1 + AN0[q2]); bs = min(bs, 1 + BS[q2]); bw = min(bw, 1 + BW[q2])
+            bs = min(bs, min(nz(AN0, BS, BW, q2) for q2 in eff_shrink(q)))
+            bw = min(bw, min(nz(AN0, BS, BW, q2) for q2 in eff_switch(q)))
+            if (a0, bs, bw) != (AN0[q], BS[q], BW[q]):
+                AN0[q], BS[q], BW[q] = a0, bs, bw; changed = True
+            # ---- M tables (routes that still take the refill), only item=True
+            if not q[5]: continue
+            m0 = AM0[q]; ms = BMS[q]; mw = BMW[q]
+            if can_refill(q):
+                qn = q[:5] + (False,)
+                m0 = min(m0, AN0[qn]); ms = min(ms, BS[qn]); mw = min(mw, BW[qn])
+            for q2, won in moves(q):
+                if won: continue
+                m0 = min(m0, 1 + AM0[q2]); ms = min(ms, 1 + BMS[q2]); mw = min(mw, 1 + BMW[q2])
+            ms = min(ms, min(nz(AM0, BMS, BMW, q2) for q2 in eff_shrink(q)))
+            mw = min(mw, min(nz(AM0, BMS, BMW, q2) for q2 in eff_switch(q)))
+            if (m0, ms, mw) != (AM0[q], BMS[q], BMW[q]):
+                AM0[q], BMS[q], BMW[q] = m0, ms, mw; changed = True
+    return D, AN0, BS, BW, AM0, BMS, BMW
+if __name__ == '__main__':
+    import sys
+    for FIRE in sys.argv[1:] or ['colUp']:
+        globals()['FIRE'] = FIRE
+        D, AN0, BS, BW, AM0, BMS, BMW = tables()
+        q0 = (4, 25, 37, 1, False, True)
+        N0 = min(AN0[q0], BS[q0] + 5, BW[q0] + 4); M0 = min(AM0[q0], BMS[q0] + 5, BMW[q0] + 4)
+        print(FIRE, '|D| =', len(D), 'N(init) =', N0, 'M(init) =', M0,
+              '=> impossible for B <=', min(N0 - 2, M0 - 12))

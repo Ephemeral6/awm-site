@@ -1,0 +1,171 @@
+theorem post_noelig (u : U) (st : St) (h : eligible st.q = false) : post u st = st := by
+  unfold post; simp [h]
+
+theorem elig_of_noov (q : Q) (h : overl itemC q.r q.c q.s = false) : eligible q = false := by
+  simp [eligible, h]
+
+/-- one action: a win only happens past the budget (and leaves no refill pending); otherwise `Inv`
+    holds for the pre-refill state. -/
+theorem pre_inv (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u) (B : Nat)
+    (st : St) (a : Act) (h : Inv B st) (hb : st.sp ≤ B) :
+    ((pre u st a).2 = true → B < (pre u st a).1.sp ∧ eligible (pre u st a).1.q = false) ∧
+    ((pre u st a).2 = false → Inv B (pre u st a).1) := by
+  obtain ⟨hd, hn, hm⟩ := h
+  cases a with
+  | move d =>
+    have hf := fact_move st.q hd d
+    simp only [factMove, Bool.and_eq_true, beq_iff_eq] at hf
+    obtain ⟨⟨hd2, hit⟩, hrest⟩ := hf
+    simp only [pre]
+    cases hw : wins (moveQ st.q d)
+    · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+        Bool.not_eq_true'] at hrest
+      obtain ⟨⟨⟨h0, hs⟩, hw'⟩, hmm⟩ := hrest
+      refine ⟨fun h => by simp at h, fun _ => ⟨hd2, ?_, ?_⟩⟩
+      · have : NN st ≤ 1 + NN { st with q := moveQ st.q d, sp := st.sp + 1 } := by
+          simp only [NN]; exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+        simp only at this ⊢; omega
+      · intro hi
+        simp only at hi
+        rw [hit] at hi
+        have hm2 := hm hi
+        rcases hmm with hmm | hmm
+        · rw [hmm] at hi; simp at hi
+        · obtain ⟨⟨a1, a2⟩, a3⟩ := hmm
+          have : MM st ≤ 1 + MM { st with q := moveQ st.q d, sp := st.sp + 1 } := by
+            simp only [MM]; exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+          simp only at this ⊢; omega
+    · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+      obtain ⟨h1, hel⟩ := hrest
+      have : NN st ≤ 1 := Nat.le_trans (min3_le_left _ _ _) h1
+      refine ⟨fun _ => ⟨by simp only; omega, hel⟩, fun h => by simp at h⟩
+  | click k =>
+    simp only [pre]
+    split
+    · exact ⟨fun h => by simp at h, fun _ => ⟨hd, hn, hm⟩⟩
+    · split
+      · next hk hboth =>
+        simp only [hD st, Bool.and_false, Bool.false_eq_true] at hboth
+      · split
+        · next hk _ hS =>
+          -- shrink recipe completed: 4x4 → 2x2, or a grow 2x2 → 4x4 (possibly refilling)
+          have hdm : miss SHR st.m ≤ 1 := by
+            simp only [Bool.and_eq_true, beq_iff_eq] at hS
+            have := miss_le_toggle SHR st.m k; omega
+          have hgm := hG st
+          have hf := fact_grow st.q hd
+          simp only [factGrow, List.all_eq_true] at hf
+          have hq := hf _ hgm
+          simp only [Bool.and_eq_true, beq_iff_eq] at hq
+          obtain ⟨⟨hd2, hit⟩, hrest⟩ := hq
+          have hN : NN st ≤ BS st.q + miss SHR st.m := min3_le_mid _ _ _
+          have hM : MM st ≤ BMS st.q + miss SHR st.m := min3_le_mid _ _ _
+          split
+          · next hcond =>
+            -- grow refill (selfaudit repair R12.4)
+            simp only [Bool.and_eq_true, beq_iff_eq] at hcond
+            obtain ⟨⟨⟨⟨hit1, hs2⟩, hs4⟩, hov⟩, _⟩ := hcond
+            cases hw : wins (u.res st)
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq,
+                Bool.or_eq_true, Bool.not_eq_true', hit1, hs2, hs4, hov, Bool.true_and, beq_self_eq_true,
+                Bool.not_true, Bool.false_or] at hrest
+              obtain ⟨_, hd3, hbm3⟩ := hrest
+              have hr := hR { q := u.res st, m := empty9, sp := st.sp + 2 }
+              have hm1 := hm hit1
+              refine ⟨fun h => by simp at h, fun _ => ⟨hd3, ?_, fun h' => by simp at h'⟩⟩
+              rw [NN_empty]
+              simp only at hr hM ⊢
+              omega
+            · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+              rw [hrest.2] at hov; simp at hov
+          · cases hw : wins (u.res st)
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+                Bool.not_eq_true'] at hrest
+              obtain ⟨⟨hbs, hbm⟩, _⟩ := hrest
+              refine ⟨fun h => by simp at h, fun _ => ⟨hd2, ?_, ?_⟩⟩
+              · rw [NN_empty]; simp only at hN ⊢; omega
+              · intro hi
+                simp only at hi
+                rw [MM_empty]
+                try rw [hit] at hi
+                rcases hbm with hbm | hbm
+                · rw [hbm] at hi; simp at hi
+                · have := hm hi
+                  simp only at hM ⊢; omega
+            · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+              obtain ⟨h1, hov⟩ := hrest
+              refine ⟨fun _ => ⟨by simp only; omega, elig_of_noov _ hov⟩, fun h => by simp at h⟩
+        · split
+          · next hk _ _ hW =>
+            -- switch recipe completed
+            have hdm : miss SW st.m ≤ 1 := by
+              simp only [Bool.and_eq_true, beq_iff_eq] at hW
+              have := miss_le_toggle SW st.m k; omega
+            have hmem : { st.q with op := st.q.op || u.fires st } ∈ switchOpts st.q := by
+              cases hfi : u.fires st
+              · simp only [Bool.or_false]
+                unfold switchOpts; split <;> simp
+              · have hc := hF st hfi
+                simp only [Bool.or_true]
+                unfold switchOpts
+                simp [hc]
+            have hf := fact_switch st.q hd
+            simp only [factSwitch, List.all_eq_true] at hf
+            have hq := hf _ hmem
+            simp only [Bool.and_eq_true, beq_iff_eq] at hq
+            obtain ⟨⟨hd2, hit⟩, hrest⟩ := hq
+            have hN : NN st ≤ BW st.q + miss SW st.m := min3_le_right _ _ _
+            have hM : MM st ≤ BMW st.q + miss SW st.m := min3_le_right _ _ _
+            cases hw : wins { st.q with op := st.q.op || u.fires st }
+            · simp only [hw, Bool.false_eq_true, ite_false, Bool.and_eq_true, Nat.ble_eq, Bool.or_eq_true,
+                Bool.not_eq_true'] at hrest
+              obtain ⟨hbw, hbm⟩ := hrest
+              refine ⟨fun h => by simp at h, fun _ => ⟨hd2, ?_, ?_⟩⟩
+              · rw [NN_empty]; simp only at hN ⊢; omega
+              · intro hi
+                simp only at hi
+                rw [MM_empty]
+                try rw [hit] at hi
+                rcases hbm with hbm | hbm
+                · rw [hbm] at hi; simp at hi
+                · have := hm hi
+                  simp only at hM ⊢; omega
+            · simp only [hw, ite_true, Bool.and_eq_true, Nat.ble_eq, Bool.not_eq_true'] at hrest
+              obtain ⟨h1, hov⟩ := hrest
+              refine ⟨fun _ => ⟨by simp only; omega, elig_of_noov _ hov⟩, fun h => by simp at h⟩
+          · -- ordinary click: each missing count moves by at most one
+            refine ⟨fun h => by simp at h, fun _ => ⟨hd, ?_, ?_⟩⟩
+            · have : NN st ≤ 1 + NN { st with m := toggle st.m k, sp := st.sp + 1 } := by
+                simp only [NN]
+                have := miss_le_toggle SHR st.m k
+                have := miss_le_toggle SW st.m k
+                exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+              simp only at this ⊢; omega
+            · intro hi
+              have := hm hi
+              have : MM st ≤ 1 + MM { st with m := toggle st.m k, sp := st.sp + 1 } := by
+                simp only [MM]
+                have := miss_le_toggle SHR st.m k
+                have := miss_le_toggle SW st.m k
+                exact min3_le _ _ _ _ _ _ 1 (by omega) (by omega) (by omega)
+              simp only at this ⊢; omega
+
+theorem run_false (u : U) (hF : HFire u) (hG : HGrow u) (hR : HRefund u) (hD : HNoDouble u) (B : Nat) :
+    ∀ (as : List Act) (st : St), Inv B st → st.sp ≤ B → run u B st as = false := by
+  intro as
+  induction as with
+  | nil => intro st _ _; rfl
+  | cons a rest ih =>
+    intro st h hb
+    obtain ⟨hwon, hnot⟩ := pre_inv u hF hG hR hD B st a h hb
+    simp only [run, step]
+    cases hw : (pre u st a).2
+    · have hp := post_inv u hR B _ (hnot hw)
+      simp only [Bool.false_eq_true, ite_false]
+      split
+      · rfl
+      · next hlt => exact ih _ hp (by omega)
+    · obtain ⟨hlt, hel⟩ := hwon hw
+      rw [post_noelig u _ hel]
+      simp [hlt]
+

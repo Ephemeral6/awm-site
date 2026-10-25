@@ -1,0 +1,19 @@
+"""完成匹配钥匙色 11 时：格子全部重置为 2，块尺寸不变、左上角移到 11 色四角括号框住的方框左上角。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION6 完成匹配且钥匙色 11；换关 NA"
+NOTE = "目标框读法：prev 里行<45 的 11 色格 bbox 内缩 1。v2: 钥匙读法改为 _lib.keys"
+EVIDENCE = ["a97af4438459243d"]
+from _lib import GRID_PTS, piece, matched_key, keys
+from geo import cells_of, bbox
+
+def assert_(prev, action, nxt, ctx=None):
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    if matched_key(prev, action) != 11: return "NA"
+    a, b = piece(prev), piece(nxt)
+    if a is None or b is None: return "NA"
+    panels = [(t, l) for _, _, (t, l) in keys(prev)]
+    m = [(r, c) for (r, c) in cells_of(prev, 11) if r < 45 and not any(t <= r <= t + 9 and l <= c <= l + 9 for t, l in panels)]
+    if not m: return "NA"
+    t, bo, l, ri = bbox(m)
+    ok = all(nxt[py][px] == 2 for py, px in GRID_PTS) and (b[1]-b[0]) == (a[1]-a[0]) and (b[0], b[2]) == (t + 1, l + 1)
+    return "TRUE" if ok else "FALSE"

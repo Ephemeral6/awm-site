@@ -1,0 +1,30 @@
+"""ACTION1-4 时块沿该方向平移 d 格（0<=d<=边长 s），尺寸不变、垂直方向不动；0<d<s 时新前沿外紧邻那一排里有背景色 5（被墙挡住）。d=0 不作主张。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION1-4；换关返回 NA；前后任一帧定位不到块返回 NA"
+NOTE = ("v2: v1 断言『不动或恰好移 s』，被 dda878bdcdacee1c 打脸：L2 块在 rows15-18、房顶 row13，"
+        "ACTION1 后到 rows13-16（移 2 格贴墙）。改为『最多移 s，不足 s 时必是贴墙』。"
+        " v3: 2b3e5ed8fe7b90de（开局第一步 ACTION1，上方 4 行全是地板却没动）打 v2 的 d=0 支；"
+        "原因未知（疑似开局首个动作被吞），d=0 改为不作主张。")
+EVIDENCE = ["3f5956007e12ca17", "827b6b560fc0b5bb", "0153dd0a14e03d99", "dda878bdcdacee1c", "2b3e5ed8fe7b90de"]
+from _lib import piece, DIRS
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS: return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    a, b = piece(prev), piece(nxt)
+    if a is None or b is None: return "NA"
+    s = a[1] - a[0] + 1
+    if b[1] - b[0] + 1 != s: return "FALSE"
+    dy, dx = DIRS[action]
+    my, mx = b[0] - a[0], b[2] - a[2]
+    d = my * dy + mx * dx
+    if (my, mx) != (dy * d, dx * d) or not (0 <= d <= s): return "FALSE"
+    if 0 < d < s:
+        t, bo, l, r = b
+        if dy == -1: edge = [(t - 1, x) for x in range(l, r + 1)]
+        elif dy == 1: edge = [(bo + 1, x) for x in range(l, r + 1)]
+        elif dx == -1: edge = [(y, l - 1) for y in range(t, bo + 1)]
+        else: edge = [(y, r + 1) for y in range(t, bo + 1)]
+        if not any(not (0 <= y < 64 and 0 <= x < 62) or nxt[y][x] == 5 for y, x in edge):
+            return "FALSE"
+    return "TRUE"

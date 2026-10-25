@@ -1,0 +1,284 @@
+/-!
+# Level 5 model (attempt 1), cell-level
+
+Objects (step 4a):
+* `Cur`   cursor: top-left row/col `r c`, side `s ∈ {2,4}`, facing `f`.
+* `Bar`   budget `bud` in action units (1 unit = 1 click or 1 move), `pad` = e-pad already used.
+* `Doors` `cc`, `dd` : barrier opened.
+* `won`.
+Static map: `floorMask` (rows 0..41, from the L5 start frame: colours 2,9,10,14,15 and the
+corridor b-marks), barrier and 6-box rectangles below.
+
+Rules (step 4b), each a function on `St` (see `step`):
+* R-move    ACTION1-4: facing := dir; slide by the largest k ≤ s whose swept cells are all floor.
+* R-win     after a move, overlap with goal interior rows 1-4 cols 33-36 ⇒ won.
+* R-pad     after a move, overlap with pad rows 37-38 cols 49-50 and ¬pad ⇒ bud += 8.
+* R-shrink  (atomic, 4 clicks) s=4 ⇒ s=2 at same top-left.
+* R-cast6   (atomic, 3 clicks) probe = top-left 2×2 of cursor, slid in facing dir over floor;
+            touching cc-box ⇒ cc open, touching dd-box ⇒ dd open.
+* R-tele    (atomic, 3 clicks) s=4: cursor jumps to the corridor b-square (17,33) [L2 analogy, unchecked in L5];
+            s=2: cursor jumps to the f-marked ff pad (37,15) [attempt 2, tid of the 3rd b-click].
+            (attempt-1 version sent s=2 to (18,34); refuted in attempt 2.)
+* R-budget  an action of cost k is refused unless bud ≥ k; bud -= k.
+Not in the model: grow / f-cast while small, ff pad, the extra bar cost seen on some firing
+clicks, fractional bar cost (the 0-cost actions), panel state (clicks are bundled into atomic casts).
+-/
+
+namespace L5
+
+def floorMask : List Nat := [270582939648, 270582939648, 270582939648, 270582939648, 270582939648, 128849018880, 128849018880, 128849018880, 128849018880, 128849018880, 128849018880, 0, 0, 6291456, 128855310336, 36026726851018752, 36026726851018752, 560879785476096, 560879785476096, 560879785476096, 560879785476096, 105553122557952, 105553122557952, 105553122557952, 105553122557952, 9007062352650240, 9007062352650240, 9007062352650240, 9007062352650240, 9007062352650240, 9007062352650240, 9007062352650240, 9007062352650240, 9007195496636416, 9007195496636416, 9007195496636416, 9007195496636416, 9007062352650240, 9007062352650240, 9007062352650240, 9007062352650240, 0]
+
+def inRect (r c r0 r1 c0 c1 : Int) : Bool := r0 ≤ r && r ≤ r1 && c0 ≤ c && c ≤ c1
+
+def ccBar (r c : Int) : Bool := inRect r c 33 36 29 31
+def ddBar (r c : Int) : Bool := inRect r c 11 13 33 36
+def ccBox (r c : Int) : Bool := inRect r c 9 12 20 23
+def ddBox (r c : Int) : Bool := inRect r c 14 17 55 58
+def goalIn (r c : Int) : Bool := inRect r c 1 4 33 36
+def padCell (r c : Int) : Bool := inRect r c 37 38 49 50
+
+def staticFloor (r c : Int) : Bool :=
+  if r < 0 || c < 0 || r > 41 || c > 63 then false
+  else Nat.testBit (floorMask.getD r.toNat 0) c.toNat
+
+structure St where
+  r : Int
+  c : Int
+  s : Int
+  f : Nat      -- 0 up 1 down 2 left 3 right
+  cc : Bool
+  dd : Bool
+  pad : Bool
+  bud : Nat
+  won : Bool
+deriving Repr, DecidableEq
+
+def floorAt (st : St) (r c : Int) : Bool :=
+  staticFloor r c || (st.cc && (ccBar r c || ccBox r c)) || (st.dd && (ddBar r c || ddBox r c))
+
+def blockAll (p : Int → Int → Bool) (r c s : Int) : Bool :=
+  (List.range s.toNat).all fun i => (List.range s.toNat).all fun j => p (r + i) (c + j)
+
+def blockAny (p : Int → Int → Bool) (r c s : Int) : Bool :=
+  (List.range s.toNat).any fun i => (List.range s.toNat).any fun j => p (r + i) (c + j)
+
+def dvec : Nat → Int × Int
+  | 0 => (-1, 0) | 1 => (1, 0) | 2 => (0, -1) | _ => (0, 1)
+
+/-- largest k ≤ s such that shifts 1..k are all floor (sliding). -/
+def slide (st : St) (d : Nat) : Int :=
+  let (dr, dc) := dvec d
+  let ok : Nat → Bool := fun k => (List.range k).all fun j =>
+    blockAll (floorAt st) (st.r + dr * (j + 1)) (st.c + dc * (j + 1)) st.s
+  ((List.range (st.s.toNat + 1)).filter ok).foldl (fun (a : Int) (k : Nat) => max a (k : Int)) 0
+
+inductive Act where
+  | mv (d : Nat) | shrink | cast6 | tele
+deriving Repr, DecidableEq
+
+def cost : Act → Nat
+  | .mv _ => 1 | .shrink => 4 | .cast6 => 3 | .tele => 3
+
+/-- probe: top-left 2×2 slid in facing direction; returns (hit cc box, hit dd box). -/
+def probe (st : St) : Bool × Bool :=
+  let (dr, dc) := dvec st.f
+  let rec go : Nat → Int → Int → Bool × Bool
+    | 0, _, _ => (false, false)
+    | n + 1, r, c =>
+      let r' := r + dr; let c' := c + dc
+      if blockAny ccBox r' c' 2 && !st.cc then (true, false)
+      else if blockAny ddBox r' c' 2 && !st.dd then (false, true)
+      else if blockAll (floorAt st) r' c' 2 then go n r' c'
+      else (false, false)
+  go 64 st.r st.c
+
+def apply (st : St) : Act → St
+  | .mv d =>
+    let k := slide st d
+    let (dr, dc) := dvec d
+    let st1 := { st with f := d, r := st.r + dr * k, c := st.c + dc * k }
+    let st2 := if !st1.pad && blockAny padCell st1.r st1.c st1.s
+               then { st1 with pad := true, bud := st1.bud + 8 } else st1
+    if blockAny goalIn st2.r st2.c st2.s then { st2 with won := true } else st2
+  | .shrink => if st.s = 4 then { st with s := 2 } else st
+  | .cast6 =>
+    let (a, b) := probe st
+    { st with cc := st.cc || a, dd := st.dd || b }
+  | .tele => if st.s = 2 then { st with r := 37, c := 15 } else { st with r := 17, c := 33 }
+
+/-- R-budget: refused action ⇒ `none` (game over). -/
+def step (st : St) (a : Act) : Option St :=
+  if st.won then some st
+  else if cost a ≤ st.bud then some (apply { st with bud := st.bud - cost a } a) else none
+
+def run : St → List Act → Option St
+  | st, [] => some st
+  | st, a :: as => match step st a with
+    | none => none
+    | some st' => run st' as
+
+def start (b : Nat) : St :=
+  { r := 29, c := 17, s := 4, f := 1, cc := false, dd := false, pad := false, bud := b, won := false }
+
+def wins (b : Nat) (as : List Act) : Bool :=
+  match run (start b) as with
+  | some st => st.won
+  | none => false
+
+def U := Act.mv 0
+def D := Act.mv 1
+def Lf := Act.mv 2
+def R := Act.mv 3
+
+/-- Hand-found route: open cc as 4×4, cross, grab pad, shrink, climb stem, open dd, teleport, climb. -/
+def route : List Act :=
+  [R, U, .cast6, D, D, R, R, R, R, R, R, R, D, U, Lf, .shrink,
+   U, U, U, U, U, U, U, U, U, R, .cast6, .tele, U, U, U, U, U, U, U]
+
+/-- route cost in units -/
+theorem route_cost : (route.map cost).foldl (· + ·) 0 = 44 := by decide +kernel
+
+/-- With start budget 36 (pad adds 8 ⇒ 44 units) the route wins in the model. -/
+theorem route_fails_36_after_tele_fix : wins 36 route = false := by decide +kernel
+
+/-- With the measured start budget 35 (35 + 8 = 43 actions observed before GAME_OVER) this route fails. -/
+theorem route_fails_35 : wins 35 route = false := by decide +kernel
+
+/-- Route found by exhaustive search over this same model (Python, work/l5_search.py), re-checked here
+    by the kernel. The cc cast is made from the board's top row under the stem (as in L3/L5-observed casts);
+    the pad is picked up as a 4×4 at (37,49). -/
+def route2 : List Act :=
+  [R, U, .cast6, D, D, R, R, R, R, D, R, R, R, U, U, U, Lf, .shrink,
+   U, U, U, U, U, R, .cast6, .tele, U, U, U, U, U, U, U]
+
+theorem route2_cost : (route2.map cost).foldl (· + ·) 0 = 42 := by decide
+
+/-- Attempt 1 claimed `wins 34 route2 = true` (main theorem then). With R-tele corrected by attempt 2 the
+    same route does not win at any budget: the 2×2 teleport lands on the ff pad. -/
+theorem route2_fails_after_tele_fix : wins 60 route2 = false := by decide +kernel
+
+end L5
+
+#print axioms L5.route_fails_36_after_tele_fix
+#print axioms L5.route_fails_35
+#print axioms L5.route_cost
+#print axioms L5.route2_fails_after_tele_fix
+
+/-!
+## Attempt 2 amendment: zone abstraction of the same model
+
+Concrete facts checked against `L5.staticFloor` (with every barrier/box treated as floor = most permissive):
+* `corr_isolated`: no floor cell of the corridor zone (cols 32-37, rows ≤ 20) is 4-adjacent to a floor cell
+  outside it. A sliding block that is all floor at every unit shift is therefore never partly inside and
+  partly outside the zone, so moves never cross the zone border (MODELING ASSUMPTION A1: this argument about
+  `slide` is made in prose, not in Lean).
+* `dd_rows_closed`: with dd shut, rows 11-13 of the corridor are not floor, so below-dd and above-dd parts of
+  the zone are separated the same way (A1 again).
+Zones: `main` (everything outside the corridor), `corr` (corridor below dd), `top` (above dd, incl. goal).
+Abstract actions are *looser* than the concrete ones: every concrete action maps to one of them, and they
+allow any order of the conditional effects. Budget is dropped (looser).
+Rules carried over: R-move → `stay`/`goUp`/`goDown`/`winMv`; R-shrink → `shrink`; R-cast6 → `cast`
+(may open dd whenever the cursor is small and in `main`: looser than the probe geometry);
+R-tele (attempt-2 version) → `tele`; R-win → `winMv` only in `top`.
+NOT in the model: grow (2×2 → 4×4). `stepG` adds it as a hypothesis-rule for the non-vacuity check.
+-/
+
+namespace L5
+
+def openFloor (r c : Int) : Bool :=
+  staticFloor r c || ccBar r c || ccBox r c || ddBar r c || ddBox r c
+
+def corrZone (r c : Int) : Bool := 32 ≤ c && c ≤ 37 && r ≤ 20
+
+def nbrsOk (r c : Int) : Bool :=
+  [(r - 1, c), (r + 1, c), (r, c - 1), (r, c + 1)].all fun (y, x) =>
+    !(openFloor y x) || corrZone y x == corrZone r c
+
+theorem corr_isolated :
+    ((List.range 42).all fun r => (List.range 64).all fun c =>
+      !(openFloor r c) || nbrsOk r c) = true := by decide +kernel
+
+theorem dd_rows_closed :
+    ((List.range 3).all fun i => (List.range 6).all fun j =>
+      !(staticFloor (11 + i) (32 + j) || ccBar (11 + i) (32 + j) || ccBox (11 + i) (32 + j))) = true := by
+  decide +kernel
+
+end L5
+
+namespace L5Zone
+
+inductive Zone where
+  | main | corr | top
+deriving DecidableEq, Repr
+
+structure A where
+  zone : Zone
+  small : Bool
+  dd : Bool
+  won : Bool
+deriving DecidableEq, Repr
+
+inductive Act where
+  | stay | goUp | goDown | winMv | shrink | cast | tele | grow
+deriving DecidableEq, Repr
+
+/-- measured rules (no grow). -/
+def step (a : A) : Act → A
+  | .stay => a
+  | .goUp => if a.zone = .corr && a.dd then { a with zone := .top } else a
+  | .goDown => if a.zone = .top then { a with zone := .corr } else a
+  | .winMv => if a.zone = .top then { a with won := true } else a
+  | .shrink => { a with small := true }
+  | .cast => if a.zone = .main && a.small then { a with dd := true } else a
+  | .tele => if a.small then { a with zone := .main } else { a with zone := .corr }
+  | .grow => a                                   -- grow is not in the measured model
+
+/-- relaxed model: add grow (4×4 again, at the ff pad, i.e. in `main`). -/
+def stepG (a : A) : Act → A
+  | .grow => { a with small := false, zone := .main }
+  | x => step a x
+
+def run (f : A → Act → A) : A → List Act → A
+  | a, [] => a
+  | a, x :: xs => run f (f a x) xs
+
+def start : A := { zone := .main, small := false, dd := false, won := false }
+
+def inv (a : A) : Bool :=
+  !a.won && a.zone != .top && (!a.dd || a.small) && (a.zone != .corr || !a.dd)
+
+theorem inv_step : ∀ a x, inv a = true → inv (step a x) = true := by
+  intro ⟨z, s, d, w⟩ x
+  cases z <;> cases s <;> cases d <;> cases w <;> cases x <;> decide
+
+theorem inv_run : ∀ xs a, inv a = true → inv (run step a xs) = true := by
+  intro xs
+  induction xs with
+  | nil => intro a h; exact h
+  | cons x xs ih => intro a h; exact ih _ (inv_step a x h)
+
+/-- MAIN (attempt 2): in the measured model, no action sequence of any length wins L5. -/
+theorem l5_impossible_without_grow : ∀ xs : List Act, (run step start xs).won = false := by
+  intro xs
+  have h := inv_run xs start (by decide)
+  revert h
+  generalize run step start xs = a
+  intro h
+  cases a with
+  | mk z s d w => cases w <;> simp_all [inv]
+
+/-- Non-vacuity: the missing grow rule is exactly what blocks the win. -/
+theorem l5_wins_with_grow :
+    (run stepG start [.shrink, .cast, .grow, .tele, .goUp, .winMv]).won = true := by decide
+
+/-- Non-vacuity: the invariant is not trivially true; the relaxed run breaks it. -/
+theorem inv_fails_with_grow :
+    inv (run stepG start [.shrink, .cast, .grow, .tele, .goUp]) = false := by decide
+
+end L5Zone
+
+#print axioms L5.corr_isolated
+#print axioms L5.dd_rows_closed
+#print axioms L5Zone.l5_impossible_without_grow
+#print axioms L5Zone.l5_wins_with_grow
+#print axioms L5Zone.inv_fails_with_grow

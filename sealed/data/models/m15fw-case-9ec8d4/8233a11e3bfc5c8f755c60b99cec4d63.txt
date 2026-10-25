@@ -1,0 +1,28 @@
+    (∀ B, B ≤ 18 → ∀ (u : U), HFire u → HGrow u → HRefund u → HNoDouble u →
+        ∀ as, run u B init as = false) ∧
+    (∃ u : U, HFire u ∧ HGrow u ∧ HRefund u ∧ HNoDouble u ∧ ∃ as, run u 19 init as = true) :=
+  ⟨fun B hB u hF hG hR hD as => run_false u hF hG hR hD B as init (init_inv B hB) (by simp [init]),
+   ⟨uW, uW_fire, uW_grow, uW_refund, uW_double, witness, witness_wins_19⟩⟩
+
+/-! ## `HNoDouble` is load-bearing -/
+
+/-- the same reading as `uW`, except that marks containing both recipes complete both
+    (grow first, then the switch, on one click). -/
+def uD : U := { uW with sup := fun _ => true, both := fun _ => true, order := fun _ => true }
+
+/-- found by work/final/superset_check.py: 4x4 to (33,25); shrink; left onto the item (refill);
+    up; right×5 → 2x2 at (31,33); mark cells 1,3,4,5,7 — the last click completes both recipes
+    (grow to a 4x4 at (29,31), then the switch fires there); right×6. -/
+def witnessDouble : List Act :=
+  [.move .down, .move .down, .move .left, .move .left, .move .left,
+   .click 1, .click 3, .click 5, .click 7,
+   .move .left, .move .up, .move .right, .move .right, .move .right, .move .right, .move .right,
+   .click 1, .click 3, .click 4, .click 5, .click 7,
+   .move .right, .move .right, .move .right, .move .right, .move .right, .move .right]
+
+theorem uD_fire : HFire uD := uW_fire
+theorem uD_grow : HGrow uD := uW_grow
+theorem uD_refund : HRefund uD := uW_refund
+
+/-- without `HNoDouble` the bound fails: a reading satisfying the other three hypotheses wins at 18. -/
+theorem double_wins_18 : run uD 18 init witnessDouble = true := by decide +kernel

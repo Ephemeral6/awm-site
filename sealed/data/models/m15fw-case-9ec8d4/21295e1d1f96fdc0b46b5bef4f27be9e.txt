@@ -1,0 +1,185 @@
+/-!
+# m15fw — objects and rules (all levels), as Lean definitions
+
+Mirrors `concepts/*.py` (the executable, settle-checked versions) and `work/MODEL.md`.
+Rule status (each rule is in exactly one state):
+
+| rule              | status                                                             |
+|-------------------|--------------------------------------------------------------------|
+| move_step4 (v5)   | definition `applyMove` / `moveK`                                   |
+| front_leads       | definition (`facing` set to the move direction when k > 0)         |
+| panel_click       | definition `clickPanel` (marks a cell; completion = marks = recipe)|
+| completion reset  | definition (inside `clickPanel`)                                   |
+| shrink effect     | definition `applyEffect .shrink` (top-left anchor, 1 observation)  |
+| teleport effect   | definition `applyEffect (.teleport r c)`                           |
+| switch effect     | effect = definition (`opened := true`); **precondition NOT IN MODEL** (parameter `fires`) |
+| goal_win          | definition `overlapsGoal`                                          |
+| budget            | definition `cost`, `overdrawn` (fit: 1 / 2 units, L4 total 18)     |
+| L4 lower bound    | consequence, proved in `M15fwL4.lean` under hypothesis `Hyp`       |
+| click on marked cell, ACTION5/7, clicks outside the panel | NOT IN MODEL (never observed) |
+-/
+
+namespace M15fw
+
+inductive Dir where
+  | up | down | left | right
+  deriving DecidableEq, Repr
+
+/-- Object: the cursor. Slots: top row, left column, side (4 or 2), facing.
+    `facing` is read only by the rendering rule front_leads. -/
+structure Cursor where
+  r : Nat
+  c : Nat
+  side : Nat
+  facing : Dir
+  deriving DecidableEq, Repr
+
+/-- Object: level data. `pass opened r c` = cell is one of the passable colours {2,9,10,11,14}
+    (barrier cells are passable only when `opened`). `goal r c` = cell of the goal block. -/
+structure Board where
+  pass : Bool → Nat → Nat → Bool
+  goal : Nat → Nat → Bool
+
+inductive Effect where
+  | shrink
+  | teleport (r c : Nat)
+  | openSwitch
+  deriving DecidableEq, Repr
+
+/-- Object: a recipe (shown in the left-hand recipe boxes): a 9-cell mask and its effect. -/
+structure Recipe where
+  mask : List Bool
+  eff : Effect
+
+/-- Object: the whole position. Slots: cursor, panel marks (9 cells), opened, units spent. -/
+structure Pos where
+  cur : Cursor
+  marks : List Bool
+  opened : Bool
+  spent : Nat
+
+/-! ## Rule move_step4 (v5) and front_leads -/
+
+def shifted (d : Dir) (r c j : Nat) : Option (Nat × Nat) :=
+  match d with
+  | .up => if j ≤ r then some (r - j, c) else none
+  | .down => some (r + j, c)
+  | .left => if j ≤ c then some (r, c - j) else none
+  | .right => some (r, c + j)
+
+def footOK (b : Board) (op : Bool) (side : Nat) : Option (Nat × Nat) → Bool
+  | none => false
+  | some (r, c) => (List.range side).all fun i => (List.range side).all fun j => b.pass op (r + i) (c + j)
+
+def moveKAux (b : Board) (op : Bool) (cur : Cursor) (d : Dir) : Nat → Nat → Nat
+  | 0, k => k
+  | n + 1, k =>
+      if footOK b op cur.side (shifted d cur.r cur.c (k + 1)) then moveKAux b op cur d n (k + 1) else k
+
+/-- k = largest j ≤ side such that every shifted footprint 1..j is passable. -/
+def moveK (b : Board) (op : Bool) (cur : Cursor) (d : Dir) : Nat := moveKAux b op cur d cur.side 0
+
+def applyMove (b : Board) (op : Bool) (cur : Cursor) (d : Dir) : Cursor :=
+  let k := moveK b op cur d
+  match shifted d cur.r cur.c k with
+  | some (r, c) => if k = 0 then cur else { cur with r := r, c := c, facing := d }
+  | none => cur
+
+/-! ## Rule goal_win -/
+
+def overlapsGoal (b : Board) (cur : Cursor) : Bool :=
+  (List.range cur.side).any fun i => (List.range cur.side).any fun j => b.goal (cur.r + i) (cur.c + j)
+
+/-! ## Rules panel_click / completion / effects -/
+
+def setAt : List Bool → Nat → List Bool
+  | [], _ => []
+  | _ :: t, 0 => true :: t
+  | h :: t, n + 1 => h :: setAt t n
+
+def emptyMarks : List Bool := List.replicate 9 false
+
+/-- mark cell `k` (= 3*row + col); if the marks now equal a recipe's mask, the panel clears and
+    that recipe's effect fires. -/
+def clickPanel (recipes : List Recipe) (marks : List Bool) (k : Nat) : List Bool × Option Effect :=
+  let m := setAt marks k
+  match recipes.find? (fun rc => rc.mask == m) with
+  | some rc => (emptyMarks, some rc.eff)
+  | none => (m, none)
+
+def applyEffect (cur : Cursor) : Effect → Cursor
+  | .shrink => { cur with side := 2 }
+  | .teleport r c => { cur with r := r, c := c }
+  | .openSwitch => cur
+
+/-! ## Rule budget -/
+
+def cost (completes : Bool) : Nat := if completes then 2 else 1
+def overdrawn (budget spent : Nat) : Bool := decide (budget < spent)
+
+/-! ## One step of the whole position. `fires` = the switch precondition (NOT IN MODEL). -/
+
+inductive Act where
+  | move (d : Dir)
+  | click (k : Nat)
+
+structure Level where
+  board : Board
+  recipes : List Recipe
+  budget : Nat
+
+/-- returns the new position and whether the level was won. -/
+def stepPos (L : Level) (fires : Pos → Bool) (p : Pos) : Act → Pos × Bool
+  | .move d =>
+      let cur' := applyMove L.board p.opened p.cur d
+      ({ p with cur := cur', spent := p.spent + cost false }, overlapsGoal L.board cur')
+  | .click k =>
+      let (m', eff) := clickPanel L.recipes p.marks k
+      match eff with
+      | none => ({ p with marks := m', spent := p.spent + cost false }, false)
+      | some .openSwitch =>
+          ({ p with marks := m', opened := p.opened || fires p, spent := p.spent + cost true }, false)
+      | some e =>
+          ({ p with cur := applyEffect p.cur e, marks := m', spent := p.spent + cost true }, false)
+
+/-! ## Checks against observed transitions (attempt 1) -/
+
+def inR (r0 r1 c0 c1 r c : Nat) : Bool := decide (r0 ≤ r ∧ r ≤ r1 ∧ c0 ≤ c ∧ c ≤ c1)
+
+/-- level 1 board: floor block rows 23-38 cols 35-52, stalk rows 14-22 cols 35-36,
+    row 14 cols 33-38, goal rows 9-13 cols 33-38. -/
+def board1 : Board where
+  pass := fun _ r c => inR 23 38 35 52 r c || inR 15 22 35 36 r c || inR 14 14 33 38 r c ||
+    inR 9 13 33 38 r c
+  goal := fun r c => inR 9 13 33 38 r c
+
+/-- tid 2e399d75288188da: 4x4 at (31,37) moving left goes only 2 (wall at col 35). -/
+example : moveK board1 false ⟨31, 37, 4, .left⟩ .left = 2 := by decide
+/-- tid 3c367435761b27cf: a plain 4-step. -/
+example : moveK board1 false ⟨35, 45, 4, .down⟩ .up = 4 := by decide
+/-- tids fb6f6860…: the 2x2 moves 2 in the stalk. -/
+example : moveK board1 false ⟨23, 35, 2, .up⟩ .up = 2 := by decide
+/-- tid fc553f9f69728a9b: 2x2 at (15,35) moving up overlaps the goal → level won. -/
+example : overlapsGoal board1 (applyMove board1 false ⟨15, 35, 2, .up⟩ .up) = true := by decide
+
+/-- level 3 board: room rows 13-28 cols 25-44, barrier rows 29-31 cols 25-28 (13, closed),
+    corridor rows 32-40 cols 25-28, goal rows 41-45 cols 24-29. -/
+def board3 : Board where
+  pass := fun op r c => inR 13 28 25 44 r c || (op && inR 29 31 25 28 r c) ||
+    inR 32 40 25 28 r c || inR 41 45 24 29 r c
+  goal := fun r c => inR 41 45 24 29 r c
+
+/-- tid 97fdc9241012011e: the closed barrier blocks (k = 0); once opened the same move is 4. -/
+example : moveK board3 false ⟨25, 25, 4, .down⟩ .down = 0 := by decide
+example : moveK board3 true ⟨25, 25, 4, .down⟩ .down = 4 := by decide
+
+/-- recipes: L1 shrink = edge cells; L3/L4 switch = centre column. -/
+def shrinkMask : List Bool := [false, true, false, true, false, true, false, true, false]
+def switchMask : List Bool := [false, true, false, false, true, false, false, true, false]
+
+/-- L1 tids 3fe50102…/a4e91a1a…/19275a85…/3ca29df2…: four edge clicks, the 4th completes. -/
+example : (clickPanel [⟨shrinkMask, .shrink⟩]
+    (setAt (setAt (setAt emptyMarks 1) 3) 5) 7) = (emptyMarks, some .shrink) := by decide
+example : (clickPanel [⟨shrinkMask, .shrink⟩] (setAt emptyMarks 1) 3).2 = none := by decide
+
+end M15fw

@@ -1,0 +1,19 @@
+"""帧上 14 色（e）标记在板面（列<62）出现且被块移动后的足迹压住时，若块边长为 2，则右侧计量条（列62）的 14 色行数增加（补给）；若块边长为 4，不增加。"""
+LEVEL = "L4"
+SCOPE = "只看 ACTION1-4、同关；prev 板面有 14 色格且 nxt 块足迹与其相交；否则 NA"
+NOTE = "依据：attempt3 L4，4x4 压住标记不补，2x2 压住补 32 行（16→48）。"
+EVIDENCE = ["e328976b63bfb86a", "64f92cc80404e92e"]
+from _lib import piece, DIRS
+
+def bar(g): return sum(1 for y in range(64) if g[y][62] == 14)
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS: return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    m = {(y, x) for y in range(64) for x in range(62) if prev[y][x] == 14}
+    b = piece(nxt)
+    if not m or b is None: return "NA"
+    foot = {(y, x) for y in range(b[0], b[1] + 1) for x in range(b[2], b[3] + 1)}
+    if not (m & foot): return "NA"
+    up = bar(nxt) > bar(prev)
+    return "TRUE" if up == (b[1] - b[0] + 1 == 2) else "FALSE"

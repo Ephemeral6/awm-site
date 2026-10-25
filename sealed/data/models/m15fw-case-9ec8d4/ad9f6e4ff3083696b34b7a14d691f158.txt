@@ -1,0 +1,154 @@
+# Self-audit pass 1: rule sensitivity of the level-4 model
+
+**L = 21** (least budget at which some action list wins, in the full-evidence model: `work/selfaudit/engine.py` with
+`refill_on_click=False, uncapped=False`; route DDLLL, shrink, L(refill), D, R, grow, R, R, U, switch, R×6).
+Convention as in the conclusion: the winning move must also stay within the budget.
+**C = 18** (level-4 budget, `work/fit_budget.py`, one surviving fit).
+
+**Admissibility.** Each relaxed model was replayed on all 178 recorded level-4 transitions (all attempts) by
+`work/selfaudit/replay.py`, which checks cursor, facing, barrier, item, panel marks and the bar reading.
+The full-evidence model replays 178/178. Switch rows were also checked against the level-3 casts (`M15fwModel.casts`).
+"L_small" / "L_widest" are recomputed by exact search (`least_budget`, bottleneck Dijkstra on peak spent),
+with every other rule unchanged.
+
+## Sensitivity table
+
+| rule | class | small relaxation | L_small | widest admissible relaxation | L_widest | records pinning it / it rests on |
+|---|---|---|---|---|---|---|
+| R6 win/budget order | order/termination | the winning action may overdraw | **20** | same | **20** | no winning action ever overdrew; untested |
+| R7.1 superset completion | precondition (panel) | marks = recipe + extra cells complete it | 21 | same | 21 | never marked a superset |
+| R7.2 double completion | effect/order (panel) | marks ⊇ both recipes fire both effects (either order) | **19** | same | **19** | never marked both recipes |
+| R8.1 shrink anchor, 4×4 facing down | effect | a 4×4 facing down may shrink to its bottom-left quadrant | **20** | same | **20** | anchor top-left pinned for facing up (L1), right (att.2 t:A4→shrink (29,41)), left (att.3, 7, 8); down never observed |
+| R9 grow next to walls | effect | another free quadrant | 21 | any free quadrant | 21 | never observed near walls |
+| R9.2 grow anchor, 2×2 facing left/down | effect | any free quadrant for those facings | **19** | same | **19** | (r-2,c-2) pinned for facing up (att.4) and right (att.7, 8) only |
+| R10.1 switch column | precondition | (single situations, see below) | 10…21 | fires everywhere except recorded failures | **10 ≤ C** | failures: L4 4×4 col29 left/up, col33 up, col41 right; 2×2 col43 right; L3 4×4 stalk+8 down |
+| R10.1a | | 4×4 col 37 facing **down** fires | **10 ≤ C** | | | untested |
+| R10.1b | | 4×4 col 41 facing **down** fires | **10 ≤ C** | | | untested (col41 facing right failed) |
+| R10.1c | | 4×4 col 37 facing **up** fires | **12 ≤ C** | | | untested |
+| R10.1d | | 4×4 col 25 facing up fires | **18 ≤ C** | | | untested |
+| R10.1e/f | | 2×2 col 33 / col 29 facing up fires | 21 | | | untested, not load-bearing |
+| R10.2 switch facing at col 31 | precondition | 4×4 at col 31 facing **right** fires (R10.2a) | **20** | any facing except (2×2, left) | **20** | 2×2 left failed (att.5); up fired (att.3–8) |
+| R10.2b/c | | 2×2 col 31 facing down / right | 21 | | | untested, not load-bearing |
+| R12.1 refill by 4×4, partial overlap | precondition | a 4×4 partly overlapping the item refills | **19** | same | **19** | only a 4×4 FULL cover by a move recorded (att.1: no refill) |
+| R12.2 refill by 2×2 made by a click | precondition | a shrink/grow click putting a 2×2 on the item refills | 21 | same | 21 | not reachable cheaply |
+| R12.3 refill by touching | precondition | a 2×2 touching the item refills | 19 | — | — | **not admissible**: replay fails at t156 (att.8 D to (35,25)) and t211 |
+| R12.4 refill by a grown 4×4 | precondition | a 4×4 produced by a grow click overlapping the item refills | **19** | same | **19** | never observed |
+| R13 refund | constant | refund 11 | — | — | — | **not admissible** (replay 121/178): pinned at 10 by att.4, 6, 8 |
+| R13.1 refund floor | charge | spent may go below 0 | 21 | same | 21 | not load-bearing |
+| R16 win by touching | termination | touching the goal wins | 21 | same | 21 | admissible, not load-bearing |
+| R17 blocked move turns | effect | a blocked move turns the cursor | 21 | same | 21 | not load-bearing |
+| R3 move cost | charge | 0 | — | — | — | **not admissible** (67/178) |
+| R4.1 click cost | charge | 0 | — | — | — | **not admissible** (122/178) |
+| R4.2 completion cost | charge | 1 | — | — | — | **not admissible** (61/178) |
+
+**Pinned by records.** None of these needs a search or a probe:
+- **R1 move step = side length, clamped at walls:** L1 t5 2e399d75 (clamp to 2); 2×2 steps of 2 (fb6f…); all 178 L4 replays.
+- **R2 board passability** (void, barrier blocks both sizes, stalk): frames; barrier: L3 t32 97fdc924, att.2 2×2 at col 43.
+- **R3/R4 costs, R5 budget 18, game over once spent > 18:** `fit_budget.py`, a single survivor over all readings.
+- **R13 refund 10:** att.4, 6, 8.
+- **R14 refill applied before the check:** att.6 (refill at spent 18 survived).
+- **R15 item consumed once:** att.4 frame.
+- **Off-panel clicks are free no-ops:** att.7, 8.
+- **Panel toggle:** att.6.
+- **Item / goal / switch positions:** frames.
+
+**Load-bearing (L_small or L_widest < 21):** R6, R7.2, R8.1, R9.2, R10.1 (a, b, c, d, widest), R10.2 (a, widest), R12.1, R12.4.
+**At or below C = 18:** R10.1a, R10.1b, R10.1c, R10.1d, R10.1 widest.
+
+## Contact-trigger table for the refill rule (R12)
+
+Built by `work/selfaudit/trigger_table.py`, a reachability search over 21,336 reachable states of the
+full-evidence model with the item present and spent ≤ 18. Each cell crosses three things: the action that
+causes the contact, the kind of contact, and the cursor's size.
+
+| action | contact | size | status |
+|---|---|---|---|
+| move | touch | 2 | covered: att.8 "D to (35,25)", no refill |
+| move | touch | 4 | covered: att.7/8 "4×4 to (33,25)", no refill |
+| move | partial | 2 | covered: att.4/6/8, refill |
+| move | partial | 4 | **uncovered** (reachable: (4,31,27) → L → (4,31,23)) → R12.1 |
+| move | full | 2 | unreachable (searched) |
+| move | full | 4 | covered: att.1 "4×4 to (33,21)", no refill |
+| shrink | touch | 2 | covered: att.8 shrink at (33,25), no refill |
+| shrink | partial/full | 2 | unreachable within the budget with the item present (searched) |
+| grow | touch | 4 | **uncovered** (reachable: (2,33,27) grow → (4,31,25)) → R12.4 |
+| grow | partial | 4 | **uncovered** (reachable: (2,33,25) grow → (4,31,23)) → R12.4 |
+| grow | full | 4 | **uncovered** (reachable: (2,35,25) grow → (4,33,23)) → R12.4 |
+| grow (failed grow) | touch | 2 | **uncovered** (reachable: (2,33,21) grow at the wall) → not load-bearing |
+
+## (b) Probe ranking and plan
+
+Each rule is ranked by how likely it is to be wrong, times how far it lowers L:
+1. **R10.1/R10.2, the switch firing situations.** The most extrapolated rule. Facing down was never tried on L4; on L3 a 4×4 facing down at stalk+8 failed. Positions near the start cost very little to test, and three of the rows reach L ≤ C. Rank 1.
+2. **R7.1/R7.2, superset and double completion.** Purely an encoding choice of mine ("exact match"), never observed. A superset test is cheap.
+3. **R8.1, shrink anchor when facing down.** Generalised from three facings. It comes for free with the superset test, since the cursor faces down at the start.
+4. **R12.4 / R12.1, refill by a 4×4.** A 4×4 full cover by a move did not refill. Grow-produced contact needs a long prefix (about 16 units).
+5. **R9.2, grow anchor when facing left/down.** Needs a 2×2 facing left or down plus a grow (5 units).
+6. **R6, win/budget order.** UNTESTABLE within budget: it only bites on a winning move made at spent > 18.
+
+### Experiment plan, attempt 1 (level 4, budget 18)
+
+Start: 4×4 at (25,37), facing down, spent 0. Both models agree on every move. The probes are the casts and the panel clicks.
+
+| step | actions | tests | full-evidence prediction | relaxed prediction |
+|---|---|---|---|---|
+| 1 | c1, c4, c7 (switch) at the start | R10.1a (4×4, col 37, down) | no fire; spent 4 | barrier and switch vanish |
+| 2 | A1 → (21,37) facing up; c1, c4, c7 | R10.1c (4×4, col 37, up) | no fire; spent 9 | fires |
+| 3 | A2 → (25,37) facing down; c4, c1, c3, c5, c7 | R7.1 superset (marks {1,3,4,5,7}) | no completion: 5 marks stay, spent 15 | the shrink completes at the 5th click (spent 16) |
+| 4 | if no completion: c4 (un-mark) → marks = SHR exactly | R8.1 (shrink of a 4×4 facing down) | 2×2 at (25,37) (top-left), spent 17 | 2×2 at (27,37) |
+| (4') | if step 3 completed | R8.1, read off the shrink in step 3 | | |
+
+If either cast fires, I switch to the cheapest route, e.g. after step 1: A2 then A4 ×5 (about 10 units).
+
+Before level 4 I replay the recorded solutions of levels 1–3 (unchanged rules, own budgets).
+
+## Results, attempt 1 (selfaudit round)
+
+Levels 1–3 replayed from the recorded solutions. The first action on level 1 was again swallowed.
+`goal_win` was scoped to ignore the transition across the service restart (c4621ed629f2ce2c).
+Level 4, from the start state, spent 0:
+
+| step | actions | rule | game did | result |
+|---|---|---|---|---|
+| 1 | c1, c4, c7 at 4×4 (25,37) facing down | R10.1a | no fire (barrier cell (29,45) still 13); bar 64 → 50 (spent 4) | **CONFIRMED** |
+| 2 | A1 → (21,37) facing up (top row colour 9); c1, c4, c7 | R10.1c | no fire; bar → 32 (spent 9) | **CONFIRMED** |
+| 3 | A2 → (25,37) facing down; c4, c1, c3, c5, c7 | R7.1 (superset completes) | marks {1,3,4,5,7} stay, cursor still 4×4, bar 12 (spent 15) | **CONFIRMED** (exact match only) |
+| 3 | same | R7.2 (double completion) | its premise needs a superset completion, which does not happen | **CONFIRMED** |
+| 4 | c4 (un-mark) → marks = SHR | R8.1 (4×4 facing down) | 2×2 at (25,37), top-left; bar 4 (spent 17) | **CONFIRMED** |
+| 5 | A2, A2 | — | GAME_OVER at spent 19 | as modelled |
+
+Every new transition replays on the full-evidence model (see the replay count below).
+Still to probe: R10.1b (4×4 col 41 facing down), R10.1d (4×4 col 25 facing up), R10.2a (4×4 col 31 facing right),
+R12.1 / R12.4 (refill by a 4×4), R9.2 (grow anchor for a 2×2 facing left/down). R6 is UNTESTABLE within budget.
+baseline replay: 194 transitions, 194 match, 0 mismatch
+
+### Plan for attempt 2 (written after attempt 1)
+- **Rule changes from attempt 1:** none. All four probes CONFIRMED the full-evidence rules, so L stays 21.
+  The new transitions are records now: R7.1 (exact-match completion) and R8.1 (shrink anchor when facing down) are pinned.
+- **Next probe: one route covers R12.4 and R9.2.** DDLLL [5], shrink [10] → 2×2 (33,25) facing left; D → (35,25) facing down [11], touching the item; grow [16].
+  - R9.2: the full-evidence model predicts a 4×4 at (33,23) (anchor (r-2,c-2)). The relaxed model allows another quadrant.
+  - R12.4: the grown 4×4 at (33,23) fully covers the item. The full-evidence model predicts no refill (spent 16). The relaxed model predicts a refill (spent 6).
+- **Later attempt:** R10.1b (R, D, cast: 6 units), R10.1d, R10.2a, R12.1.
+
+## Results, attempt 2 (selfaudit round)
+
+Level 4, from the start state:
+
+| step | actions | rule | game did | result |
+|---|---|---|---|---|
+| 1 | A2 A2 A3 A3 A3, shrink | prefix | 2×2 at (33,25), item present, bar 30 (spent 10) | as modelled |
+| 2 | A2 → 2×2 (35,25) facing down, touching the item | R12.3 (touch) | no refill (spent 11) | as modelled (pinned) |
+| 3 | grow (c1, c3, c5, c7) | R9.2 (grow anchor facing down) | 4×4 at (33,23) = (r-2,c-2) | **CONFIRMED** |
+| 3 | same | **R12.4** (refill by a grown 4×4 over the item) | **bar 44 → spent 6**: the refill triggered, item gone | **REFUTED** |
+| 4 | R, R, U → 4×4 (29,31) facing up; switch | (route) | barrier opened, spent 13 | as modelled |
+| 5 | R ×5 → (29,51) | (route) | spent 18, bar 0, alive | as modelled |
+| 6 | R → overlaps the goal at spent 19 | **R6** (win before budget check?) | **GAME_OVER**, no win | **CONFIRMED** (budget checked first) |
+
+**(c) Repair.** The rule R12 is revised:
+- **Before:** an eligible refill triggers only when a 2×2 overlaps the item after a move.
+- **After:** a refill also triggers when a grow click puts a 4×4 over the item. Observed at att.2 t307: grow (35,25) → (33,23), bar 30−… → 44.
+- **Still pinned:** a 4×4 arriving by a MOVE does not refill (att.1, 4×4 moved to (33,21) covering it fully, no refill).
+- **Replay:** the repaired model replays 220/220 level-4 transitions. The old model fails 12 of them, starting at t307.
+- **L:** the repaired least budget is **L = 19** (route DDLLL, shrink, D, grow*(refill), R, R, U, switch, R×6). It is the route of this attempt, which died at 19 exactly as predicted.
+
+Pass 2 of the sensitivity analysis is in `pass2.md`.

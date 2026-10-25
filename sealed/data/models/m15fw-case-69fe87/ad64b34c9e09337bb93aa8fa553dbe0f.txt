@@ -1,0 +1,118 @@
+# FinalProof: m15fw, level 4
+
+File: `lean/FinalProof.lean`. It has no imports and builds on its own:
+
+```
+cd lean
+~/.elan/toolchains/leanprover--lean4---v4.34.1/bin/lean.exe FinalProof.lean
+```
+
+On this machine the build takes about 55 s, with a peak of about 1.4 GB. There is no `sorry`, no `native_decide` and no `axiom` declaration. Big finite checks use `decide +kernel`, which is checked by the kernel and adds no axioms.
+
+Output of `#print axioms`:
+
+```
+'FinalProof.least_winning_budget_is_19' depends on axioms: [propext, Quot.sound]
+'FinalProof.no_win_at_measured_budget' depends on axioms: [propext, Quot.sound]
+'FinalProof.no_win_within_budget' depends on axioms: [propext, Quot.sound]
+```
+
+## Main theorem
+
+`FinalProof.no_win_within_budget`
+
+```lean
+theorem no_win_within_budget
+    (opens : St → Bool) (hopen : ∀ s, opens s = true → mayOpen s = true)
+    (gp : St → St) (hgp : ∀ s, s.big = false → gp s ∈ growOuts s)
+    (B : Int) (hB0 : 0 ≤ B) (hB : B ≤ 18) :
+    ∀ as : List Act, winsWithin opens false gp B start 0 as = false
+```
+
+In plain words, take:
+- any budget from 0 to 18 (the measured level-4 budget is 18);
+- any engine behaviour for shots that fits the evidence;
+- any engine behaviour for grows that fits the evidence.
+
+Then no list of actions, of any length, ever reaches the exit from the start position without first going over budget. Exact pattern matching is fixed to `false`: one click that completes two patterns at once fires nothing.
+
+`no_win_at_measured_budget` is the same statement at `B = L4budget = 18`.
+
+## Hypotheses and their evidence
+
+Evidence references point to `transitions.jsonl` rows and attempts a1–a8, logged in `work/NOTES.md`.
+
+### `hopen`: which shots can open the barrier
+
+The hypothesis is `opens s = true → mayOpen s = true`, where `mayOpen` allows:
+- a block of either size whose left column is 31;
+- a big block at column 27;
+- a small block at column 29.
+
+Evidence:
+- Column 31 opens the barrier: a3 tr 127 (row 21) and a4 tr 154 (row 29).
+- A big block at column 29 fails: a1 tr 76 and 79. The animation frames show the shot dying at once.
+- Column 33 fails for a big block and for a small block (a5).
+- A shot fired straight into the barrier does nothing: a2 tr 93.
+- A shot travels straight in the facing direction (a1 tr 83 frames, a3 tr 127 frames). So only blocks whose columns overlap the switch box (columns 30–33) can reach it.
+
+Big at column 27 and small at column 29 were never tested. The hypothesis leaves them open, which is the weakest form the evidence allows. Even granting them, the bound is unchanged.
+
+### `hgp`: where a grow lands
+
+The hypothesis is `gp s ∈ growOuts s`:
+- **Preferred placement:** up-left, (r−2, c−2), if it fits. Seen in a2 tr 107, a3 tr 124 and a4 tr 148.
+- **Fallback:** (r, c−2) if the preferred spot is blocked. Seen in a6.
+- **Both blocked:** never observed. Any other fitting placement, or no change, is allowed.
+
+### Rules built into the definitions, verified against recorded steps
+
+- **Costs:** move 1, a click that completes a spell 2, so a shrink or grow costs 5 and a shot 4. Refund: subtract 10. Budget: 18. This is the unique fit over every bar reading in all eight attempts (`work/fit8.py`).
+- **Moves:** blocked moves cost 1 and do not move the block.
+- **Shrink:** keeps the top-left corner.
+- **Pad refund:** the first overlap by any block, after any action, gives the refund. This is more generous than the game: a big block moving to fully cover the pad did not trigger it (a2 tr 98).
+- **Over budget:** an action that takes usage over budget is GAME_OVER, even when it reaches the exit (a8 tr 254).
+- **Exact matching:** a6.
+- **After opening:** the destroyed switch box becomes floor (a3 tr 127).
+- **Map:** the walls are read off the level-4 frame.
+
+Things left out make the model looser than the game, not stricter:
+- facing (the shot's direction, and blocked moves turning the block);
+- the row a shot is fired from;
+- the order of clicks within a spell;
+- free clicks on world objects and cards.
+
+## Bound and witness
+
+The minimum net cost in the model is 19.
+
+`least_winning_budget_is_19` combines two results, both for an admissible instance (`opens31`, `gpReal`):
+- `win_at_19`: a winning action list exists with budget 19.
+- Every budget from 0 to 18 loses. For budgets from 0 to 18 this also follows from the main theorem for every admissible instance.
+
+The witness is the route actually played in attempt 8:
+
+```
+L L L D D, shrink, D, grow (onto the pad, -10), R R U, shot, R R R R R R
+```
+
+In the game it reached the exit at usage 19 and got GAME_OVER (a8 tr 254).
+
+`cheap_wins` shows the shot hypothesis is a real constraint: if any shot opened the barrier, budget 18 would be enough.
+
+## How the proof works
+
+- `work/gen_final.py` computes a Bellman cost-to-go table `V` over the 802 valid states. The table goes into the file as a binary tree.
+- The kernel checks, in 16 separate chunks, every valid state, every action and every admissible outcome:
+  - the next state is valid;
+  - V(s) ≤ net cost + V(next state);
+  - V ≤ 0 at the goal.
+- `step_mem` shows the real step always lands among the admissible outcomes.
+- `inv` shows that usage plus V never decreases along a run.
+- V(start) = 19, which is more than B.
+
+## What I could not close
+
+- **The ruling-out of the two untested columns rests on geometry, not experiment.** The shot travels straight in the facing direction (frames of a1 tr 83 and a3 tr 127). So columns that do not overlap the switch box cannot reach it. The theorem's `hopen` already leaves big-at-27 and small-at-29 open.
+- **The table is checked, not trusted, but it covers only one map.** It is valid only for the map rectangles written in `floorCell`, which were read by eye off the level-4 frame.
+- **The bound is tight.** It fails at budget 19. Any game mechanic I never observed that saves even one unit would overturn the verdict for the real game. The proof says nothing about mechanics outside the model.

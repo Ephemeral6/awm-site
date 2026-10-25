@@ -1,0 +1,59 @@
+"""Exhaustive search on the level-5 model (macro recipes). Prints min units needed to win."""
+import json, heapq, sys
+g = json.load(open('work/l5_start.json'))
+T = int(sys.argv[1]) if len(sys.argv) > 1 else 9
+REFILL = int(sys.argv[2]) if len(sys.argv) > 2 else 10
+B = int(sys.argv[3]) if len(sys.argv) > 3 else 35
+def rect(r0,r1,c0,c1): return {(r,c) for r in range(r0,r1+1) for c in range(c0,c1+1)}
+base = {(r,c) for r in range(46) for c in range(10,62) if g[r][c] in (2,14,15,11)}
+base |= rect(29,32,17,20)            # start player cells
+base |= rect(1,4,33,36)              # goal interior
+base -= {(r,c) for (r,c) in base if c in (32,37) and 14 <= r <= 21}  # outer b brackets are walls (outside 4-wide column)
+CBAR, CBOX = rect(33,36,29,31), rect(9,12,20,23)
+DBAR, DBOX = rect(11,13,33,36), rect(14,17,55,58)
+TILE = rect(37,38,49,50)
+GOAL = rect(1,4,33,36)
+def floor(bc, bd):
+    f = set(base)
+    if not bc: f |= CBAR | CBOX
+    if not bd: f |= DBAR | DBOX
+    return f
+FL = {(bc,bd): floor(bc,bd) for bc in (0,1) for bd in (0,1)}
+def sq(r,c,s): return {(r+i,c+j) for i in range(s) for j in range(s)}
+def gap(r,c,s,box):
+    rs=[p[0] for p in box]; cs=[p[1] for p in box]
+    vg=max(0, min(rs)-(r+s), r-max(rs)-1); hg=max(0, min(cs)-(c+s), c-max(cs)-1)
+    return vg+hg
+D = {'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+def succ(st):
+    r,c,s,bc,bd,tile = st
+    f = FL[(bc,bd)]
+    for a,(dy,dx) in D.items():
+        k = s
+        while k > 0 and not sq(r+dy*k, c+dx*k, s) <= f: k -= 1
+        nr, nc = r+dy*k, c+dx*k
+        cost = 1; nt = tile
+        if tile and sq(nr,nc,s) & TILE: cost -= REFILL; nt = 0
+        yield a, (nr,nc,s,bc,bd,nt), cost, bool(sq(nr,nc,s) & GOAL)
+    if s == 4: yield 'PLUS', (r,c,2,bc,bd,tile), 5, False
+    nbc = bc and not gap(r,c,s,CBOX) <= T
+    nbd = bd and not gap(r,c,s,DBOX) <= T
+    yield 'COL', (r,c,s,nbc,nbd,tile), 4, False
+    tr, tc = (18,34) if s == 2 else (17,33)
+    yield 'TELE', (tr,tc,s,bc,bd,tile), 4, False
+start = (29,17,4,1,1,1)
+# Dijkstra on spent units; refill makes one edge negative -> use label-correcting search.
+best = {start: 0}; pq = [(0, start, ())]; win = None
+while pq:
+    u, st, path = heapq.heappop(pq)
+    if best.get(st, 1e9) < u: continue
+    for a, ns, cost, w in succ(st):
+        nu = u + cost
+        if u + max(cost,1) > B + 0 and cost > 0 and nu > B: continue   # game over before/at this step
+        if cost <= 0 and u + 1 > B: continue
+        if w:
+            if win is None or nu < win[0]: win = (nu, path + (a,))
+            continue
+        if nu < best.get(ns, 1e9):
+            best[ns] = nu; heapq.heappush(pq, (nu, ns, path + (a,)))
+print('T', T, 'refill', REFILL, 'states', len(best), 'win', win)

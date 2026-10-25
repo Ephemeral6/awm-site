@@ -1,0 +1,240 @@
+import FinalTables
+
+/-!
+# m15fw level 4 — the model used by `FinalProof.lean`
+
+Same rules as `M15fwModel.lean` (moves, panel, shrink/grow, switch, refill, budget, goal),
+specialised to level 4 and restated so that the kernel can evaluate it quickly.
+Two changes w.r.t. `M15fwModel.board4`, both in the LOOSE direction:
+* the switch stalk (rows 9-20, cols 31-32; attempt 3 moved a 2x2 into it) is passable;
+* after the switch fires, the switch frame (rows 5-8, cols 30-33) is passable (it turned to colour 2).
+Facing is not part of the state: the switch hypothesis below lets the switch fire in ANY facing,
+which is weaker than the evidence (facing left was seen to fail), so facing is never read.
+Every rule that was not pinned down by recorded steps is a field of `U` (the unknowns), constrained
+only by the hypotheses of the main theorem.
+-/
+
+namespace Final
+
+def inR (r0 r1 c0 c1 r c : Nat) : Bool :=
+  Nat.ble r0 r && Nat.ble r r1 && Nat.ble c0 c && Nat.ble c c1
+
+/-- passable cells of level 4 (`op` = switch fired / barrier gone). -/
+def passc (op : Bool) (r c : Nat) : Bool :=
+  inR 21 36 21 44 r c || (op && inR 29 32 45 47 r c) || inR 29 32 48 56 r c ||
+  inR 28 33 57 61 r c || inR 9 20 31 32 r c || (op && inR 5 8 30 33 r c)
+
+def footOK (op : Bool) (r c s : Nat) : Bool :=
+  (List.range s).all fun i => (List.range s).all fun j => passc op (r + i) (c + j)
+
+def overl (f : Nat → Nat → Bool) (r c s : Nat) : Bool :=
+  (List.range s).any fun i => (List.range s).any fun j => f (r + i) (c + j)
+
+def goalC (r c : Nat) : Bool := inR 28 33 57 61 r c
+def itemC (r c : Nat) : Bool := inR 34 35 23 24 r c
+
+/-- the cursor-and-board part of a position: size, top-left, barrier opened, item present. -/
+structure Q where
+  s : Nat
+  r : Nat
+  c : Nat
+  op : Bool
+  it : Bool
+  deriving DecidableEq, Repr
+
+inductive Dir where
+  | up | down | left | right
+  deriving DecidableEq, Repr
+
+def shift (d : Dir) (r c j : Nat) : Option (Nat × Nat) :=
+  match d with
+  | .up => if j ≤ r then some (r - j, c) else none
+  | .down => some (r + j, c)
+  | .left => if j ≤ c then some (r, c - j) else none
+  | .right => some (r, c + j)
+
+def okAt (q : Q) (d : Dir) (j : Nat) : Bool :=
+  match shift d q.r q.c j with
+  | some (r, c) => footOK q.op r c q.s
+  | none => false
+
+def moveKAux (q : Q) (d : Dir) : Nat → Nat → Nat
+  | 0, k => k
+  | n + 1, k => if okAt q d (k + 1) then moveKAux q d n (k + 1) else k
+
+/-- rule move_step4: slide by the largest k ≤ side with every intermediate footprint passable. -/
+def moveQ (q : Q) (d : Dir) : Q :=
+  match shift d q.r q.c (moveKAux q d q.s 0) with
+  | some (r, c) => { q with r := r, c := c }
+  | none => q
+
+def wins (q : Q) : Bool := overl goalC q.r q.c q.s
+
+/-- allowed outcomes of completing the shrink recipe.
+    4x4 → 2x2 at the same top-left (observed: L1, attempts 2, 3, 4, 6, 7, 8).
+    2x2 → 4x4 at (r-2, c-2) when that footprint is free (observed: attempts 4, 7, 8);
+    otherwise (never observed, next to walls) the grow may fail or land on any free quadrant. -/
+def growOpts (q : Q) : List Q :=
+  if q.s = 4 then [{ q with s := 2 }]
+  else if 2 ≤ q.r ∧ 2 ≤ q.c ∧ footOK q.op (q.r - 2) (q.c - 2) 4 = true then
+    [{ q with s := 4, r := q.r - 2, c := q.c - 2 }]
+  else
+    q :: ((if 2 ≤ q.r ∧ footOK q.op (q.r - 2) q.c 4 = true then [{ q with s := 4, r := q.r - 2 }] else []) ++
+          (if 2 ≤ q.c ∧ footOK q.op q.r (q.c - 2) 4 = true then [{ q with s := 4, c := q.c - 2 }] else []) ++
+          (if footOK q.op q.r q.c 4 = true then [{ q with s := 4 }] else []))
+
+/-- allowed outcomes of completing the switch recipe: nothing, or (only at columns 31/32) open. -/
+def switchOpts (q : Q) : List Q :=
+  if q.c = 31 ∨ q.c = 32 then [q, { q with op := true }] else [q]
+
+/-- a refill may trigger: item present and a 2x2 footprint overlaps it. -/
+def eligible (q : Q) : Bool := q.it && q.s == 2 && overl itemC q.r q.c q.s
+
+def SHR : List Bool := [false, true, false, true, false, true, false, true, false]
+def SW : List Bool := [false, true, false, false, true, false, false, true, false]
+def empty9 : List Bool := List.replicate 9 false
+
+/-- clicking a panel cell toggles it (attempt 6). -/
+def toggle : List Bool → Nat → List Bool
+  | [], _ => []
+  | b :: t, 0 => (!b) :: t
+  | b :: t, n + 1 => b :: toggle t n
+
+/-- number of cells of recipe `R` not marked in `m`. -/
+def miss : List Bool → List Bool → Nat
+  | [], _ => 0
+  | r :: rs, [] => (if r then 1 else 0) + miss rs []
+  | r :: rs, x :: xs => (if r && !x then 1 else 0) + miss rs xs
+
+structure St where
+  q : Q
+  m : List Bool
+  sp : Nat
+
+inductive Act where
+  | move (d : Dir)
+  | click (k : Nat)   -- k < 9: panel cell 3*row+col; k ≥ 9: any click off the panel
+
+/-- the unknowns: everything the recorded steps did not pin down. -/
+structure U where
+  /-- does completing the switch recipe open the barrier in this position? -/
+  fires : St → Bool
+  /-- where the cursor ends up after completing the shrink recipe. -/
+  res : St → Q
+  /-- does an eligible refill trigger after this action? -/
+  refill : St → Bool
+  /-- units spent after a refill. -/
+  refundTo : St → Nat
+  /-- marks contain a recipe AND extra cells (never observed): does that complete it? -/
+  sup : St → Bool
+  /-- marks contain BOTH recipes (never observed): do both effects fire on this click? -/
+  both : St → Bool
+  /-- …if both fire: shrink/grow first (`true`) or switch first (`false`). -/
+  order : St → Bool
+  /-- …if only one fires: the shrink recipe (`true`) or the switch recipe (`false`). -/
+  pick : St → Bool
+
+/-- one action before the refill check. Costs: 1 per action, 2 for a completing click,
+    0 for a click off the panel (fit: work/fit_budget.py, one surviving combination). -/
+def pre (u : U) (st : St) : Act → St × Bool
+  | .move d => let q2 := moveQ st.q d; ({ st with q := q2, sp := st.sp + 1 }, wins q2)
+  | .click k =>
+      if 9 ≤ k then (st, false)
+      else
+        let m2 := toggle st.m k
+        -- a recipe completes when the marks equal it (observed), or — only if `u.sup` — when they
+        -- contain it together with extra cells (never observed)
+        let doS := miss SHR m2 == 0 && (m2 == SHR || u.sup st)
+        let doW := miss SW m2 == 0 && (m2 == SW || u.sup st)
+        if doS && doW && u.both st then
+          -- both recipes on one click (never observed; excluded by the hypothesis `HNoDouble`)
+          if u.order st then
+            let q1 := u.res st
+            let q2 := { q1 with op := q1.op || u.fires { q := q1, m := empty9, sp := st.sp } }
+            ({ q := q2, m := empty9, sp := st.sp + 2 }, wins q2)
+          else
+            let q1 := { st.q with op := st.q.op || u.fires st }
+            let q2 := u.res { q := q1, m := empty9, sp := st.sp }
+            ({ q := q2, m := empty9, sp := st.sp + 2 }, wins q2)
+        else if doS && (!doW || u.pick st) then
+          -- selfaudit repair R12.4: a GROW that leaves a 4x4 over the item may refill (observed)
+          if st.q.it && st.q.s == 2 && (u.res st).s == 4 && overl itemC (u.res st).r (u.res st).c 4 &&
+              u.refill { q := u.res st, m := empty9, sp := st.sp + 2 } then
+            ({ q := { u.res st with it := false }, m := empty9,
+               sp := u.refundTo { q := u.res st, m := empty9, sp := st.sp + 2 } }, wins (u.res st))
+          else
+            ({ q := u.res st, m := empty9, sp := st.sp + 2 }, wins (u.res st))
+        else if doW then
+          ({ q := { st.q with op := st.q.op || u.fires st }, m := empty9, sp := st.sp + 2 },
+           wins { st.q with op := st.q.op || u.fires st })
+        else ({ st with m := m2, sp := st.sp + 1 }, false)
+
+def post (u : U) (st : St) : St :=
+  if eligible st.q && u.refill st then { q := { st.q with it := false }, m := st.m, sp := u.refundTo st }
+  else st
+
+def step (u : U) (st : St) (a : Act) : St × Bool :=
+  let r := pre u st a
+  (post u r.1, r.2)
+
+/-- `true` iff the action list wins. The run dies as soon as spent exceeds the budget `B`, and
+    this is checked BEFORE the win (selfaudit attempt 2: the move onto the goal at spent 19 with
+    B = 18 gave GAME_OVER, not a win). The refill is applied before the check (attempt 6). -/
+def run (u : U) (B : Nat) : St → List Act → Bool
+  | _, [] => false
+  | st, a :: as =>
+      let r := step u st a
+      if B < r.1.sp then false else if r.2 then true else run u B r.1 as
+
+def init : St := { q := { s := 4, r := 25, c := 37, op := false, it := true }, m := empty9, sp := 0 }
+
+/-! ## certificate tables -/
+
+def idx (q : Q) : Nat :=
+  ((if q.s = 4 then 4 else 0) + (if q.op then 2 else 0) + (if q.it then 1 else 0)) * 4096 + q.r * 64 + q.c
+
+def AN0 (q : Q) : Nat := (tables.find (idx q)).1
+def BS (q : Q) : Nat := (tables.find (idx q)).2.1
+def BW (q : Q) : Nat := (tables.find (idx q)).2.2.1
+def AM0 (q : Q) : Nat := (tables.find (idx q)).2.2.2.1
+def BMS (q : Q) : Nat := (tables.find (idx q)).2.2.2.2.1
+def BMW (q : Q) : Nat := (tables.find (idx q)).2.2.2.2.2
+
+/-- lower bounds with an empty panel (distances 4 to the shrink recipe, 3 to the switch recipe). -/
+def Nz (q : Q) : Nat := min (AN0 q) (min (BS q + 4) (BW q + 3))
+def Mz (q : Q) : Nat := min (AM0 q) (min (BMS q + 4) (BMW q + 3))
+
+def Dom (q : Q) : Bool :=
+  (q.s == 2 || q.s == 4) && Nat.blt q.r 40 && Nat.blt q.c 64 && footOK q.op q.r q.c q.s
+
+def dirs : List Dir := [.up, .down, .left, .right]
+
+def factMove (q : Q) (d : Dir) : Bool :=
+  let q2 := moveQ q d
+  Dom q2 && q2.it == q.it &&
+  (if wins q2 then Nat.ble (AN0 q) 1 && !eligible q2
+   else Nat.ble (AN0 q) (1 + AN0 q2) && Nat.ble (BS q) (1 + BS q2) && Nat.ble (BW q) (1 + BW q2) &&
+        (!q.it || (Nat.ble (AM0 q) (1 + AM0 q2) && Nat.ble (BMS q) (1 + BMS q2) &&
+                   Nat.ble (BMW q) (1 + BMW q2))))
+
+def factGrow (q : Q) : Bool :=
+  (growOpts q).all fun q2 => Dom q2 && q2.it == q.it &&
+    (if wins q2 then Nat.ble (BS q) 0 && !overl itemC q2.r q2.c q2.s
+     else Nat.ble (BS q) (1 + Nz q2) && (!q.it || Nat.ble (BMS q) (1 + Mz q2)) &&
+       -- grow refill (R12.4): the refilled position is in the domain and M drops to N there
+       (!(q.it && q.s == 2 && q2.s == 4 && overl itemC q2.r q2.c 4) ||
+         (Dom { q2 with it := false } && Nat.ble (BMS q) (1 + Nz { q2 with it := false }))))
+
+def factSwitch (q : Q) : Bool :=
+  (switchOpts q).all fun q2 => Dom q2 && q2.it == q.it &&
+    (if wins q2 then Nat.ble (BW q) 0 && !overl itemC q2.r q2.c q2.s
+     else Nat.ble (BW q) (1 + Nz q2) && (!q.it || Nat.ble (BMW q) (1 + Mz q2)))
+
+def factRefill (q : Q) : Bool :=
+  !eligible q ||
+    (let q2 := { q with it := false }
+     Dom q2 && Nat.ble (AM0 q) (AN0 q2) && Nat.ble (BMS q) (BS q2) && Nat.ble (BMW q) (BW q2))
+
+def facts (q : Q) : Bool := dirs.all (factMove q) && factGrow q && factSwitch q && factRefill q
+
+end Final

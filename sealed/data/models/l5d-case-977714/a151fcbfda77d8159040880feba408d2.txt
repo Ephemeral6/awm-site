@@ -1,0 +1,190 @@
+/-!
+# Level 4 model and winnability witness
+
+Objects and rules come from `work/MODEL.md` (attempt 1 observations). Pixel coordinates are (row, col).
+Every geometric constant below was read off the first level-4 frame
+(transition index 65 in `transitions.jsonl`) and checked by script: each map cell's colour
+matches the rectangle it falls in.
+
+Two premises are **not** established by observation. They are not hidden in definitions:
+* `near` (when the colour-6 recipe has its effect) is a *parameter*. The main theorem assumes it
+  holds at one specific state (`sNear`).
+* `budget` (35 units in level 4) is a parameter. The value 35 is the unique fit of the display
+  formula over my grid of candidate budgets; it is not a direct observation.
+-/
+
+namespace L4
+
+set_option maxRecDepth 100000
+
+inductive Dir where
+  | up | down | left | right
+  deriving DecidableEq, Repr
+
+inductive Act where
+  | mv (d : Dir)
+  | click (i : Nat)      -- panel cell i = 3*row + col, (x,y) ∈ {25,30,35}×{50,55,60}
+  deriving DecidableEq, Repr
+
+structure St where
+  r : Nat          -- top row of the player square
+  c : Nat          -- left column
+  sz : Nat         -- side length (4 or 2)
+  face : Dir
+  marks : List Bool  -- 9 panel cells, true = marked (colour 14)
+  barrier : Bool   -- colour-6 box + colour-13 barrier present
+  u : Nat          -- budget units spent
+  won : Bool
+  over : Bool
+  deriving DecidableEq, Repr
+
+def inR (r c r0 r1 c0 c1 : Nat) : Bool := r0 ≤ r && r ≤ r1 && c0 ≤ c && c ≤ c1
+
+/-- floor of level 4 (rectangles measured on the frame). -/
+def floor (bar : Bool) (r c : Nat) : Bool :=
+  inR r c 21 36 21 44 ||      -- room (includes the unexplained 14-tile at 34-35 × 23-24)
+  inR r c 9 20 31 32 ||       -- stem
+  inR r c 29 32 48 56 ||      -- corridor
+  inR r c 29 32 57 60 ||      -- goal interior
+  (!bar && (inR r c 29 32 45 47 || inR r c 5 8 30 33))  -- barrier / box, once removed
+
+def goalHit (r c s : Nat) : Bool :=
+  (List.range s).any fun i => (List.range s).any fun j => inR (r+i) (c+j) 29 32 57 60
+
+def free (bar : Bool) (r c s : Nat) : Bool :=
+  (List.range s).all fun i => (List.range s).all fun j => floor bar (r+i) (c+j)
+
+def shift (d : Dir) (r c k : Nat) : Nat × Nat :=
+  match d with
+  | .up => (r - k, c) | .down => (r + k, c) | .left => (r, c - k) | .right => (r, c + k)
+
+/-- largest k ≤ s (down to 1) whose shifted square is free; 0 = blocked (clamp seen in L1). -/
+def reachS (bar : Bool) (d : Dir) (r c s : Nat) : Nat → Nat
+  | 0 => 0
+  | k+1 => let p := shift d r c (k+1); if free bar p.1 p.2 s then k+1 else reachS bar d r c s k
+
+def blank : List Bool := List.replicate 9 false
+def plusPat : List Bool := [false, true, false, true, false, true, false, true, false]
+def colPat  : List Bool := [false, true, false, false, true, false, false, true, false]
+
+def toggle (m : List Bool) (i : Nat) : List Bool := m.set i (!(m.getD i false))
+
+/-- charge `k` units; the game is over once spent units exceed the budget. -/
+def charge (budget k : Nat) (s : St) : St :=
+  { s with u := s.u + k, over := decide (s.u + k > budget) }
+
+/-- does action `a` at `s` complete the colour-6 recipe (the only place `near` is consulted)? -/
+def needsNear (s : St) : Act → Bool
+  | .click i => !(s.won || s.over) && decide (i < 9) && !(toggle s.marks i == plusPat)
+                && (toggle s.marks i == colPat)
+  | .mv _ => false
+
+/-- one step, given whether the colour-6 effect fires (`kill`). -/
+def stepBase (budget : Nat) (kill : Bool) (s : St) : Act → St
+  | a =>
+    if s.won || s.over then s else
+    match a with
+    | .mv d =>
+      let k := reachS s.barrier d s.r s.c s.sz s.sz
+      let p := shift d s.r s.c k
+      let s1 := charge budget 1 { s with r := p.1, c := p.2, face := d }
+      { s1 with won := !s1.over && goalHit s1.r s1.c s1.sz }
+    | .click i =>
+      if i ≥ 9 then s else
+      let m := toggle s.marks i
+      if m == plusPat then charge budget 2 { s with sz := 2, marks := blank }
+      else if m == colPat then
+        charge budget 2 { s with marks := blank, barrier := s.barrier && !kill }
+      else charge budget 1 { s with marks := m }
+
+/-- the model's step: the colour-6 effect fires iff the recipe completes and `near s`. -/
+def step (budget : Nat) (near : St → Bool) (s : St) (a : Act) : St :=
+  stepBase budget (near s && needsNear s a) s a
+
+def run (budget : Nat) (near : St → Bool) (s : St) (as : List Act) : St :=
+  as.foldl (step budget near) s
+
+/-- closed run in which the colour-6 effect never fires. -/
+def runBase (budget : Nat) (s : St) (as : List Act) : St :=
+  as.foldl (stepBase budget false) s
+
+/-- no step of the closed run completes the colour-6 recipe. -/
+def allSafe (budget : Nat) : St → List Act → Bool
+  | _, [] => true
+  | s, a :: as => !(needsNear s a) && allSafe budget (stepBase budget false s a) as
+
+theorem run_eq_base (budget : Nat) (near : St → Bool) :
+    ∀ (as : List Act) (s : St), allSafe budget s as = true → run budget near s as = runBase budget s as
+  | [], _, _ => rfl
+  | a :: as, s, h => by
+    simp only [allSafe, Bool.and_eq_true, Bool.not_eq_true'] at h
+    have hs : step budget near s a = stepBase budget false s a := by
+      simp [step, h.1]
+    show run budget near (step budget near s a) as = runBase budget (stepBase budget false s a) as
+    rw [hs]; exact run_eq_base budget near as _ h.2
+
+def s0 : St := { r := 25, c := 37, sz := 4, face := .down, marks := blank, barrier := true,
+                 u := 0, won := false, over := false }
+
+open Act Dir in
+def part1 : List Act :=
+  [mv left, mv left, mv up, click 1, click 3, click 5, click 7, mv right, mv up, mv up,
+   click 1, click 7]
+
+def finalClick : Act := .click 4
+
+open Act Dir in
+def part2 : List Act :=
+  List.replicate 6 (mv down) ++ List.replicate 13 (mv right)
+
+def plan : List Act := part1 ++ [finalClick] ++ part2
+
+/-- the state at which the colour-6 recipe completes (2x2 at (17,31), facing up). -/
+def sNear : St := { r := 17, c := 31, sz := 2, face := .up,
+                    marks := [false, true, false, false, false, false, false, true, false],
+                    barrier := true, u := 13, won := false, over := false }
+
+def sAfter : St := { sNear with marks := blank, barrier := false, u := 15, over := false }
+
+theorem part1_safe : allSafe 35 s0 part1 = true := by decide
+theorem part1_val : runBase 35 s0 part1 = sNear := by decide
+theorem click_needs : needsNear sNear finalClick = true := by decide
+theorem click_val : stepBase 35 true sNear finalClick = sAfter := by decide
+theorem part2_safe : allSafe 35 sAfter part2 = true := by decide
+theorem part2_won : (runBase 35 sAfter part2).won = true := by decide
+
+theorem run_append (b : Nat) (n : St → Bool) (s : St) (p q : List Act) :
+    run b n s (p ++ q) = run b n (run b n s p) q := by
+  simp [run, List.foldl_append]
+
+/-- **Main theorem.** For every `near` rule that grants the colour-6 effect at `sNear`,
+    the 32-action plan wins level 4 within budget 35. -/
+theorem l4_winnable (near : St → Bool) (h : near sNear = true) :
+    (run 35 near s0 plan).won = true := by
+  unfold plan
+  rw [run_append, run_append, run_eq_base 35 near part1 s0 part1_safe, part1_val]
+  have hc : run 35 near sNear [finalClick] = sAfter := by
+    show step 35 near sNear finalClick = sAfter
+    simp only [step, h, click_needs, Bool.and_self]
+    exact click_val
+  rw [hc, run_eq_base 35 near part2 sAfter part2_safe]
+  exact part2_won
+
+/-- Non-vacuity 1: the `near` premise matters. With no effect ever, the same plan does not win. -/
+theorem plan_fails_without_near : (run 35 (fun _ => false) s0 plan).won = false := by
+  decide
+
+/-- Non-vacuity 2: the budget premise matters. With budget 33 the plan is over before winning. -/
+theorem plan_fails_budget33 : (run 33 (fun _ => true) s0 plan).won = false := by
+  decide
+
+/-- Budget 34 (one unit less than the fit) still wins; the plan spends exactly 34. -/
+theorem plan_spends_34 : (run 35 (fun _ => true) s0 plan).u = 34 := by
+  decide
+
+end L4
+
+#print axioms L4.l4_winnable
+#print axioms L4.plan_fails_without_near
+#print axioms L4.plan_fails_budget33
+#print axioms L4.plan_spends_34

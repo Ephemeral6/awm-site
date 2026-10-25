@@ -1,0 +1,257 @@
+import L5BoundDefs
+import L5BoundRows0
+import L5BoundRows1
+import L5BoundRows2
+import L5BoundRows3
+import L5BoundRows4
+import L5BoundRows5
+import L5BoundRows6
+namespace L5B
+open L5
+
+theorem allFrom_spec (p : Nat → Bool) : ∀ n lo, allFrom p lo n = true → ∀ k, lo ≤ k → k < lo + n → p k = true := by
+  intro n
+  induction n with
+  | zero => intro lo _ k h1 h2; omega
+  | succ n ih =>
+    intro lo h k h1 h2
+    simp only [allFrom, Bool.and_eq_true] at h
+    by_cases hk : k = lo
+    · subst hk; exact h.1
+    · exact ih (lo + 1) h.2 k (by omega) (by omega)
+
+theorem key_lt (st : St) (h : okB st = true) : key st < 42 * 4096 := by
+  simp only [okB, Bool.and_eq_true, decide_eq_true_eq, Bool.or_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := h
+  simp only [key, b2n]
+  have hc : st.c.toNat < 64 := by omega
+  have hr : st.r.toNat < 42 := by omega
+  split <;> (repeat' split) <;> omega
+
+theorem decode_key (st : St) (h : okB st = true) (hw : st.won = false) :
+    decode (key st) = { st with bud := 0 } := by
+  simp only [okB, Bool.and_eq_true, decide_eq_true_eq, Bool.or_eq_true, beq_iff_eq] at h
+  obtain ⟨⟨⟨⟨⟨h1, h2⟩, h3⟩, h4⟩, h5⟩, h6⟩ := h
+  cases st with
+  | mk r c s f cc dd pad bud won =>
+    simp only at h1 h2 h3 h4 h5 h6 hw
+    subst hw
+    simp only [decode, key, b2n, St.mk.injEq]
+    have hr : ((r.toNat : Nat) : Int) = r := Int.toNat_of_nonneg h1
+    have hc : ((c.toNat : Nat) : Int) = c := Int.toNat_of_nonneg h3
+    rcases h5 with h5 | h5 <;> subst h5 <;> cases cc <;> cases dd <;> cases pad <;> simp <;> omega
+
+theorem slide_bud0 (r c s : Int) (f : Nat) (cc dd pad : Bool) (b : Nat) (w : Bool) (d : Nat) :
+    slide ⟨r, c, s, f, cc, dd, pad, b, w⟩ d = slide ⟨r, c, s, f, cc, dd, pad, 0, w⟩ d := rfl
+
+theorem floorAt_eq (st : St) : floorAt st = floorCD st.cc st.dd := rfl
+
+/-- `apply` reads `bud` only to add the pad gain. -/
+theorem apply_bud (st : St) (a : Act) :
+    apply st a = { apply { st with bud := 0 } a with bud := st.bud + (apply { st with bud := 0 } a).bud } := by
+  cases st with
+  | mk r c s f cc dd pad bud won =>
+  cases a with
+  | mv d =>
+    simp only [apply]
+    rw [slide_bud0 r c s f cc dd pad bud won d]
+    (repeat' split) <;> simp_all
+  | shrink => simp only [apply]; (repeat' split) <;> simp_all
+  | cast6 => simp only [apply, probe]; simp
+  | tele => simp only [apply]; (repeat' split) <;> simp_all
+  | grow =>
+    simp only [apply, floorAt_eq]
+    split
+    · simp_all
+    · generalize List.find? _ _ = o
+      cases o <;> simp_all
+
+theorem apply_split (st : St) (B : Nat) (a : Act) :
+    apply { st with bud := B } a = { apply { st with bud := 0 } a with bud := B + (apply { st with bud := 0 } a).bud } := by
+  rw [apply_bud]
+
+theorem apply_split' (r c s : Int) (f : Nat) (cc dd pad : Bool) (B : Nat) (w : Bool) (a : Act) :
+    apply ⟨r, c, s, f, cc, dd, pad, B, w⟩ a
+      = { apply ⟨r, c, s, f, cc, dd, pad, 0, w⟩ a with bud := B + (apply ⟨r, c, s, f, cc, dd, pad, 0, w⟩ a).bud } :=
+  apply_split ⟨r, c, s, f, cc, dd, pad, B, w⟩ B a
+
+def legal : Act → Bool
+  | .mv d => d < 4
+  | _ => true
+
+theorem legal_mem (a : Act) (h : legal a = true) : a ∈ acts := by
+  cases a with
+  | mv d =>
+    simp only [legal, decide_eq_true_eq] at h
+    have : d = 0 ∨ d = 1 ∨ d = 2 ∨ d = 3 := by omega
+    rcases this with h | h | h | h <;> subst h <;> simp [acts]
+  | _ => simp [acts]
+
+def Inv (st : St) : Prop :=
+  okB st = true ∧ st.won = false ∧ inR (key st) = true ∧ (st.bud : Int) < phi (key st)
+
+theorem key_bud (t : St) (x : Nat) : key { t with bud := x } = key t := rfl
+theorem okB_bud (t : St) (x : Nat) : okB { t with bud := x } = okB t := rfl
+
+theorem start_facts : okB (start 0) = true ∧ inR (key (start 0)) = true ∧ phi (key (start 0)) = 36 := by
+  decide +kernel
+
+section
+variable (hrows : ∀ r, r < 42 → rowOK r = true)
+include hrows
+
+theorem check_of (k : Nat) (hk : k < 42 * 4096) (hr : inR k = true) : checkKey k = true := by
+  have h := allFrom_spec _ 4096 ((k / 4096) * 4096) (hrows (k / 4096) (by omega)) k (by omega) (by omega)
+  simp only [hr, Bool.not_true, Bool.false_or] at h
+  exact h
+
+theorem step_inv (st : St) (a : Act) (hl : legal a = true) (hi : Inv st) :
+    ∀ st', step st a = some st' → Inv st' := by
+  intro st' hs
+  obtain ⟨hok, hw, hin, hb⟩ := hi
+  have hc := check_of hrows (key st) (key_lt st hok) hin
+  simp only [checkKey, List.all_eq_true] at hc
+  have hca := hc a (legal_mem a hl)
+  rw [decode_key st hok hw] at hca
+  simp only [step, hw, Bool.false_eq_true, ↓reduceIte] at hs
+  split at hs
+  · rename_i hle
+    simp only [Option.some.injEq] at hs
+    rw [hw] at hca
+    rw [← hs, apply_split']
+    generalize ht : apply ⟨st.r, st.c, st.s, st.f, st.cc, st.dd, st.pad, 0, false⟩ a = t at hca ⊢
+    cases hwt : t.won
+    · simp only [hwt] at hca
+      simp only [Bool.false_eq_true, ↓reduceIte, Bool.and_eq_true, decide_eq_true_eq] at hca
+      obtain ⟨⟨h1, h2⟩, h3⟩ := hca
+      refine ⟨by rw [okB_bud]; exact h1, by simp [hwt], by rw [key_bud]; exact h2, ?_⟩
+      rw [key_bud]
+      have : cost a ≤ st.bud := by simpa using hle
+      show ((st.bud - cost a + t.bud : Nat) : Int) < phi (key t)
+      omega
+    · simp only [hwt, ↓reduceIte, decide_eq_true_eq] at hca
+      have : cost a ≤ st.bud := by simpa using hle
+      have : (0 : Int) ≤ t.bud := by omega
+      omega
+  · simp at hs
+
+theorem run_inv : ∀ (as : List Act) (st : St), Inv st → (∀ a ∈ as, legal a = true) →
+    ∀ s', run st as = some s' → s'.won = false := by
+  intro as
+  induction as with
+  | nil => intro st hi _ s' h; simp [run] at h; subst h; exact hi.2.1
+  | cons a as ih =>
+    intro st hi hl s' h
+    simp only [run] at h
+    split at h
+    · simp at h
+    · rename_i st1 hst
+      exact ih st1 (step_inv hrows st a (hl a (by simp)) hi st1 hst) (fun x hx => hl x (by simp [hx])) s' h
+
+theorem l5_needs_36_core (b : Nat) (as : List Act) (hb : b < 36) (hl : ∀ a ∈ as, legal a = true) :
+    wins b as = false := by
+  have hs := start_facts
+  have hi : Inv (start b) := ⟨hs.1, rfl, hs.2.1, by
+    have : key (start b) = key (start 0) := rfl
+    rw [this, hs.2.2]; show ((b : Nat) : Int) < 36; omega⟩
+  unfold wins
+  split
+  · rename_i st h; exact run_inv hrows as (start b) hi hl st h
+  · rfl
+end
+
+theorem all_rows : ∀ r, r < 42 → rowOK r = true
+  | 0, _ => row0
+  | 1, _ => row1
+  | 2, _ => row2
+  | 3, _ => row3
+  | 4, _ => row4
+  | 5, _ => row5
+  | 6, _ => row6
+  | 7, _ => row7
+  | 8, _ => row8
+  | 9, _ => row9
+  | 10, _ => row10
+  | 11, _ => row11
+  | 12, _ => row12
+  | 13, _ => row13
+  | 14, _ => row14
+  | 15, _ => row15
+  | 16, _ => row16
+  | 17, _ => row17
+  | 18, _ => row18
+  | 19, _ => row19
+  | 20, _ => row20
+  | 21, _ => row21
+  | 22, _ => row22
+  | 23, _ => row23
+  | 24, _ => row24
+  | 25, _ => row25
+  | 26, _ => row26
+  | 27, _ => row27
+  | 28, _ => row28
+  | 29, _ => row29
+  | 30, _ => row30
+  | 31, _ => row31
+  | 32, _ => row32
+  | 33, _ => row33
+  | 34, _ => row34
+  | 35, _ => row35
+  | 36, _ => row36
+  | 37, _ => row37
+  | 38, _ => row38
+  | 39, _ => row39
+  | 40, _ => row40
+  | 41, _ => row41
+  | n + 42, h => absurd h (by omega)
+
+/-- MAIN (attempt 3): in `L5Model` (with R-grow, size-dependent R-tele and measured costs), every sequence of
+    legal actions from the L5 start with start budget b < 36 units fails to win. -/
+theorem l5_needs_36 (b : Nat) (as : List Act) (hb : b < 36) (hl : ∀ a ∈ as, legal a = true) :
+    wins b as = false :=
+  l5_needs_36_core all_rows b as hb hl
+
+/-- Non-vacuity: with start budget 36 the model does win (route found by the same search). -/
+def route3 : List Act :=
+  [L5.D, L5.D, L5.R, L5.U, .cast6, L5.R, L5.R, L5.R, L5.R, L5.D, L5.R, L5.R, L5.R, L5.U, L5.U, L5.U, L5.Lf,
+   .shrink, L5.U, L5.U, L5.U, L5.U, L5.R, .grow, .cast6, .tele, L5.U, L5.U, L5.U, L5.U]
+
+theorem route3_wins_36 : wins 36 route3 = true := by decide +kernel
+theorem route3_legal : route3.all legal = true := by decide
+
+/-- Attempt 4 replay (budget 34 = measured start budget): the model reproduces the observed death point.
+    After 28 actions the cursor is at (9,33) with budget 0; the 29th action (U) is refused (game over). -/
+def att4 : List Act :=
+  [L5.D, L5.D, L5.R, L5.U, .cast6, L5.R, L5.R, L5.R, L5.R, L5.D, L5.R, L5.R, L5.R, L5.U, L5.U, L5.U, L5.Lf,
+   .shrink, L5.U, L5.U, L5.U, .grow, L5.U, L5.R, .cast6, .tele, L5.U, L5.U]
+
+theorem att4_replay : (run (start 34) att4).map (fun st => (st.r, st.c, st.s, st.bud, st.won))
+    = some (9, 33, 4, 0, false) := by decide +kernel
+theorem att4_death : run (start 34) (att4 ++ [L5.U]) = none := by decide +kernel
+
+/-- The measured budget instance of the main theorem. -/
+theorem l5_unwinnable_at_34 (as : List Act) (hl : ∀ a ∈ as, legal a = true) : wins 34 as = false :=
+  l5_needs_36 34 as (by decide) hl
+
+end L5B
+
+#print axioms L5B.l5_needs_36
+#print axioms L5B.route3_wins_36
+#print axioms L5B.route3_legal
+#print axioms L5B.att4_replay
+#print axioms L5B.att4_death
+#print axioms L5B.l5_unwinnable_at_34
+
+-- appended by recheck_l5d_main.py
+#check @L5B.l5_unwinnable_at_34
+#print axioms L5B.l5_unwinnable_at_34
+#check @L5B.l5_needs_36
+#print axioms L5B.l5_needs_36
+#check @L5B.route3_wins_36
+#print axioms L5B.route3_wins_36
+#check @L5B.legal
+#print axioms L5B.legal
+#check @L5.wins
+#print axioms L5.wins
+#check @L5.step
+#print axioms L5.step

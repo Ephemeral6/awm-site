@@ -1,0 +1,5 @@
+import json
+g=json.load(open('.last_frame.json'))['frame']
+from collections import Counter
+print('timer', sum(1 for y in range(64) if g[y][62]==14))
+c=[(y,x) for y in range(46) for x in range(62) if g[y][x] in (9,10)]

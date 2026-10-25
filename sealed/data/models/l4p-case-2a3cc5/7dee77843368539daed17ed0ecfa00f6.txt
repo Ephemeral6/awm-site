@@ -1,0 +1,619 @@
+/-!
+# Level 4 model (attempt 1)
+
+Objects (see work/MODEL.md for the object/rule tables and the drop audit):
+* piece      : top-left (r, c), side 4 (fixed: shrink effect NOT IN MODEL), facing
+* grid       : 9-bit lit mask
+* key panels : two fixed patterns (6-key = cells 1,4,7 = 146; f-key = cells 1,3,5,7 = 170),
+               plus `sel` = the panel last clicked (0 = none)  -- slot of HYPOTHESIS H6
+* barrier    : `op` (true = 6-box and colour-13 barrier gone)
+* slot       : static (rows 29-32, cols 57-60)
+* walls      : static floor map measured from the L4 frame
+* budget     : `used` = number of budget-consuming actions; LIMIT = 15 (measured: 15 actions
+               were executed in L4 without GAME_OVER, the 16th gave GAME_OVER)
+
+Rules (each a definition below):
+* MOVE   (concept piece_step + piece_facing): slide up to 4 cells, stop at non-floor; facing := dir
+         even when blocked (observed L4).
+* GOAL   (concept goal_enter): if the footprint shifted by 4 hits a slot cell, the level is won.
+* CLICK  (concept grid_click): toggle bit i.
+* MATCH6 : lit = 146 ⇒ lit := 0 and op := op || trig s.  `trig` is a PARAMETER: the condition
+           under which the 6-match opens the barrier was NOT established (fired once in L3, failed
+           3 times in L4). It is never fixed inside a definition; theorems take it as a hypothesis.
+* MATCHF : lit = 170 ⇒ lit := 0; the shrink effect is NOT IN MODEL.
+* KEY    : clicking a key panel sets `sel`; costs no budget (L3: key-panel clicks did not move the bar).
+-/
+
+namespace L4
+
+def box (y0 y1 x0 x1 y x : Nat) : Bool :=
+  Nat.ble y0 y && Nat.ble y y1 && Nat.ble x0 x && Nat.ble x x1
+
+def inRoom    : Nat → Nat → Bool := box 21 36 21 44
+def inShaft   : Nat → Nat → Bool := box 9 20 31 32
+def inBarrier : Nat → Nat → Bool := box 29 32 45 47
+def inCorr    : Nat → Nat → Bool := box 29 32 48 56
+def inSlot    : Nat → Nat → Bool := box 29 32 57 60
+
+def floorC (op : Bool) (y x : Nat) : Bool :=
+  inRoom y x || inShaft y x || inCorr y x || (op && inBarrier y x)
+
+def fpAll (P : Nat → Nat → Bool) (r c : Nat) : Bool :=
+  (List.range 4).all (fun i => (List.range 4).all (fun j => P (r + i) (c + j)))
+
+def fpAny (P : Nat → Nat → Bool) (r c : Nat) : Bool :=
+  (List.range 4).any (fun i => (List.range 4).any (fun j => P (r + i) (c + j)))
+
+inductive Dir | U | D | L | R
+  deriving DecidableEq, Repr
+
+def shift : Dir → Nat → Nat × Nat → Nat × Nat
+  | .U, k, (r, c) => (r - k, c)
+  | .D, k, (r, c) => (r + k, c)
+  | .L, k, (r, c) => (r, c - k)
+  | .R, k, (r, c) => (r, c + k)
+
+def slideAux (op : Bool) (d : Dir) (p : Nat × Nat) : Nat → Nat → Nat
+  | 0, k => k
+  | n + 1, k =>
+    let q := shift d (k + 1) p
+    if fpAll (floorC op) q.1 q.2 then slideAux op d p n (k + 1) else k
+
+def slide (op : Bool) (d : Dir) (p : Nat × Nat) : Nat := slideAux op d p 4 0
+
+/-- MOVE + GOAL: (won?, new top-left). -/
+def move (op : Bool) (d : Dir) (p : Nat × Nat) : Bool × (Nat × Nat) :=
+  let q := shift d 4 p
+  if fpAny inSlot q.1 q.2 then (true, p) else (false, shift d (slide op d p) p)
+
+structure St where
+  r : Nat
+  c : Nat
+  face : Dir
+  lit : Nat
+  sel : Nat
+  op : Bool
+  won : Bool
+  used : Nat
+  deriving DecidableEq, Repr
+
+inductive Act
+  | mv (d : Dir)
+  | cell (i : Nat)
+  | key (k : Nat)
+
+def LIMIT : Nat := 15
+def key6 : Nat := 146
+def keyF : Nat := 170
+
+def live (s : St) : Bool := !s.won && !(Nat.ble LIMIT s.used)
+
+def act (trig : St → Bool) (s : St) : Act → St
+  | .mv d =>
+    let m := move s.op d (s.r, s.c)
+    { s with r := m.2.1, c := m.2.2, face := d, won := m.1, used := s.used + 1 }
+  | .cell i =>
+    if Nat.ble 9 i then s else
+    let l := Nat.xor s.lit (2 ^ i)
+    if l == key6 then { s with lit := 0, op := s.op || trig s, used := s.used + 1 }
+    else if l == keyF then { s with lit := 0, used := s.used + 1 }
+    else { s with lit := l, used := s.used + 1 }
+  | .key k => { s with sel := k }
+
+def step (trig : St → Bool) (s : St) (a : Act) : St :=
+  if live s then act trig s a else s
+
+def run (trig : St → Bool) (s : St) (as : List Act) : St := as.foldl (step trig) s
+
+def start : St := ⟨25, 37, .D, 0, 0, false, false, 0⟩
+
+def pre : List Act := [.mv .L, .mv .L, .mv .U, .key 6, .cell 1, .cell 4]
+def rest : List Act :=
+  [.cell 7, .mv .D, .mv .D, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R]
+def route : List Act := pre ++ rest
+
+/-- The state right before the matching click. -/
+def sPre : St := ⟨21, 29, .U, 18, 6, false, false, 5⟩
+
+def never : St → Bool := fun _ => false
+
+/-- an action whose outcome cannot depend on `trig` (it is not a matching 6-click) -/
+def safe (s : St) : Act → Bool
+  | .cell i => !(Nat.xor s.lit (2 ^ i) == key6)
+  | _ => true
+
+def safeRun : St → List Act → Bool
+  | _, [] => true
+  | s, a :: as => safe s a && safeRun (step never s a) as
+
+theorem step_eq (trig : St → Bool) (s : St) (a : Act) (h : safe s a = true) :
+    step trig s a = step never s a := by
+  cases a with
+  | mv d => rfl
+  | key k => rfl
+  | cell i =>
+    simp only [safe, Bool.not_eq_true', beq_eq_false_iff_ne, ne_eq] at h
+    have h' : ¬ (s.lit ^^^ 2 ^ i = key6) := h
+    simp [step, act, h']
+
+theorem run_eq (trig : St → Bool) (as : List Act) :
+    ∀ s, safeRun s as = true → run trig s as = run never s as := by
+  induction as with
+  | nil => intro s _; rfl
+  | cons a as ih =>
+    intro s h
+    simp only [safeRun, Bool.and_eq_true] at h
+    simp only [run, List.foldl_cons] at *
+    rw [step_eq trig s a h.1]
+    exact ih _ h.2
+
+theorem pre_run (trig : St → Bool) : run trig start pre = sPre := by
+  rw [run_eq trig pre start (by decide)]; decide
+
+def afterMatch (b : Bool) : St := ⟨21, 29, .U, 0, 6, b, false, 6⟩
+
+theorem match_step (trig : St → Bool) : step trig sPre (.cell 7) = afterMatch (trig sPre) := by
+  rfl
+
+def rest' : List Act := rest.tail
+
+theorem rest_open (trig : St → Bool) : (run trig (afterMatch true) rest').won = true := by
+  rw [run_eq trig rest' _ (by decide)]; decide
+theorem rest_closed (trig : St → Bool) : (run trig (afterMatch false) rest').won = false := by
+  rw [run_eq trig rest' _ (by decide)]; decide
+
+theorem run_append (trig : St → Bool) (s : St) (a b : List Act) :
+    run trig s (a ++ b) = run trig (run trig s a) b := by
+  simp [run, List.foldl_append]
+
+/-- MAIN: if the 6-match fires at `sPre`, the 16-action route (15 budget-consuming) wins. -/
+theorem route_wins (trig : St → Bool) (h : trig sPre = true) :
+    (run trig start route).won = true := by
+  have e : route = pre ++ ([.cell 7] ++ rest') := rfl
+  rw [e, run_append, run_append, pre_run]
+  have : run trig sPre [.cell 7] = afterMatch (trig sPre) := by
+    simp [run, match_step]
+  rw [this, h]
+  exact rest_open trig
+
+/-- Direction check: the hypothesis is used — without it the same route does not win. -/
+theorem route_needs_trig (trig : St → Bool) (h : trig sPre = false) :
+    (run trig start route).won = false := by
+  have e : route = pre ++ ([.cell 7] ++ rest') := rfl
+  rw [e, run_append, run_append, pre_run]
+  have : run trig sPre [.cell 7] = afterMatch (trig sPre) := by
+    simp [run, match_step]
+  rw [this, h]
+  exact rest_closed trig
+
+/-! ## The premise is a real constraint: if the barrier never opens, NO action string wins. -/
+
+def okB (d : Dir) (r c : Nat) : Bool :=
+  let m := move false d (r, c)
+  !m.1 && Nat.ble 21 m.2.1 && Nat.ble m.2.1 33 && Nat.ble 21 m.2.2 && Nat.ble m.2.2 41
+
+def checkB : Bool :=
+  [Dir.U, Dir.D, Dir.L, Dir.R].all fun d =>
+    (List.range 13).all fun i => (List.range 21).all fun j => okB d (21 + i) (21 + j)
+
+theorem checkB_true : checkB = true := by decide
+
+theorem okB_all (d : Dir) (r c : Nat) (h1 : 21 ≤ r) (h2 : r ≤ 33) (h3 : 21 ≤ c) (h4 : c ≤ 41) :
+    okB d r c = true := by
+  have hc := checkB_true
+  simp only [checkB, List.all_eq_true, List.mem_range] at hc
+  have hd : d ∈ [Dir.U, Dir.D, Dir.L, Dir.R] := by cases d <;> simp
+  have := hc d hd (r - 21) (by omega) (c - 21) (by omega)
+  have e1 : 21 + (r - 21) = r := by omega
+  have e2 : 21 + (c - 21) = c := by omega
+  rw [e1, e2] at this
+  exact this
+
+def Inv (s : St) : Prop :=
+  s.op = false ∧ s.won = false ∧ 21 ≤ s.r ∧ s.r ≤ 33 ∧ 21 ≤ s.c ∧ s.c ≤ 41
+
+theorem step_inv (s : St) (a : Act) (h : Inv s) : Inv (step never s a) := by
+  obtain ⟨hop, hw, h1, h2, h3, h4⟩ := h
+  unfold step
+  split
+  · cases a with
+    | mv d =>
+      have hk := okB_all d s.r s.c h1 h2 h3 h4
+      simp only [okB, Bool.and_eq_true, Bool.not_eq_true', Nat.ble_eq] at hk
+      obtain ⟨⟨⟨⟨k0, k1⟩, k2⟩, k3⟩, k4⟩ := hk
+      simp only [act, Inv, hop]
+      exact ⟨trivial, k0, k1, k2, k3, k4⟩
+    | cell i =>
+      simp only [act]
+      split
+      · exact ⟨hop, hw, h1, h2, h3, h4⟩
+      · split
+        · simp only [Inv, hop, never, Bool.or_false]; exact ⟨trivial, hw, h1, h2, h3, h4⟩
+        · split
+          · exact ⟨hop, hw, h1, h2, h3, h4⟩
+          · exact ⟨hop, hw, h1, h2, h3, h4⟩
+    | key k => exact ⟨hop, hw, h1, h2, h3, h4⟩
+  · exact ⟨hop, hw, h1, h2, h3, h4⟩
+
+theorem run_inv (as : List Act) : ∀ s, Inv s → Inv (run never s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (step_inv s a h)
+
+theorem closed_never_wins (as : List Act) : (run never start as).won = false :=
+  (run_inv as start ⟨rfl, rfl, by decide, by decide, by decide, by decide⟩).2.1
+
+/-! ## Candidate H6 for `trig`, checked against the observed L4 failures. -/
+
+/-- H6 (UNVERIFIED): the 6-match opens the barrier iff the 6-key panel was selected and the piece
+    faces up at (21,29), the cell under the shaft. -/
+def trigH6 (s : St) : Bool := s.sel == 6 && s.face == .U && s.r == 21 && s.c == 29
+
+-- the three observed L4 6-matches that did NOT open the barrier (no panel had been clicked)
+theorem obs1 : trigH6 ⟨21, 33, .U, 18, 0, false, false, 4⟩ = false := by decide
+theorem obs2 : trigH6 ⟨21, 29, .U, 18, 0, false, false, 9⟩ = false := by decide
+theorem obs3 : trigH6 ⟨21, 29, .U, 18, 0, false, false, 13⟩ = false := by decide
+theorem h6_fires : trigH6 sPre = true := by decide
+
+theorem route_wins_H6 : (run trigH6 start route).won = true := route_wins trigH6 h6_fires
+
+/-! **Attempt 2 refuted H6**: the real game was driven to exactly `sPre` (panel 6 clicked, piece
+    (21,29) facing U, lit {1,4}) and the matching click did NOT open the barrier. So
+    `trigH6 sPre = true` is false of the game, and `route_wins_H6` is a theorem about a rejected
+    rule. `route_wins` stays true but its hypothesis is now known false for this `sPre`.
+    The model is amended in `L4.V2` below. -/
+
+end L4
+
+/-! # Amendment (attempt 2) — `L4.V2`
+
+Changes against `L4` (reused unchanged: `box`, room/shaft/barrier/corridor/slot maps, `shift`,
+`Dir`, `key6`, `keyF`):
+* object piece gains slot `size` (4 or 2).                     [attempt 2: the f-match halved it]
+* rule MATCHF now has its effect: size 4 ⇒ 2, top-left kept.   [attempt 2; L1]
+* rules MOVE / GOAL generalised to side `size` (step = side).  [L1: the 2x2 moved by 2]
+* floor: when the barrier opens, the 6-box also becomes floor. [attempt 2 frame]
+* slot `sel` DROPPED: H6 refuted (attempt 2) and no rule reads it; key-panel click = free no-op.
+* rule MATCH6: `trig` stays a parameter. The measured rule H5 ("the block's left column = the
+  shaft's left column 31, facing up") is used only through the LOOSER hypothesis
+  `trig s = true → s.c = 31` (facing and row are not required).
+* budget: `LIM` is a parameter; measured value 15 (both attempts: 15 actions ran, the 16th gave
+  GAME_OVER).
+* NOT IN MODEL: size-2 → size-1 halving (unobserved), any re-grow, the e-marker at (34,23),
+  the first-move no-op, ACTION5/7.
+-/
+namespace L4.V2
+open L4 (box inRoom inShaft inBarrier inCorr inSlot Dir shift key6 keyF)
+
+def inBox : Nat → Nat → Bool := box 5 8 30 33
+
+def floorC (op : Bool) (y x : Nat) : Bool :=
+  inRoom y x || inShaft y x || inCorr y x || (op && (inBarrier y x || inBox y x))
+
+def fpAll (P : Nat → Nat → Bool) (n r c : Nat) : Bool :=
+  (List.range n).all (fun i => (List.range n).all (fun j => P (r + i) (c + j)))
+def fpAny (P : Nat → Nat → Bool) (n r c : Nat) : Bool :=
+  (List.range n).any (fun i => (List.range n).any (fun j => P (r + i) (c + j)))
+
+def slideAux (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) : Nat → Nat → Nat
+  | 0, k => k
+  | m + 1, k =>
+    let q := shift d (k + 1) p
+    if fpAll (floorC op) n q.1 q.2 then slideAux op n d p m (k + 1) else k
+
+/-- MOVE + GOAL for a block of side `n`. -/
+def move (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) : Bool × (Nat × Nat) :=
+  let q := shift d n p
+  if fpAny inSlot n q.1 q.2 then (true, p) else (false, shift d (slideAux op n d p n 0) p)
+
+structure St where
+  r : Nat
+  c : Nat
+  face : Dir
+  lit : Nat
+  op : Bool
+  won : Bool
+  used : Nat
+  size : Nat
+  deriving DecidableEq, Repr
+
+inductive Act
+  | mv (d : Dir)
+  | cell (i : Nat)
+  | key
+
+def act (trig : St → Bool) (s : St) : Act → St
+  | .mv d =>
+    let m := move s.op s.size d (s.r, s.c)
+    { s with r := m.2.1, c := m.2.2, face := d, won := m.1, used := s.used + 1 }
+  | .cell i =>
+    if 9 ≤ i then s else
+    if s.lit ^^^ 2 ^ i = key6 then { s with lit := 0, op := s.op || trig s, used := s.used + 1 }
+    else if s.lit ^^^ 2 ^ i = keyF then
+      { s with lit := 0, size := (if s.size = 4 then 2 else s.size), used := s.used + 1 }
+    else { s with lit := s.lit ^^^ 2 ^ i, used := s.used + 1 }
+  | .key => s
+
+def step (LIM : Nat) (trig : St → Bool) (s : St) (a : Act) : St :=
+  if s.won = false ∧ s.used < LIM then act trig s a else s
+
+def run (LIM : Nat) (trig : St → Bool) (s : St) (as : List Act) : St :=
+  as.foldl (step LIM trig) s
+
+def start : St := ⟨25, 37, .D, 0, false, false, 0, 4⟩
+
+/-- H5 as measured (L3 success; attempt-2 L4 success; L4 failures at c = 29, 33). -/
+def trigH5 (s : St) : Bool := s.face == .U && s.c == 31
+
+/-! ## Lower bound: potential Φ; no action lowers Φ + used. -/
+
+def popc (n : Nat) : Nat := (List.range 9).foldl (fun a i => a + n / 2 ^ i % 2) 0
+def dF (l : Nat) : Nat := popc (l ^^^ keyF)
+def d6 (l : Nat) : Nat := popc (l ^^^ key6)
+def Rc (c : Nat) : Nat := (55 - c) / 2 + 1
+
+def Φ (s : St) : Nat :=
+  if s.won then 0 else if s.op then Rc s.c
+  else if s.size = 4 then dF s.lit + 16 else d6 s.lit + 13
+
+def rows4 : List Nat := [21, 25, 29, 33]
+def cols4 : List Nat := [21, 25, 29, 33, 37, 41]
+def dirs : List Dir := [.U, .D, .L, .R]
+
+def S2 (r c : Nat) : Bool :=
+  Nat.ble 9 r && Nat.ble r 35 && Nat.ble 21 c && Nat.ble c 43 && fpAll (floorC false) 2 r c
+
+def Ph (s : St) : Prop :=
+  (s.size = 4 ∧ s.op = false ∧ s.r ∈ rows4 ∧ s.c ∈ cols4) ∨
+  (s.size = 2 ∧ s.op = false ∧ S2 s.r s.c = true) ∨
+  (s.size = 2 ∧ s.op = true)
+
+def J (LIM : Nat) (s : St) : Prop :=
+  s.won = false ∧ s.lit < 512 ∧ s.used ≤ LIM ∧ 20 ≤ Φ s + s.used ∧ Ph s
+
+theorem lA : ∀ r ∈ rows4, ∀ c ∈ cols4, ∀ d ∈ dirs,
+    (move false 4 d (r, c)).1 = false ∧ (move false 4 d (r, c)).2.1 ∈ rows4 ∧
+    (move false 4 d (r, c)).2.2 ∈ cols4 := by decide
+
+theorem lAB : ∀ r ∈ rows4, ∀ c ∈ cols4, S2 r c = true := by decide
+
+theorem lB : ∀ r, r < 36 → ∀ c, c < 44 → S2 r c = true → ∀ d ∈ dirs,
+    (move false 2 d (r, c)).1 = false ∧
+    S2 (move false 2 d (r, c)).2.1 (move false 2 d (r, c)).2.2 = true := by
+  decide
+
+def chk (l i : Nat) : Bool :=
+  decide (l ^^^ 2 ^ i < 512) && decide (dF l ≤ dF (l ^^^ 2 ^ i) + 1) &&
+  decide (d6 l ≤ d6 (l ^^^ 2 ^ i) + 1) &&
+  (!(l ^^^ 2 ^ i == keyF) || (dF l == 1 && decide (d6 l ≤ 4))) &&
+  (!(l ^^^ 2 ^ i == key6) || d6 l == 1)
+
+theorem chkAll : ((List.range 512).all fun l => (List.range 9).all fun i => chk l i) = true := by
+  decide +kernel
+
+theorem lclk : ∀ l, l < 512 → ∀ i, i < 9 →
+    l ^^^ 2 ^ i < 512 ∧ dF l ≤ dF (l ^^^ 2 ^ i) + 1 ∧ d6 l ≤ d6 (l ^^^ 2 ^ i) + 1 ∧
+    (l ^^^ 2 ^ i = keyF → dF l = 1 ∧ d6 l ≤ 4) ∧ (l ^^^ 2 ^ i = key6 → d6 l = 1) := by
+  intro l hl i hi
+  have h := chkAll
+  simp only [List.all_eq_true, List.mem_range] at h
+  have h := h l hl i hi
+  simp only [chk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true', beq_eq_false_iff_ne,
+    beq_iff_eq, decide_eq_true_eq] at h
+  obtain ⟨⟨⟨⟨a1, a2⟩, a3⟩, a4⟩, a5⟩ := h
+  refine ⟨a1, a2, a3, ?_, ?_⟩
+  · intro e; rcases a4 with a4 | a4
+    · exact absurd e a4
+    · exact a4
+  · intro e; rcases a5 with a5 | a5
+    · exact absurd e a5
+    · exact a5
+
+theorem dF0 : dF 0 = 4 := by decide
+theorem d60 : d6 0 = 3 := by decide
+theorem c31 : ¬ (31 ∈ cols4) := by decide
+
+theorem mem_dirs (d : Dir) : d ∈ dirs := by cases d <;> decide
+
+theorem S2_bounds (r c : Nat) (h : S2 r c = true) : r < 36 ∧ c < 44 := by
+  simp only [S2, Bool.and_eq_true, Nat.ble_eq] at h
+  omega
+
+theorem slideAux_le (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) :
+    ∀ m k, slideAux op n d p m k ≤ k + m := by
+  intro m
+  induction m with
+  | zero => intro k; simp [slideAux]
+  | succ m ih =>
+    intro k
+    simp only [slideAux]
+    split
+    · have := ih (k + 1); omega
+    · omega
+
+theorem shift_c_le (d : Dir) (k r c : Nat) : (shift d k (r, c)).2 ≤ c + k := by
+  cases d <;> simp [shift] <;> omega
+
+theorem fpAny_slot2 (r c : Nat) (h : fpAny inSlot 2 r c = true) : 57 ≤ c + 1 := by
+  simp only [fpAny, List.any_eq_true, List.mem_range] at h
+  obtain ⟨i, _, j, hj, h⟩ := h
+  simp only [inSlot, box, Bool.and_eq_true, Nat.ble_eq] at h
+  omega
+
+theorem move2_c_le (op : Bool) (d : Dir) (r c : Nat) : (move op 2 d (r, c)).2.2 ≤ c + 2 := by
+  simp only [move]
+  split
+  · simp
+  · have h1 := slideAux_le op 2 d (r, c) 2 0
+    have h2 := shift_c_le d (slideAux op 2 d (r, c) 2 0) r c
+    simp only at h2 ⊢
+    omega
+
+theorem move2_win (op : Bool) (d : Dir) (r c : Nat) (h : (move op 2 d (r, c)).1 = true) :
+    54 ≤ c := by
+  simp only [move] at h
+  split at h
+  · rename_i hs
+    have h1 := fpAny_slot2 _ _ hs
+    have h2 := shift_c_le d 2 r c
+    omega
+  · simp at h
+
+theorem lA' (s : St) (d : Dir) (ho : s.op = false) (hs : s.size = 4) (hr : s.r ∈ rows4)
+    (hc : s.c ∈ cols4) :
+    (move s.op s.size d (s.r, s.c)).1 = false ∧ (move s.op s.size d (s.r, s.c)).2.1 ∈ rows4 ∧
+    (move s.op s.size d (s.r, s.c)).2.2 ∈ cols4 := by
+  rw [ho, hs]; exact lA s.r hr s.c hc d (mem_dirs d)
+
+theorem lB' (s : St) (d : Dir) (ho : s.op = false) (hs : s.size = 2) (h2 : S2 s.r s.c = true) :
+    (move s.op s.size d (s.r, s.c)).1 = false ∧
+    S2 (move s.op s.size d (s.r, s.c)).2.1 (move s.op s.size d (s.r, s.c)).2.2 = true := by
+  obtain ⟨b1, b2⟩ := S2_bounds _ _ h2
+  rw [ho, hs]; exact lB s.r b1 s.c b2 h2 d (mem_dirs d)
+
+theorem lC' (s : St) (d : Dir) (ho : s.op = true) (hs : s.size = 2) :
+    (move s.op s.size d (s.r, s.c)).2.2 ≤ s.c + 2 ∧
+    ((move s.op s.size d (s.r, s.c)).1 = true → 54 ≤ s.c) := by
+  rw [ho, hs]; exact ⟨move2_c_le true d s.r s.c, move2_win true d s.r s.c⟩
+
+theorem pres (LIM : Nat) (hL : LIM ≤ 19) (trig : St → Bool)
+    (ht : ∀ s, trig s = true → s.c = 31)
+    (s : St) (a : Act) (h : J LIM s) : J LIM (step LIM trig s a) := by
+  obtain ⟨hw, hlit, hu, hΦ, hph⟩ := h
+  unfold step
+  by_cases hl : s.won = false ∧ s.used < LIM
+  · rw [if_pos hl]
+    have hΦ' : 20 ≤ (if s.op then Rc s.c
+        else if s.size = 4 then dF s.lit + 16 else d6 s.lit + 13) + s.used := by
+      simpa [Φ, hw] using hΦ
+    cases a with
+    | key => exact ⟨hw, hlit, hu, hΦ, hph⟩
+    | mv d =>
+      simp only [act]
+      rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+      · obtain ⟨m1, m2, m3⟩ := lA' s d ho hs hr hc
+        simp [ho, hs] at hΦ'
+        generalize move s.op s.size d (s.r, s.c) = mv at *
+        exact ⟨m1, hlit, by simp; omega, by simp [Φ, m1, ho, hs]; omega,
+          Or.inl ⟨hs, ho, m2, m3⟩⟩
+      · obtain ⟨m1, m2⟩ := lB' s d ho hs h2
+        simp [ho, hs] at hΦ'
+        generalize move s.op s.size d (s.r, s.c) = mv at *
+        exact ⟨m1, hlit, by simp; omega, by simp [Φ, m1, ho, hs]; omega,
+          Or.inr (Or.inl ⟨hs, ho, m2⟩)⟩
+      · obtain ⟨m1, m2⟩ := lC' s d ho hs
+        simp [ho, Rc] at hΦ'
+        generalize move s.op s.size d (s.r, s.c) = mv at *
+        cases hm : mv.1
+        · exact ⟨by simp [hm], hlit, by simp; omega, by simp [Φ, hm, ho, Rc]; omega,
+            Or.inr (Or.inr ⟨hs, ho⟩)⟩
+        · exfalso
+          have := m2 hm
+          omega
+    | cell i =>
+      simp only [act]
+      by_cases hi : 9 ≤ i
+      · rw [if_pos hi]; exact ⟨hw, hlit, hu, hΦ, hph⟩
+      · rw [if_neg hi]
+        obtain ⟨k1, k2, k3, k4, k5⟩ := lclk s.lit hlit i (by omega)
+        by_cases h6 : s.lit ^^^ 2 ^ i = key6
+        · rw [if_pos h6]
+          have e6 := k5 h6
+          rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+          · have htf : trig s = false := by
+              cases htt : trig s
+              · rfl
+              · exact absurd (ht s htt ▸ hc) c31
+            exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, htf, hs, dF0],
+              Or.inl ⟨hs, by simp [ho, htf], hr, hc⟩⟩
+          · simp [ho, hs, e6] at hΦ'
+            cases htt : trig s
+            · exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, htt, hs, d60]; omega,
+                Or.inr (Or.inl ⟨hs, by simp [ho, htt], h2⟩)⟩
+            · have hc31 := ht s htt
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, htt, hc31, Rc]; omega,
+                Or.inr (Or.inr ⟨hs, by simp [ho, htt]⟩)⟩
+          · simp [ho] at hΦ'
+            exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho]; omega,
+              Or.inr (Or.inr ⟨hs, by simp [ho]⟩)⟩
+        · rw [if_neg h6]
+          by_cases hF : s.lit ^^^ 2 ^ i = keyF
+          · rw [if_pos hF]
+            obtain ⟨eF1, eF2⟩ := k4 hF
+            rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+            · simp [ho, hs, eF1] at hΦ'
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, hs, d60]; omega,
+                Or.inr (Or.inl ⟨by simp [hs], ho, lAB s.r hr s.c hc⟩)⟩
+            · simp [ho, hs] at hΦ'
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, hs, d60]; omega,
+                Or.inr (Or.inl ⟨by simp [hs], ho, h2⟩)⟩
+            · simp [ho] at hΦ'
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho]; omega,
+                Or.inr (Or.inr ⟨by simp [hs], ho⟩)⟩
+          · rw [if_neg hF]
+            rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+            · simp [ho, hs] at hΦ'
+              exact ⟨hw, k1, by simp; omega, by simp [Φ, hw, ho, hs]; omega,
+                Or.inl ⟨hs, ho, hr, hc⟩⟩
+            · simp [ho, hs] at hΦ'
+              exact ⟨hw, k1, by simp; omega, by simp [Φ, hw, ho, hs]; omega,
+                Or.inr (Or.inl ⟨hs, ho, h2⟩)⟩
+            · simp [ho] at hΦ'
+              exact ⟨hw, k1, by simp; omega, by simp [Φ, hw, ho]; omega,
+                Or.inr (Or.inr ⟨hs, ho⟩)⟩
+  · rw [if_neg hl]; exact ⟨hw, hlit, hu, hΦ, hph⟩
+
+theorem run_J (LIM : Nat) (hL : LIM ≤ 19) (trig : St → Bool)
+    (ht : ∀ s, trig s = true → s.c = 31)
+    (as : List Act) : ∀ s, J LIM s → J LIM (run LIM trig s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (pres LIM hL trig ht s a h)
+
+theorem J_start (LIM : Nat) : J LIM start :=
+  ⟨rfl, by decide, Nat.zero_le _, by decide, Or.inl ⟨rfl, rfl, by decide, by decide⟩⟩
+
+/-- MAIN (attempt 2): for every budget `LIM ≤ 19` and every trigger rule that can only fire
+    with the block's left column at 31, NO action sequence wins level 4. -/
+theorem never_wins (LIM : Nat) (hL : LIM ≤ 19) (trig : St → Bool)
+    (ht : ∀ s, trig s = true → s.c = 31) (as : List Act) :
+    (run LIM trig start as).won = false :=
+  (run_J LIM hL trig ht as start (J_start LIM)).1
+
+theorem trigH5_ok : ∀ s, trigH5 s = true → s.c = 31 := by
+  intro s h
+  simp only [trigH5, Bool.and_eq_true, beq_iff_eq] at h
+  exact h.2
+
+/-- Measured budget 15, measured trigger H5. -/
+theorem never_wins_measured (as : List Act) : (run 15 trigH5 start as).won = false :=
+  never_wins 15 (by decide) trigH5 trigH5_ok as
+
+/-- Non-vacuity: relax the budget to 26 actions and the same model (with H5) is winnable. -/
+def route26 : List Act :=
+  [.mv .L, .mv .L, .mv .D, .cell 1, .cell 3, .cell 5, .cell 7, .mv .R, .mv .U,
+   .cell 1, .cell 4, .cell 7, .mv .D] ++ List.replicate 13 (.mv .R)
+
+theorem route26_len : route26.length = 26 := by decide
+theorem route26_wins : (run 26 trigH5 start route26).won = true := by decide
+theorem route26_short : (run 25 trigH5 start route26).won = false := by decide
+
+end L4.V2
+
+
+
+
+
+#print axioms L4.route_wins
+#print axioms L4.route_needs_trig
+#print axioms L4.closed_never_wins
+#print axioms L4.route_wins_H6
+#print axioms L4.V2.never_wins
+#print axioms L4.V2.never_wins_measured
+#print axioms L4.V2.route26_wins

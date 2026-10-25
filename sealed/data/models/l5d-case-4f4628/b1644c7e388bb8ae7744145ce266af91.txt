@@ -1,0 +1,8 @@
+import L5CertTab
+
+namespace L5
+
+theorem C840_ok : (C840.toList).all chk = true := by decide +kernel
+theorem C841_ok : (C841.toList).all chk = true := by decide +kernel
+
+end L5

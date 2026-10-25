@@ -1,0 +1,23 @@
+"""ACTION1-4 之后（同关、玩家在），玩家的 9 半边在动作方向那一侧（被挡也一样转向）。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION1-4；换关 NA；nxt 里定位不到玩家 NA；前后整帧相同(动作未被受理)NA"
+NOTE = "v2: 2b3e5ed8 (开局第一步 ACTION1，整帧无差) 判 FALSE —— 那步动作没被受理，不是转向规则错；加整帧相同 NA"
+EVIDENCE = ["2b3e5ed8fe7b90de", "3f5956007e12ca17", "9d36cf097ad0f659", "5580ee1a82842888"]
+
+from _lib import player, DIRS, same_level
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or not same_level(ctx):
+        return "NA"
+    if prev == nxt:
+        return "NA"
+    b = player(nxt)
+    if b is None:
+        return "NA"
+    def cen(cs):
+        return (sum(p[0] for p in cs) / len(cs), sum(p[1] for p in cs) / len(cs))
+    y9, x9 = cen(b["cells9"]); ya, xa = cen(b["cells10"])
+    uy, ux = DIRS[action]
+    ok = (y9 - ya) * uy + (x9 - xa) * ux > 0 and (uy != 0 or y9 == ya) and (ux != 0 or x9 == xa)
+    return "TRUE" if ok else "FALSE"

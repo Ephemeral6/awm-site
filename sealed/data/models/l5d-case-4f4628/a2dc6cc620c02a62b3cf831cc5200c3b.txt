@@ -1,0 +1,179 @@
+import L5CertChk0
+import L5CertChk1
+import L5CertChk2
+import L5CertChk3
+import L5CertChk4
+import L5CertChk5
+import L5CertChk6
+import L5CertChk7
+import L5CertChk8
+import L5CertChk9
+import L5CertChk10
+import L5CertChk11
+import L5CertChk12
+import L5CertChk13
+import L5CertChk14
+import L5CertChk15
+import L5CertChk16
+import L5CertChk17
+import L5CertChk18
+import L5CertChk19
+import L5CertChk20
+import L5CertChk21
+import L5CertChk22
+import L5CertChk23
+import L5CertChk24
+import L5CertChk25
+import L5CertChk26
+import L5CertChk27
+import L5CertChk28
+import L5CertChk29
+import L5CertChk30
+import L5CertChk31
+import L5CertChk32
+import L5CertChk33
+import L5CertChk34
+import L5CertChk35
+import L5CertChk36
+import L5CertChk37
+import L5CertChk38
+import L5CertChk39
+import L5CertChk40
+import L5CertChk41
+import L5CertChk42
+
+/-!
+  Level 5, attempt 2: impossibility under the measured rules (loose variant of the model).
+  Model: `L5.pstep` (lean/L5Model.lean), with every spell variant `allActs` available.
+  Certificate: `L5.look` (lean/L5Cert.lean), each chunk checked by the kernel.
+-/
+namespace L5
+
+def s0 : PS := ⟨29, 17, 4, .U, false, false, false⟩
+
+/-- (primitive actions, spell completions, pickup flag) up to and including the first winning
+    action; `none` if the sequence never wins. -/
+def stats (t4 t2 : Nat × Nat) (q : PS) : List Act → Option (Nat × Nat × Bool)
+  | [] => none
+  | a :: as =>
+    let r := pstep t4 t2 q a
+    if r.2 then some (clicks a, comps a, r.1.pk)
+    else (stats t4 t2 r.1 as).map fun x => (x.1 + clicks a, x.2.1 + comps a, x.2.2)
+
+theorem leaf_ok {P : Tree → Prop} {t : Tree} (h : P t) : ∀ t' ∈ (CTree.leaf t).leaves, P t' := by
+  intro t' ht; simp [CTree.leaves] at ht; subst ht; exact h
+
+theorem node_ok {P : Tree → Prop} {hi : Nat} {l r : CTree}
+    (hl : ∀ t ∈ l.leaves, P t) (hr : ∀ t ∈ r.leaves, P t) : ∀ t ∈ (CTree.node hi l r).leaves, P t := by
+  intro t ht
+  simp only [CTree.leaves, List.mem_append] at ht
+  cases ht with
+  | inl h => exact hl t h
+  | inr h => exact hr t h
+
+set_option maxRecDepth 100000 in
+theorem chunks_ok : ∀ t ∈ ctop.leaves, t.toList.all chk = true := by
+  unfold ctop
+  exact (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C0_ok) (node_ok (leaf_ok C1_ok) (leaf_ok C2_ok))) (node_ok (leaf_ok C3_ok) (node_ok (leaf_ok C4_ok) (leaf_ok C5_ok)))) (node_ok (node_ok (leaf_ok C6_ok) (node_ok (leaf_ok C7_ok) (leaf_ok C8_ok))) (node_ok (node_ok (leaf_ok C9_ok) (leaf_ok C10_ok)) (node_ok (leaf_ok C11_ok) (leaf_ok C12_ok))))) (node_ok (node_ok (node_ok (leaf_ok C13_ok) (node_ok (leaf_ok C14_ok) (leaf_ok C15_ok))) (node_ok (leaf_ok C16_ok) (node_ok (leaf_ok C17_ok) (leaf_ok C18_ok)))) (node_ok (node_ok (leaf_ok C19_ok) (node_ok (leaf_ok C20_ok) (leaf_ok C21_ok))) (node_ok (node_ok (leaf_ok C22_ok) (leaf_ok C23_ok)) (node_ok (leaf_ok C24_ok) (leaf_ok C25_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C26_ok) (node_ok (leaf_ok C27_ok) (leaf_ok C28_ok))) (node_ok (leaf_ok C29_ok) (node_ok (leaf_ok C30_ok) (leaf_ok C31_ok)))) (node_ok (node_ok (leaf_ok C32_ok) (node_ok (leaf_ok C33_ok) (leaf_ok C34_ok))) (node_ok (node_ok (leaf_ok C35_ok) (leaf_ok C36_ok)) (node_ok (leaf_ok C37_ok) (leaf_ok C38_ok))))) (node_ok (node_ok (node_ok (leaf_ok C39_ok) (node_ok (leaf_ok C40_ok) (leaf_ok C41_ok))) (node_ok (leaf_ok C42_ok) (node_ok (leaf_ok C43_ok) (leaf_ok C44_ok)))) (node_ok (node_ok (leaf_ok C45_ok) (node_ok (leaf_ok C46_ok) (leaf_ok C47_ok))) (node_ok (node_ok (leaf_ok C48_ok) (leaf_ok C49_ok)) (node_ok (leaf_ok C50_ok) (leaf_ok C51_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C52_ok) (node_ok (leaf_ok C53_ok) (leaf_ok C54_ok))) (node_ok (leaf_ok C55_ok) (node_ok (leaf_ok C56_ok) (leaf_ok C57_ok)))) (node_ok (node_ok (leaf_ok C58_ok) (node_ok (leaf_ok C59_ok) (leaf_ok C60_ok))) (node_ok (node_ok (leaf_ok C61_ok) (leaf_ok C62_ok)) (node_ok (leaf_ok C63_ok) (leaf_ok C64_ok))))) (node_ok (node_ok (node_ok (leaf_ok C65_ok) (node_ok (leaf_ok C66_ok) (leaf_ok C67_ok))) (node_ok (leaf_ok C68_ok) (node_ok (leaf_ok C69_ok) (leaf_ok C70_ok)))) (node_ok (node_ok (leaf_ok C71_ok) (node_ok (leaf_ok C72_ok) (leaf_ok C73_ok))) (node_ok (node_ok (leaf_ok C74_ok) (leaf_ok C75_ok)) (node_ok (leaf_ok C76_ok) (leaf_ok C77_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C78_ok) (node_ok (leaf_ok C79_ok) (leaf_ok C80_ok))) (node_ok (leaf_ok C81_ok) (node_ok (leaf_ok C82_ok) (leaf_ok C83_ok)))) (node_ok (node_ok (leaf_ok C84_ok) (node_ok (leaf_ok C85_ok) (leaf_ok C86_ok))) (node_ok (node_ok (leaf_ok C87_ok) (leaf_ok C88_ok)) (node_ok (leaf_ok C89_ok) (leaf_ok C90_ok))))) (node_ok (node_ok (node_ok (leaf_ok C91_ok) (node_ok (leaf_ok C92_ok) (leaf_ok C93_ok))) (node_ok (node_ok (leaf_ok C94_ok) (leaf_ok C95_ok)) (node_ok (leaf_ok C96_ok) (leaf_ok C97_ok)))) (node_ok (node_ok (leaf_ok C98_ok) (node_ok (leaf_ok C99_ok) (leaf_ok C100_ok))) (node_ok (node_ok (leaf_ok C101_ok) (leaf_ok C102_ok)) (node_ok (leaf_ok C103_ok) (leaf_ok C104_ok)))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C105_ok) (node_ok (leaf_ok C106_ok) (leaf_ok C107_ok))) (node_ok (leaf_ok C108_ok) (node_ok (leaf_ok C109_ok) (leaf_ok C110_ok)))) (node_ok (node_ok (leaf_ok C111_ok) (node_ok (leaf_ok C112_ok) (leaf_ok C113_ok))) (node_ok (node_ok (leaf_ok C114_ok) (leaf_ok C115_ok)) (node_ok (leaf_ok C116_ok) (leaf_ok C117_ok))))) (node_ok (node_ok (node_ok (leaf_ok C118_ok) (node_ok (leaf_ok C119_ok) (leaf_ok C120_ok))) (node_ok (leaf_ok C121_ok) (node_ok (leaf_ok C122_ok) (leaf_ok C123_ok)))) (node_ok (node_ok (leaf_ok C124_ok) (node_ok (leaf_ok C125_ok) (leaf_ok C126_ok))) (node_ok (node_ok (leaf_ok C127_ok) (leaf_ok C128_ok)) (node_ok (leaf_ok C129_ok) (leaf_ok C130_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C131_ok) (node_ok (leaf_ok C132_ok) (leaf_ok C133_ok))) (node_ok (leaf_ok C134_ok) (node_ok (leaf_ok C135_ok) (leaf_ok C136_ok)))) (node_ok (node_ok (leaf_ok C137_ok) (node_ok (leaf_ok C138_ok) (leaf_ok C139_ok))) (node_ok (node_ok (leaf_ok C140_ok) (leaf_ok C141_ok)) (node_ok (leaf_ok C142_ok) (leaf_ok C143_ok))))) (node_ok (node_ok (node_ok (leaf_ok C144_ok) (node_ok (leaf_ok C145_ok) (leaf_ok C146_ok))) (node_ok (leaf_ok C147_ok) (node_ok (leaf_ok C148_ok) (leaf_ok C149_ok)))) (node_ok (node_ok (leaf_ok C150_ok) (node_ok (leaf_ok C151_ok) (leaf_ok C152_ok))) (node_ok (node_ok (leaf_ok C153_ok) (leaf_ok C154_ok)) (node_ok (leaf_ok C155_ok) (leaf_ok C156_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C157_ok) (node_ok (leaf_ok C158_ok) (leaf_ok C159_ok))) (node_ok (leaf_ok C160_ok) (node_ok (leaf_ok C161_ok) (leaf_ok C162_ok)))) (node_ok (node_ok (leaf_ok C163_ok) (node_ok (leaf_ok C164_ok) (leaf_ok C165_ok))) (node_ok (node_ok (leaf_ok C166_ok) (leaf_ok C167_ok)) (node_ok (leaf_ok C168_ok) (leaf_ok C169_ok))))) (node_ok (node_ok (node_ok (leaf_ok C170_ok) (node_ok (leaf_ok C171_ok) (leaf_ok C172_ok))) (node_ok (leaf_ok C173_ok) (node_ok (leaf_ok C174_ok) (leaf_ok C175_ok)))) (node_ok (node_ok (leaf_ok C176_ok) (node_ok (leaf_ok C177_ok) (leaf_ok C178_ok))) (node_ok (node_ok (leaf_ok C179_ok) (leaf_ok C180_ok)) (node_ok (leaf_ok C181_ok) (leaf_ok C182_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C183_ok) (node_ok (leaf_ok C184_ok) (leaf_ok C185_ok))) (node_ok (leaf_ok C186_ok) (node_ok (leaf_ok C187_ok) (leaf_ok C188_ok)))) (node_ok (node_ok (leaf_ok C189_ok) (node_ok (leaf_ok C190_ok) (leaf_ok C191_ok))) (node_ok (node_ok (leaf_ok C192_ok) (leaf_ok C193_ok)) (node_ok (leaf_ok C194_ok) (leaf_ok C195_ok))))) (node_ok (node_ok (node_ok (leaf_ok C196_ok) (node_ok (leaf_ok C197_ok) (leaf_ok C198_ok))) (node_ok (node_ok (leaf_ok C199_ok) (leaf_ok C200_ok)) (node_ok (leaf_ok C201_ok) (leaf_ok C202_ok)))) (node_ok (node_ok (leaf_ok C203_ok) (node_ok (leaf_ok C204_ok) (leaf_ok C205_ok))) (node_ok (node_ok (leaf_ok C206_ok) (leaf_ok C207_ok)) (node_ok (leaf_ok C208_ok) (leaf_ok C209_ok))))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C210_ok) (node_ok (leaf_ok C211_ok) (leaf_ok C212_ok))) (node_ok (leaf_ok C213_ok) (node_ok (leaf_ok C214_ok) (leaf_ok C215_ok)))) (node_ok (node_ok (leaf_ok C216_ok) (node_ok (leaf_ok C217_ok) (leaf_ok C218_ok))) (node_ok (node_ok (leaf_ok C219_ok) (leaf_ok C220_ok)) (node_ok (leaf_ok C221_ok) (leaf_ok C222_ok))))) (node_ok (node_ok (node_ok (leaf_ok C223_ok) (node_ok (leaf_ok C224_ok) (leaf_ok C225_ok))) (node_ok (leaf_ok C226_ok) (node_ok (leaf_ok C227_ok) (leaf_ok C228_ok)))) (node_ok (node_ok (leaf_ok C229_ok) (node_ok (leaf_ok C230_ok) (leaf_ok C231_ok))) (node_ok (node_ok (leaf_ok C232_ok) (leaf_ok C233_ok)) (node_ok (leaf_ok C234_ok) (leaf_ok C235_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C236_ok) (node_ok (leaf_ok C237_ok) (leaf_ok C238_ok))) (node_ok (leaf_ok C239_ok) (node_ok (leaf_ok C240_ok) (leaf_ok C241_ok)))) (node_ok (node_ok (leaf_ok C242_ok) (node_ok (leaf_ok C243_ok) (leaf_ok C244_ok))) (node_ok (node_ok (leaf_ok C245_ok) (leaf_ok C246_ok)) (node_ok (leaf_ok C247_ok) (leaf_ok C248_ok))))) (node_ok (node_ok (node_ok (leaf_ok C249_ok) (node_ok (leaf_ok C250_ok) (leaf_ok C251_ok))) (node_ok (leaf_ok C252_ok) (node_ok (leaf_ok C253_ok) (leaf_ok C254_ok)))) (node_ok (node_ok (leaf_ok C255_ok) (node_ok (leaf_ok C256_ok) (leaf_ok C257_ok))) (node_ok (node_ok (leaf_ok C258_ok) (leaf_ok C259_ok)) (node_ok (leaf_ok C260_ok) (leaf_ok C261_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C262_ok) (node_ok (leaf_ok C263_ok) (leaf_ok C264_ok))) (node_ok (leaf_ok C265_ok) (node_ok (leaf_ok C266_ok) (leaf_ok C267_ok)))) (node_ok (node_ok (leaf_ok C268_ok) (node_ok (leaf_ok C269_ok) (leaf_ok C270_ok))) (node_ok (node_ok (leaf_ok C271_ok) (leaf_ok C272_ok)) (node_ok (leaf_ok C273_ok) (leaf_ok C274_ok))))) (node_ok (node_ok (node_ok (leaf_ok C275_ok) (node_ok (leaf_ok C276_ok) (leaf_ok C277_ok))) (node_ok (leaf_ok C278_ok) (node_ok (leaf_ok C279_ok) (leaf_ok C280_ok)))) (node_ok (node_ok (leaf_ok C281_ok) (node_ok (leaf_ok C282_ok) (leaf_ok C283_ok))) (node_ok (node_ok (leaf_ok C284_ok) (leaf_ok C285_ok)) (node_ok (leaf_ok C286_ok) (leaf_ok C287_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C288_ok) (node_ok (leaf_ok C289_ok) (leaf_ok C290_ok))) (node_ok (leaf_ok C291_ok) (node_ok (leaf_ok C292_ok) (leaf_ok C293_ok)))) (node_ok (node_ok (leaf_ok C294_ok) (node_ok (leaf_ok C295_ok) (leaf_ok C296_ok))) (node_ok (node_ok (leaf_ok C297_ok) (leaf_ok C298_ok)) (node_ok (leaf_ok C299_ok) (leaf_ok C300_ok))))) (node_ok (node_ok (node_ok (leaf_ok C301_ok) (node_ok (leaf_ok C302_ok) (leaf_ok C303_ok))) (node_ok (node_ok (leaf_ok C304_ok) (leaf_ok C305_ok)) (node_ok (leaf_ok C306_ok) (leaf_ok C307_ok)))) (node_ok (node_ok (leaf_ok C308_ok) (node_ok (leaf_ok C309_ok) (leaf_ok C310_ok))) (node_ok (node_ok (leaf_ok C311_ok) (leaf_ok C312_ok)) (node_ok (leaf_ok C313_ok) (leaf_ok C314_ok)))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C315_ok) (node_ok (leaf_ok C316_ok) (leaf_ok C317_ok))) (node_ok (leaf_ok C318_ok) (node_ok (leaf_ok C319_ok) (leaf_ok C320_ok)))) (node_ok (node_ok (leaf_ok C321_ok) (node_ok (leaf_ok C322_ok) (leaf_ok C323_ok))) (node_ok (node_ok (leaf_ok C324_ok) (leaf_ok C325_ok)) (node_ok (leaf_ok C326_ok) (leaf_ok C327_ok))))) (node_ok (node_ok (node_ok (leaf_ok C328_ok) (node_ok (leaf_ok C329_ok) (leaf_ok C330_ok))) (node_ok (leaf_ok C331_ok) (node_ok (leaf_ok C332_ok) (leaf_ok C333_ok)))) (node_ok (node_ok (leaf_ok C334_ok) (node_ok (leaf_ok C335_ok) (leaf_ok C336_ok))) (node_ok (node_ok (leaf_ok C337_ok) (leaf_ok C338_ok)) (node_ok (leaf_ok C339_ok) (leaf_ok C340_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C341_ok) (node_ok (leaf_ok C342_ok) (leaf_ok C343_ok))) (node_ok (leaf_ok C344_ok) (node_ok (leaf_ok C345_ok) (leaf_ok C346_ok)))) (node_ok (node_ok (leaf_ok C347_ok) (node_ok (leaf_ok C348_ok) (leaf_ok C349_ok))) (node_ok (node_ok (leaf_ok C350_ok) (leaf_ok C351_ok)) (node_ok (leaf_ok C352_ok) (leaf_ok C353_ok))))) (node_ok (node_ok (node_ok (leaf_ok C354_ok) (node_ok (leaf_ok C355_ok) (leaf_ok C356_ok))) (node_ok (node_ok (leaf_ok C357_ok) (leaf_ok C358_ok)) (node_ok (leaf_ok C359_ok) (leaf_ok C360_ok)))) (node_ok (node_ok (leaf_ok C361_ok) (node_ok (leaf_ok C362_ok) (leaf_ok C363_ok))) (node_ok (node_ok (leaf_ok C364_ok) (leaf_ok C365_ok)) (node_ok (leaf_ok C366_ok) (leaf_ok C367_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C368_ok) (node_ok (leaf_ok C369_ok) (leaf_ok C370_ok))) (node_ok (leaf_ok C371_ok) (node_ok (leaf_ok C372_ok) (leaf_ok C373_ok)))) (node_ok (node_ok (leaf_ok C374_ok) (node_ok (leaf_ok C375_ok) (leaf_ok C376_ok))) (node_ok (node_ok (leaf_ok C377_ok) (leaf_ok C378_ok)) (node_ok (leaf_ok C379_ok) (leaf_ok C380_ok))))) (node_ok (node_ok (node_ok (leaf_ok C381_ok) (node_ok (leaf_ok C382_ok) (leaf_ok C383_ok))) (node_ok (leaf_ok C384_ok) (node_ok (leaf_ok C385_ok) (leaf_ok C386_ok)))) (node_ok (node_ok (leaf_ok C387_ok) (node_ok (leaf_ok C388_ok) (leaf_ok C389_ok))) (node_ok (node_ok (leaf_ok C390_ok) (leaf_ok C391_ok)) (node_ok (leaf_ok C392_ok) (leaf_ok C393_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C394_ok) (node_ok (leaf_ok C395_ok) (leaf_ok C396_ok))) (node_ok (leaf_ok C397_ok) (node_ok (leaf_ok C398_ok) (leaf_ok C399_ok)))) (node_ok (node_ok (leaf_ok C400_ok) (node_ok (leaf_ok C401_ok) (leaf_ok C402_ok))) (node_ok (node_ok (leaf_ok C403_ok) (leaf_ok C404_ok)) (node_ok (leaf_ok C405_ok) (leaf_ok C406_ok))))) (node_ok (node_ok (node_ok (leaf_ok C407_ok) (node_ok (leaf_ok C408_ok) (leaf_ok C409_ok))) (node_ok (node_ok (leaf_ok C410_ok) (leaf_ok C411_ok)) (node_ok (leaf_ok C412_ok) (leaf_ok C413_ok)))) (node_ok (node_ok (leaf_ok C414_ok) (node_ok (leaf_ok C415_ok) (leaf_ok C416_ok))) (node_ok (node_ok (leaf_ok C417_ok) (leaf_ok C418_ok)) (node_ok (leaf_ok C419_ok) (leaf_ok C420_ok)))))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C421_ok) (node_ok (leaf_ok C422_ok) (leaf_ok C423_ok))) (node_ok (leaf_ok C424_ok) (node_ok (leaf_ok C425_ok) (leaf_ok C426_ok)))) (node_ok (node_ok (leaf_ok C427_ok) (node_ok (leaf_ok C428_ok) (leaf_ok C429_ok))) (node_ok (node_ok (leaf_ok C430_ok) (leaf_ok C431_ok)) (node_ok (leaf_ok C432_ok) (leaf_ok C433_ok))))) (node_ok (node_ok (node_ok (leaf_ok C434_ok) (node_ok (leaf_ok C435_ok) (leaf_ok C436_ok))) (node_ok (leaf_ok C437_ok) (node_ok (leaf_ok C438_ok) (leaf_ok C439_ok)))) (node_ok (node_ok (leaf_ok C440_ok) (node_ok (leaf_ok C441_ok) (leaf_ok C442_ok))) (node_ok (node_ok (leaf_ok C443_ok) (leaf_ok C444_ok)) (node_ok (leaf_ok C445_ok) (leaf_ok C446_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C447_ok) (node_ok (leaf_ok C448_ok) (leaf_ok C449_ok))) (node_ok (leaf_ok C450_ok) (node_ok (leaf_ok C451_ok) (leaf_ok C452_ok)))) (node_ok (node_ok (leaf_ok C453_ok) (node_ok (leaf_ok C454_ok) (leaf_ok C455_ok))) (node_ok (node_ok (leaf_ok C456_ok) (leaf_ok C457_ok)) (node_ok (leaf_ok C458_ok) (leaf_ok C459_ok))))) (node_ok (node_ok (node_ok (leaf_ok C460_ok) (node_ok (leaf_ok C461_ok) (leaf_ok C462_ok))) (node_ok (leaf_ok C463_ok) (node_ok (leaf_ok C464_ok) (leaf_ok C465_ok)))) (node_ok (node_ok (leaf_ok C466_ok) (node_ok (leaf_ok C467_ok) (leaf_ok C468_ok))) (node_ok (node_ok (leaf_ok C469_ok) (leaf_ok C470_ok)) (node_ok (leaf_ok C471_ok) (leaf_ok C472_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C473_ok) (node_ok (leaf_ok C474_ok) (leaf_ok C475_ok))) (node_ok (leaf_ok C476_ok) (node_ok (leaf_ok C477_ok) (leaf_ok C478_ok)))) (node_ok (node_ok (leaf_ok C479_ok) (node_ok (leaf_ok C480_ok) (leaf_ok C481_ok))) (node_ok (node_ok (leaf_ok C482_ok) (leaf_ok C483_ok)) (node_ok (leaf_ok C484_ok) (leaf_ok C485_ok))))) (node_ok (node_ok (node_ok (leaf_ok C486_ok) (node_ok (leaf_ok C487_ok) (leaf_ok C488_ok))) (node_ok (leaf_ok C489_ok) (node_ok (leaf_ok C490_ok) (leaf_ok C491_ok)))) (node_ok (node_ok (leaf_ok C492_ok) (node_ok (leaf_ok C493_ok) (leaf_ok C494_ok))) (node_ok (node_ok (leaf_ok C495_ok) (leaf_ok C496_ok)) (node_ok (leaf_ok C497_ok) (leaf_ok C498_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C499_ok) (node_ok (leaf_ok C500_ok) (leaf_ok C501_ok))) (node_ok (leaf_ok C502_ok) (node_ok (leaf_ok C503_ok) (leaf_ok C504_ok)))) (node_ok (node_ok (leaf_ok C505_ok) (node_ok (leaf_ok C506_ok) (leaf_ok C507_ok))) (node_ok (node_ok (leaf_ok C508_ok) (leaf_ok C509_ok)) (node_ok (leaf_ok C510_ok) (leaf_ok C511_ok))))) (node_ok (node_ok (node_ok (leaf_ok C512_ok) (node_ok (leaf_ok C513_ok) (leaf_ok C514_ok))) (node_ok (node_ok (leaf_ok C515_ok) (leaf_ok C516_ok)) (node_ok (leaf_ok C517_ok) (leaf_ok C518_ok)))) (node_ok (node_ok (leaf_ok C519_ok) (node_ok (leaf_ok C520_ok) (leaf_ok C521_ok))) (node_ok (node_ok (leaf_ok C522_ok) (leaf_ok C523_ok)) (node_ok (leaf_ok C524_ok) (leaf_ok C525_ok)))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C526_ok) (node_ok (leaf_ok C527_ok) (leaf_ok C528_ok))) (node_ok (leaf_ok C529_ok) (node_ok (leaf_ok C530_ok) (leaf_ok C531_ok)))) (node_ok (node_ok (leaf_ok C532_ok) (node_ok (leaf_ok C533_ok) (leaf_ok C534_ok))) (node_ok (node_ok (leaf_ok C535_ok) (leaf_ok C536_ok)) (node_ok (leaf_ok C537_ok) (leaf_ok C538_ok))))) (node_ok (node_ok (node_ok (leaf_ok C539_ok) (node_ok (leaf_ok C540_ok) (leaf_ok C541_ok))) (node_ok (leaf_ok C542_ok) (node_ok (leaf_ok C543_ok) (leaf_ok C544_ok)))) (node_ok (node_ok (leaf_ok C545_ok) (node_ok (leaf_ok C546_ok) (leaf_ok C547_ok))) (node_ok (node_ok (leaf_ok C548_ok) (leaf_ok C549_ok)) (node_ok (leaf_ok C550_ok) (leaf_ok C551_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C552_ok) (node_ok (leaf_ok C553_ok) (leaf_ok C554_ok))) (node_ok (leaf_ok C555_ok) (node_ok (leaf_ok C556_ok) (leaf_ok C557_ok)))) (node_ok (node_ok (leaf_ok C558_ok) (node_ok (leaf_ok C559_ok) (leaf_ok C560_ok))) (node_ok (node_ok (leaf_ok C561_ok) (leaf_ok C562_ok)) (node_ok (leaf_ok C563_ok) (leaf_ok C564_ok))))) (node_ok (node_ok (node_ok (leaf_ok C565_ok) (node_ok (leaf_ok C566_ok) (leaf_ok C567_ok))) (node_ok (leaf_ok C568_ok) (node_ok (leaf_ok C569_ok) (leaf_ok C570_ok)))) (node_ok (node_ok (leaf_ok C571_ok) (node_ok (leaf_ok C572_ok) (leaf_ok C573_ok))) (node_ok (node_ok (leaf_ok C574_ok) (leaf_ok C575_ok)) (node_ok (leaf_ok C576_ok) (leaf_ok C577_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C578_ok) (node_ok (leaf_ok C579_ok) (leaf_ok C580_ok))) (node_ok (leaf_ok C581_ok) (node_ok (leaf_ok C582_ok) (leaf_ok C583_ok)))) (node_ok (node_ok (leaf_ok C584_ok) (node_ok (leaf_ok C585_ok) (leaf_ok C586_ok))) (node_ok (node_ok (leaf_ok C587_ok) (leaf_ok C588_ok)) (node_ok (leaf_ok C589_ok) (leaf_ok C590_ok))))) (node_ok (node_ok (node_ok (leaf_ok C591_ok) (node_ok (leaf_ok C592_ok) (leaf_ok C593_ok))) (node_ok (leaf_ok C594_ok) (node_ok (leaf_ok C595_ok) (leaf_ok C596_ok)))) (node_ok (node_ok (leaf_ok C597_ok) (node_ok (leaf_ok C598_ok) (leaf_ok C599_ok))) (node_ok (node_ok (leaf_ok C600_ok) (leaf_ok C601_ok)) (node_ok (leaf_ok C602_ok) (leaf_ok C603_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C604_ok) (node_ok (leaf_ok C605_ok) (leaf_ok C606_ok))) (node_ok (leaf_ok C607_ok) (node_ok (leaf_ok C608_ok) (leaf_ok C609_ok)))) (node_ok (node_ok (leaf_ok C610_ok) (node_ok (leaf_ok C611_ok) (leaf_ok C612_ok))) (node_ok (node_ok (leaf_ok C613_ok) (leaf_ok C614_ok)) (node_ok (leaf_ok C615_ok) (leaf_ok C616_ok))))) (node_ok (node_ok (node_ok (leaf_ok C617_ok) (node_ok (leaf_ok C618_ok) (leaf_ok C619_ok))) (node_ok (node_ok (leaf_ok C620_ok) (leaf_ok C621_ok)) (node_ok (leaf_ok C622_ok) (leaf_ok C623_ok)))) (node_ok (node_ok (leaf_ok C624_ok) (node_ok (leaf_ok C625_ok) (leaf_ok C626_ok))) (node_ok (node_ok (leaf_ok C627_ok) (leaf_ok C628_ok)) (node_ok (leaf_ok C629_ok) (leaf_ok C630_ok))))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C631_ok) (node_ok (leaf_ok C632_ok) (leaf_ok C633_ok))) (node_ok (leaf_ok C634_ok) (node_ok (leaf_ok C635_ok) (leaf_ok C636_ok)))) (node_ok (node_ok (leaf_ok C637_ok) (node_ok (leaf_ok C638_ok) (leaf_ok C639_ok))) (node_ok (node_ok (leaf_ok C640_ok) (leaf_ok C641_ok)) (node_ok (leaf_ok C642_ok) (leaf_ok C643_ok))))) (node_ok (node_ok (node_ok (leaf_ok C644_ok) (node_ok (leaf_ok C645_ok) (leaf_ok C646_ok))) (node_ok (leaf_ok C647_ok) (node_ok (leaf_ok C648_ok) (leaf_ok C649_ok)))) (node_ok (node_ok (leaf_ok C650_ok) (node_ok (leaf_ok C651_ok) (leaf_ok C652_ok))) (node_ok (node_ok (leaf_ok C653_ok) (leaf_ok C654_ok)) (node_ok (leaf_ok C655_ok) (leaf_ok C656_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C657_ok) (node_ok (leaf_ok C658_ok) (leaf_ok C659_ok))) (node_ok (leaf_ok C660_ok) (node_ok (leaf_ok C661_ok) (leaf_ok C662_ok)))) (node_ok (node_ok (leaf_ok C663_ok) (node_ok (leaf_ok C664_ok) (leaf_ok C665_ok))) (node_ok (node_ok (leaf_ok C666_ok) (leaf_ok C667_ok)) (node_ok (leaf_ok C668_ok) (leaf_ok C669_ok))))) (node_ok (node_ok (node_ok (leaf_ok C670_ok) (node_ok (leaf_ok C671_ok) (leaf_ok C672_ok))) (node_ok (leaf_ok C673_ok) (node_ok (leaf_ok C674_ok) (leaf_ok C675_ok)))) (node_ok (node_ok (leaf_ok C676_ok) (node_ok (leaf_ok C677_ok) (leaf_ok C678_ok))) (node_ok (node_ok (leaf_ok C679_ok) (leaf_ok C680_ok)) (node_ok (leaf_ok C681_ok) (leaf_ok C682_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C683_ok) (node_ok (leaf_ok C684_ok) (leaf_ok C685_ok))) (node_ok (leaf_ok C686_ok) (node_ok (leaf_ok C687_ok) (leaf_ok C688_ok)))) (node_ok (node_ok (leaf_ok C689_ok) (node_ok (leaf_ok C690_ok) (leaf_ok C691_ok))) (node_ok (node_ok (leaf_ok C692_ok) (leaf_ok C693_ok)) (node_ok (leaf_ok C694_ok) (leaf_ok C695_ok))))) (node_ok (node_ok (node_ok (leaf_ok C696_ok) (node_ok (leaf_ok C697_ok) (leaf_ok C698_ok))) (node_ok (leaf_ok C699_ok) (node_ok (leaf_ok C700_ok) (leaf_ok C701_ok)))) (node_ok (node_ok (leaf_ok C702_ok) (node_ok (leaf_ok C703_ok) (leaf_ok C704_ok))) (node_ok (node_ok (leaf_ok C705_ok) (leaf_ok C706_ok)) (node_ok (leaf_ok C707_ok) (leaf_ok C708_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C709_ok) (node_ok (leaf_ok C710_ok) (leaf_ok C711_ok))) (node_ok (leaf_ok C712_ok) (node_ok (leaf_ok C713_ok) (leaf_ok C714_ok)))) (node_ok (node_ok (leaf_ok C715_ok) (node_ok (leaf_ok C716_ok) (leaf_ok C717_ok))) (node_ok (node_ok (leaf_ok C718_ok) (leaf_ok C719_ok)) (node_ok (leaf_ok C720_ok) (leaf_ok C721_ok))))) (node_ok (node_ok (node_ok (leaf_ok C722_ok) (node_ok (leaf_ok C723_ok) (leaf_ok C724_ok))) (node_ok (node_ok (leaf_ok C725_ok) (leaf_ok C726_ok)) (node_ok (leaf_ok C727_ok) (leaf_ok C728_ok)))) (node_ok (node_ok (leaf_ok C729_ok) (node_ok (leaf_ok C730_ok) (leaf_ok C731_ok))) (node_ok (node_ok (leaf_ok C732_ok) (leaf_ok C733_ok)) (node_ok (leaf_ok C734_ok) (leaf_ok C735_ok)))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C736_ok) (node_ok (leaf_ok C737_ok) (leaf_ok C738_ok))) (node_ok (leaf_ok C739_ok) (node_ok (leaf_ok C740_ok) (leaf_ok C741_ok)))) (node_ok (node_ok (leaf_ok C742_ok) (node_ok (leaf_ok C743_ok) (leaf_ok C744_ok))) (node_ok (node_ok (leaf_ok C745_ok) (leaf_ok C746_ok)) (node_ok (leaf_ok C747_ok) (leaf_ok C748_ok))))) (node_ok (node_ok (node_ok (leaf_ok C749_ok) (node_ok (leaf_ok C750_ok) (leaf_ok C751_ok))) (node_ok (leaf_ok C752_ok) (node_ok (leaf_ok C753_ok) (leaf_ok C754_ok)))) (node_ok (node_ok (leaf_ok C755_ok) (node_ok (leaf_ok C756_ok) (leaf_ok C757_ok))) (node_ok (node_ok (leaf_ok C758_ok) (leaf_ok C759_ok)) (node_ok (leaf_ok C760_ok) (leaf_ok C761_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C762_ok) (node_ok (leaf_ok C763_ok) (leaf_ok C764_ok))) (node_ok (leaf_ok C765_ok) (node_ok (leaf_ok C766_ok) (leaf_ok C767_ok)))) (node_ok (node_ok (leaf_ok C768_ok) (node_ok (leaf_ok C769_ok) (leaf_ok C770_ok))) (node_ok (node_ok (leaf_ok C771_ok) (leaf_ok C772_ok)) (node_ok (leaf_ok C773_ok) (leaf_ok C774_ok))))) (node_ok (node_ok (node_ok (leaf_ok C775_ok) (node_ok (leaf_ok C776_ok) (leaf_ok C777_ok))) (node_ok (node_ok (leaf_ok C778_ok) (leaf_ok C779_ok)) (node_ok (leaf_ok C780_ok) (leaf_ok C781_ok)))) (node_ok (node_ok (leaf_ok C782_ok) (node_ok (leaf_ok C783_ok) (leaf_ok C784_ok))) (node_ok (node_ok (leaf_ok C785_ok) (leaf_ok C786_ok)) (node_ok (leaf_ok C787_ok) (leaf_ok C788_ok))))))) (node_ok (node_ok (node_ok (node_ok (node_ok (leaf_ok C789_ok) (node_ok (leaf_ok C790_ok) (leaf_ok C791_ok))) (node_ok (leaf_ok C792_ok) (node_ok (leaf_ok C793_ok) (leaf_ok C794_ok)))) (node_ok (node_ok (leaf_ok C795_ok) (node_ok (leaf_ok C796_ok) (leaf_ok C797_ok))) (node_ok (node_ok (leaf_ok C798_ok) (leaf_ok C799_ok)) (node_ok (leaf_ok C800_ok) (leaf_ok C801_ok))))) (node_ok (node_ok (node_ok (leaf_ok C802_ok) (node_ok (leaf_ok C803_ok) (leaf_ok C804_ok))) (node_ok (leaf_ok C805_ok) (node_ok (leaf_ok C806_ok) (leaf_ok C807_ok)))) (node_ok (node_ok (leaf_ok C808_ok) (node_ok (leaf_ok C809_ok) (leaf_ok C810_ok))) (node_ok (node_ok (leaf_ok C811_ok) (leaf_ok C812_ok)) (node_ok (leaf_ok C813_ok) (leaf_ok C814_ok)))))) (node_ok (node_ok (node_ok (node_ok (leaf_ok C815_ok) (node_ok (leaf_ok C816_ok) (leaf_ok C817_ok))) (node_ok (leaf_ok C818_ok) (node_ok (leaf_ok C819_ok) (leaf_ok C820_ok)))) (node_ok (node_ok (leaf_ok C821_ok) (node_ok (leaf_ok C822_ok) (leaf_ok C823_ok))) (node_ok (node_ok (leaf_ok C824_ok) (leaf_ok C825_ok)) (node_ok (leaf_ok C826_ok) (leaf_ok C827_ok))))) (node_ok (node_ok (node_ok (leaf_ok C828_ok) (node_ok (leaf_ok C829_ok) (leaf_ok C830_ok))) (node_ok (node_ok (leaf_ok C831_ok) (leaf_ok C832_ok)) (node_ok (leaf_ok C833_ok) (leaf_ok C834_ok)))) (node_ok (node_ok (leaf_ok C835_ok) (node_ok (leaf_ok C836_ok) (leaf_ok C837_ok))) (node_ok (node_ok (leaf_ok C838_ok) (leaf_ok C839_ok)) (node_ok (leaf_ok C840_ok) (leaf_ok C841_ok)))))))))))
+
+theorem look_chk (q : PS) (d : Int) (h : look q = some d) : chk (q, d) = true := by
+  unfold look at h
+  obtain ⟨t, ht, h'⟩ := CTree.lookup_mem _ _ _ _ h
+  have hall := chunks_ok t ht
+  exact List.all_eq_true.mp hall _ (Tree.lookup_mem _ _ _ _ h')
+
+theorem chk_act (q : PS) (d : Int) (h : chk (q, d) = true) (a : Act) :
+    (let r := pstep T4 T2 q a
+     let bonus : Int := 90 * ((b2n r.1.pk : Int) - (b2n q.pk : Int))
+     if r.2 then decide (d ≤ wt a - bonus)
+     else match look r.1 with
+       | some d' => decide (d ≤ wt a - bonus + d')
+       | none => false) = true :=
+  List.all_eq_true.mp h a (mem_allActs a)
+
+theorem bound : ∀ (as : List Act) (q : PS) (d : Int) (N k : Nat) (p : Bool),
+    look q = some d → stats T4 T2 q as = some (N, k, p) →
+    d ≤ 9 * (N : Int) + 10 * (k : Int) - 90 * ((b2n p : Int) - (b2n q.pk : Int)) := by
+  intro as
+  induction as with
+  | nil => intro q d N k p _ h; simp [stats] at h
+  | cons a as ih =>
+    intro q d N k p hl hs
+    have hc := chk_act q d (look_chk q d hl) a
+    simp only [stats] at hs
+    cases hw : (pstep T4 T2 q a).2 with
+    | true =>
+      simp only [hw, ite_true] at hs hc
+      simp only [Option.some.injEq, Prod.mk.injEq] at hs
+      obtain ⟨rfl, rfl, rfl⟩ := hs
+      have := of_decide_eq_true hc
+      simp only [wt] at this
+      omega
+    | false =>
+      simp only [hw] at hs hc
+      simp only [Bool.false_eq_true, ite_false] at hs hc
+      cases hst : stats T4 T2 (pstep T4 T2 q a).1 as with
+      | none => simp [hst] at hs
+      | some x =>
+        obtain ⟨N', k', p'⟩ := x
+        simp only [hst, Option.map_some, Option.some.injEq, Prod.mk.injEq] at hs
+        obtain ⟨rfl, rfl, rfl⟩ := hs
+        cases hlk : look (pstep T4 T2 q a).1 with
+        | none => simp [hlk] at hc
+        | some d' =>
+          simp only [hlk] at hc
+          have h1 := of_decide_eq_true hc
+          have h2 := ih _ d' N' k' p' hlk hst
+          simp only [wt] at h1
+          push_cast
+          omega
+
+theorem look_s0 : look s0 = some 338 := by decide +kernel
+
+/-- MAIN (impossible in model).
+    Quantifies over every action sequence `as` of the model (all 16 macro kinds, any length).
+    Hypotheses:
+    * `h4`, `h2`: teleport landings. h2 observed (attempt 2); h4 by analogy with L2, not observed in L5.
+    * `hE`: the fitted L5 energy law permits the winning action:
+      used(m) ≥ ⌊9m/10⌋ + k − 9·pk (81/81 L5 observations) and acting at energy 0 is GAME_OVER,
+      with 32 units at level start; N = primitive actions up to the win, k = completions, p = pickup. -/
+theorem L5_no_win (t4 t2 : Nat × Nat) (h4 : t4 = (17,33)) (h2 : t2 = (37,15))
+    (as : List Act) (N k : Nat) (p : Bool)
+    (hwin : stats t4 t2 s0 as = some (N, k, p))
+    (hE : (9 * (N - 1)) / 10 + k ≤ 31 + 9 * b2n p) : False := by
+  subst h4; subst h2
+  have hb := bound as s0 338 N k p look_s0 hwin
+  have hp : b2n s0.pk = 0 := rfl
+  rw [hp] at hb
+  cases p <;> simp [b2n] at hb hE <;> omega
+
+/-- Non-vacuity / minimal relaxation: the hypothesis `hE` is a real constraint and is missed by
+    exactly one energy unit. This route (with the pickup) wins in the model with N = 42, k = 5,
+    p = true, and ⌊9·41/10⌋ + 5 = 41 ≤ 32 + 9 = 41 holds iff the start energy is 33 instead of 32. -/
+def route : List Act :=
+  open Act Dir Corner Off3 in
+  [mv R, mv U, six, mv R, mv D, mv D, mv R, mv R, mv R, mv R, mv R, mv R, mv D, mv U, mv U,
+   mv U, mv L, shrinkAt c0, mv U, mv U, mv U, mv U, mv R, growAt o2 o2, six, tele,
+   mv U, mv U, mv U, mv U]
+
+theorem route_wins : stats T4 T2 s0 route = some (42, 5, true) := by decide +kernel
+
+theorem route_misses_by_one :
+    ¬ ((9 * (42 - 1)) / 10 + 5 ≤ 31 + 9 * b2n true) ∧ ((9 * (42 - 1)) / 10 + 5 ≤ 32 + 9 * b2n true) := by
+  decide
+
+/-- The same bound is met by a route using only the MEASURED deterministic rules (`.shrink`, `.grow`). -/
+def route2 : List Act :=
+  open Act Dir in
+  [mv R, mv U, six, mv R, mv D, mv D, mv R, mv R, mv R, mv R, mv R, mv R, mv D, mv U, mv U,
+   mv U, mv L, shrink, mv U, mv U, mv U, mv U, mv R, grow, six, tele,
+   mv U, mv U, mv U, mv U]
+
+theorem route2_wins : stats T4 T2 s0 route2 = some (42, 5, true) := by decide +kernel
+
+end L5
+
+#print axioms L5.L5_no_win
+#print axioms L5.route_wins
+#print axioms L5.route2_wins
+#print axioms L5.route_misses_by_one

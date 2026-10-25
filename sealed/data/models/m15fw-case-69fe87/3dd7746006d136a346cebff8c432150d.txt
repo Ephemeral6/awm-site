@@ -1,0 +1,109 @@
+"""Generate lean/M15L4Map.lean: row-aware L4 model + Bellman potential table.
+The Python model below is written to coincide with the Lean definitions (same rectangles, same step)."""
+import sys
+INF=1000
+def floorCell(r,c,op):
+    room = 21<=r<=36 and 21<=c<=44
+    stalk = 9<=r<=20 and 31<=c<=32
+    corr = 29<=r<=32 and 48<=c<=56
+    ex = 28<=r<=33 and 57<=c<=61
+    bar = 29<=r<=32 and 45<=c<=47
+    box = 5<=r<=8 and 30<=c<=33
+    return room or stalk or corr or ex or (op and bar) or (op and box)
+def fits(big,op,r,c):
+    s=4 if big else 2
+    return all(floorCell(r+i,c+j,op) for i in range(s) for j in range(s))
+def onPad(big,r,c):
+    s=4 if big else 2
+    return any((r+i,c+j) in {(34,23),(34,24),(35,23),(35,24)} for i in range(s) for j in range(s))
+def atExit(big,r,c):
+    s=4 if big else 2
+    return any(28<=r+i<=33 and 57<=c+j<=61 for i in range(s) for j in range(s))
+def valid(s):
+    big,op,pad,r,c=s
+    return r%2==1 and 5<=r<=35 and c%2==1 and 21<=c<=61 and fits(big,op,r,c)
+def goal(s):
+    big,op,pad,r,c=s; return op and atExit(big,r,c)
+def post(s,cost):
+    big,op,pad,r,c=s
+    if (not pad) and onPad(big,r,c): return (cost-10,(big,op,True,r,c))
+    return (cost,s)
+def growOuts(s):
+    big,op,pad,r,c=s
+    if r>=2 and c>=2 and fits(True,op,r-2,c-2): return [(True,op,pad,r-2,c-2)]
+    if c>=2 and fits(True,op,r,c-2): return [(True,op,pad,r,c-2)]
+    out=[]
+    if r>=2 and fits(True,op,r-2,c): out.append((True,op,pad,r-2,c))
+    if fits(True,op,r,c): out.append((True,op,pad,r,c))
+    return out+[s]
+ACTS=['U','D','L','R','dia','shot','free']
+def succs(s,a):
+    """list of (net cost, successor); shot lists both outcomes when c==31 (opens is abstract)."""
+    big,op,pad,r,c=s
+    st=4 if big else 2
+    if a in 'UDLR':
+        dr,dc={'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}[a]
+        nr,nc=r+dr*st,c+dc*st
+        t=(big,op,pad,nr,nc) if (nr>=0 and nc>=0 and fits(big,op,nr,nc)) else s
+        return [post(t,1)]
+    if a=='dia':
+        if big: return [post((False,op,pad,r,c),5)]
+        return [post(t,5) for t in growOuts(s)]
+    if a=='shot':
+        out=[post(s,4)]
+        if c==31 or (big and c==27) or ((not big) and c==29): out.append(post((big,True,pad,r,c),4))
+        return out
+    if a=='free': return [(0,s)]
+S=[(b,o,p,r,c) for b in (False,True) for o in (False,True) for p in (False,True) for r in range(5,36,2) for c in range(21,62,2)]
+Sv=[s for s in S if valid(s)]
+V={s:(0 if goal(s) else INF) for s in Sv}
+for it in range(500):
+    ch=False
+    for s in Sv:
+        if goal(s): continue
+        b=min(cst+V[t] for a in ACTS for cst,t in succs(s,a))
+        b=min(b,INF)
+        if b<V[s]: V[s]=b; ch=True
+    if not ch: break
+start=(True,False,False,25,37)
+assert valid(start)
+for s in Sv:
+    for a in ACTS:
+        for cst,t in succs(s,a):
+            assert valid(t), (s,a,t)
+            assert V[s]<=cst+V[t], (s,a,t)
+print('valid states',len(Sv),'V(start)=',V[start],file=sys.stderr)
+def key(s):
+    b,o,p,r,c=s
+    return ((((int(b)*2+int(o))*2+int(p))*16+(r-5)//2)*21+(c-21)//2)
+N=2*2*2*16*21
+tab=[INF]*N
+for s in Sv: tab[key(s)]=V[s]
+# balanced tree depth 12
+D=12
+def tree(lo,depth):
+    if depth==0:
+        return 'T.leaf (%d)'%(tab[lo] if lo<N else INF)
+    half=1<<(depth-1)
+    return 'T.node (%s) (%s)'%(tree(lo,depth-1),tree(lo+half,depth-1)) if False else None
+# build by bit order: lookup uses lowest bit first
+def tree2(prefix,bit):
+    if bit==D:
+        k=prefix; return '(T.leaf (%d))'%(tab[k] if k<N else INF)
+    return '(T.node %s %s)'%(tree2(prefix,bit+1),tree2(prefix|(1<<bit),bit+1))
+open('work/vtree_final.txt','w').write(tree2(0,0))
+print(V[start])
+# witness for budget 20 in this exact model (prefix-constrained BFS)
+from collections import deque
+B=20
+seen={(start,0)}; dq=deque([(start,0,[])]); W=None
+while dq:
+    s,u,pth=dq.popleft()
+    if goal(s): W=pth;break
+    for a in ACTS:
+        if a=='free': continue
+        outs=succs(s,a)
+        cst,t=outs[-1]   # for shot at c==31 take the opening outcome
+        if u+cst>B: continue
+        if (t,u+cst) not in seen: seen.add((t,u+cst)); dq.append((t,u+cst,pth+[a]))
+print('witness',W,file=sys.stderr)

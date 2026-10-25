@@ -1,0 +1,82 @@
+# Self-audit pass 2 (level 5)
+
+New records since pass 1: attempt 9 (R4.4 and R10.1 probes) and attempts 10/11, which were caused by a RESET that restarted L5
+instead of L1. The RESET restarts the current level; the service never returns to L1–L4 again, so R8.1 cannot be probed on L4.
+Replay of all recorded L5 transitions under the full-evidence model: 340/340.
+
+## New cases (rules never split before)
+| rule | kind | step loosening | L_step | widest | L_wide | evidence |
+|---|---|---|---|---|---|---|
+| R9.1 2x2 teleport after d cleared | effect | lands (18,34) | 47 | same | 47 | every 2x2 teleport had bd=True |
+| R10.1 superset completion | precondition | marks ⊇ pattern fire | ≈47 | — | — | probed: CONFIRMED (exact match), att9 |
+| R7.2 shrink corner when facing left | effect | tr/bl/br | refuted (264/287) | — | — | recorded left-facing shrink |
+| all unpinned together | — | R8.1+R9.1+T11+T_row17+unaligned8+refill+grow_extra | 46 | — | — | 340/340 |
+
+## Hypothesis H-beam (colour-6 reach is line of sight, not distance)
+The rule "aligned ∧ gap ≤ T" got its upper bound T < 12 from a single failure: L4, 4x4 at (21,29) facing up, gap 12.
+In that firing the stem (cols 31-32) sat under the player's RIGHT half, and the player's anchor columns 29-30 were walled at row 20.
+All 10 firings fit "the box lies in the facing direction along a clear floor line from the player's anchor column, at any
+distance":
+- the 4 successes all faced the box up a clear stem;
+- failures: L4 (21,29) blocked; L4 (21,37) blocked; L3 (17,37) facing away; L5 att3/att2/att7 box not in line;
+  att4 facing right into a wall; att9 facing up into the d barrier.
+Under H-beam, a 4x4 at (25,21) facing up clears the c box: no shrink, no stem.
+
+## Probe P2-1 (attempt 11, from 2x2 at (25,13), u=14)
+D → (27,13); R x4 → (27,21); U → (25,21) facing up, gap 12 to the c box, clear stem above → COL.
+Full-evidence model (T ≤ 11): nothing. H-beam: c box and c barrier vanish.
+
+### Outcome P2-1: **R4 (reach = aligned ∧ gap ≤ T, T ≤ 11) REFUTED**
+- Run: attempt 11, transition b2622be3. 2x2 at (25,21) facing up, gap 12 to the c box. COL clicks 1,7,4: bar 24→20 rows (u 20→24).
+- Result: the c box (rows 9-12 cols 20-23) and the c barrier (rows 33-36 cols 29-31) both vanished.
+- The old rule predicted no effect (gap 12 > T).
+
+### Corrected rule R4' (H-beam)
+- On completion, the recipe scans from the player's two anchor lanes in the facing direction:
+  - facing up/down: columns c, c+1;
+  - facing left/right: rows r, r+1.
+- Every lane cell must be floor until a box cell is reached; that box and its barrier are removed. No range limit was observed (the beam reached a box 13 cells away).
+- Fits all 4+6 earlier firings (see pass2 header). The L4 gap-12 failure is explained by its anchor columns 29-30 being walled.
+- Replay, all L5: old rule 348/349 (fails only P2-1); R4' 349/349.
+
+### Pass-2 sensitivity (corrected model, L = 37)
+| rule | step loosening | L_step | evidence |
+|---|---|---|---|
+| R8.1 win on over step | allowed | 36 | no record |
+| R9.1 2x2 teleport after d cleared | lands (18,34) | 36 | no record (every 2x2 teleport had bd=True) |
+| R8.1+R9.1 | both | 35 | |
+| R7.1 grow extra | — | 37 | |
+| R5.1 refill | not_topright | 37 | |
+
+### Plan P2-2 (one attempt, tests the R4' bites, R9.1 and R8.1)
+1. RESET (restarts L5).
+2. D, D, R, U → 4x4 (33,21) facing up, u=4. COL → **R4' bite (4x4 vertical beam, anchor lanes 21-22): c clears**, u=8.
+3. R x4, D, R, R, R → (37,49) refill, u=6.
+4. U x3, L → (25,45), u=10. PLUS (facing left) → 2x2 (25,45), u=15.
+5. U x4 → (17,45), u=19. U → (15,45), u=20. R → (15,47) facing right, u=21.
+6. COL → **R4' bite (2x2 horizontal beam, rows 15-16): d clears**, u=25.
+7. TELE as 2x2 → **R9.1 bite**: full model lands (37,15); R9.1 lands (18,34). u=29.
+8. If at (18,34): U x7 → the 7th up is a winning move on u=36 → **R8.1 bite**.
+
+### Outcomes P2-2 (attempt 12, RESET → L5)
+- **R4' 4x4 vertical beam: CONFIRMED.** D,D,R,U → 4x4 (33,21) facing up; COL: the c box and c barrier vanished (beam length 20). Bar 50 (u=8) as predicted.
+- Refill at (37,49): bar → 54 as predicted. Shrink facing left kept top-left: (25,45) 2x2.
+- **R4' 2x2 horizontal beam: CONFIRMED.** At (15,47) facing right, COL: the d box (rows 14-17 cols 55-58) and the d barrier (rows 11-13 cols 33-36) vanished. Bar 20 (u=25).
+- **R9.1: CONFIRMED.** A 2x2 teleport with d cleared landed on (37,15), the colour-15 tile, not (18,34). Bar 12 (u=29).
+- R8.1: UNTESTABLE. A winning move on u = B+1 needs a route costing ≤ B+1 = 36; the corrected minimum is 37. RESET only restarts L5, so L1–L4, where it could be staged, are no longer reachable.
+
+# Pass 3 (corrected model, L = 37), replay 384/384
+| rule | step loosening | L_step | status |
+|---|---|---|---|
+| R8.1 win on over step | allowed | 36 | UNTESTABLE |
+| B1 4x4 sideways beam lanes | any adjacent row pair | 37 | not load-bearing |
+| B2 beam range | ≤ 20 | refuted by att12 (20-cell beam) | pinned |
+| R9.1, R10.1, R4.4 | — | — | CONFIRMED in pass 1/2 |
+No case REFUTED in pass 3, so the audit stops after 3 passes.
+
+## Re-close (Lean)
+- `lean/L5Defs.lean`: amended model (face in the state, `beam` replacing `gap`, growA/growB/telef removed), soundness lemmas, the 4710-state certificate table, the witness.
+- `lean/L5Chunk0..15.lean`: `decide +kernel` checks of the table chunks.
+- `lean/L5Nodes.lean`: the skeleton nodes, `tab_s0`, `witness_wins`.
+- `lean/L5Model.lean`: `l5_impossible` (every winning sequence costs ≥ 37 > 35) and `least_budget_is_37` (relaxed by 2: a win at 37).
+- `#print axioms`: l5_impossible → [propext, Quot.sound]; least_budget_is_37 → [propext, Quot.sound]; witness_wins → none.

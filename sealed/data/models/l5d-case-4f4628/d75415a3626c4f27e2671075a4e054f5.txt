@@ -1,0 +1,97 @@
+# Run summary
+Reached level 5 of ? (levels 1–4 beaten). GAME_OVER on level 5: the energy bar ran out
+on the 3rd click of the teleport pattern.
+
+# Registered concepts (concepts/*.py), settle at end: 124 deduped transitions
+| concept | claim | N | S | C | seen |
+|---|---|---|---|---|---|
+| move_piece | ACTION1-4 moves the 4x4 piece by 4 when the target is all colour 2; the 9-half faces the move direction | 50 | 1.000 | 0.420 | 0 |
+| grid_click | ACTION6 on a 3x3 panel cell turns 0/2 into 14, or the panel completes (all 2) | 40 | 1.000 | 0.333 | 0 |
+| blocked_turns | a move into a 5/13 wall leaves the position unchanged and only turns the facing | 1 | 1.000 | 0.008 | 0 |
+
+Revision history: move_piece was hit 3 times. All 3 were reading errors in `_lib.piece`:
+- the connected component merged with the 9 border of the goal box;
+- 9 + a cells of the goal box formed a fake facing-U window;
+- the same thing produced a fake facing-L window.
+
+Each one was fixed in the reader, not in the rule. grid_click was hit once, on the GAME_OVER frame. I narrowed its scope to exclude that frame.
+
+# Rules observed but not encoded as concepts (abstentions = everything outside scope)
+- First action after /reset was swallowed (frame unchanged). This did not happen after level changes.
+- When a move is partly blocked, the piece moves only as far as the wall (L1: it moved 2 cells left at the region edge).
+- A 2x2 piece moves 2 cells per step.
+- The goal is the 9-bordered box with an a (10) interior. Moving the piece so it overlaps the interior wins the level.
+- Energy bar: column 62-63, 32 units of 2 rows each. It loses ~0.6–1 unit per action, depending on the level.
+  A completed spell costs about 1 extra unit. A 2x2 `e` pickup gave +9 units (L5).
+  When the bar is empty, the next action gives GAME_OVER.
+- Spells: the e cells drawn on the 3x3 panel must equal an icon pattern. When they do, the panel resets to all 2.
+  - f icon {(0,1),(1,0),(1,2),(2,1)}: shrinks the piece 4x4 → 2x2 at front-left. Casting it again grows the piece back to 4x4.
+    After a shrink, teleport frames resize to 2x2 and a 4x4 frame appears around the f pad.
+  - b icon {(0,0),(0,1),(1,1)}: teleports the piece to the spot framed by b markers.
+  - 6 icon {(0,1),(1,1),(2,1)}: works only if a straight beam from the piece's front-left 2-wide strip,
+    travelling in the facing direction through 2-cells, hits a 6 box. Then that box is removed
+    and the barrier of its interior colour (d/c) opens. Supported by 4 successes (L3, L4, L5×2) and 3 failures (L3 facing a wall,
+    L4 stem on the front-right half, L5 channel bends).
+  - In L1–L3 the panel started with 0s showing the icon pattern; filling them cast the spell.
+
+# Dropped-mechanism audit
+- Energy-cost details (exact fractional rate). Leaving them out makes the model looser (it allows more moves) → OK to drop.
+- Purpose of the f pad (probably a grow pad). Leaving it out makes the model tighter (it removes a possibly cheaper route) → NOT OK to drop. Still unknown.
+- Actions not fully explored: ACTION6 outside the panel, and panel patterns other than the three icons.
+
+# Reconciliation
+Bets were written before every act (enforced by gate 1). Counterexamples: 5 in total.
+All 5 were reader errors or scope errors, explained above. None of them was a wrong world rule.
+
+# Attempt 2 (L5 replay of lean/L5Model.lean plan)
+- Steps 1-34 matched the model in position, flags and energy within ±1. The model was off in two places:
+  - action 31 was NOT free;
+  - the d-switch cast had NO surcharge.
+  Net effect: energy 10 after the d cast (model: 10).
+- REFUTED: teleport with a 2x2 piece (Params.tele2 = (18,34)) landed on the f pad, top-left (37,15), in the left region.
+  A second teleport from there did nothing. Stepping off the f pad and back on did nothing visible (no grow).
+- Stopped with energy 0 at L5; the next action would be GAME_OVER.
+
+# Attempt 3 (L5, experiments after the in-model route became infeasible)
+- 4x4 covering the f pad (37,13): no effect.
+- ACTION6 off the panel (on switch box C): no change at all, and energy not charged.
+- ACTION5 is rejected by the service (only 1,2,3,4,6 are valid).
+- 4x4 teleport lands at (17,33): hypothesis h4 CONFIRMED.
+- Shrink → top-left, observed facing U, D and R (front-left hypothesis REFUTED for D).
+- Grow: 2x2 (15,33) facing U → (14,33); 2x2 (37,15) facing R → (35,13); L4 2x2 (21,31) facing D → (21,29).
+  All three fit: ideal top-left (t-2, l-2), then slid down/right to the nearest fit (slide distance ≤ 2).
+
+# Attempt 4 (L5)
+- REFUTED "beam passes walls": a 4x4 at (15,33) facing R (strip rows 15-16, in line with swD) cast six with no effect.
+- Move slide granularity: 4x4 at (17,33) moving U with rows 13+ blocked moved k=2 to (15,33), not k=3.
+  So the slide k is in steps of 2. The model's "any k ≤ s" is looser than this; that is safe for the impossibility proof.
+- A full 9-cell panel pattern does nothing. Clicking an e cell toggles it back to 2.
+- GAME_OVER after the energy ran out.
+
+# Attempt 5 (L5, played route2 exactly)
+- The route ran as modelled: d opened, teleport landed at (17,33).
+- Energy ran out with the piece at (9,33). It was 2 moves short of the goal: (5,33), then (1,33).
+- CORRECTED after re-tabulation: the grow completion (n=32) did satisfy the law with equality (used 31 = ⌊28.8⌋+3).
+  Action 31 was charged +1 extra, as in attempt 2. used(n) ≥ ⌊9n/10⌋+k−9pk holds at all 40 steps.
+  My first reading ("grow had no surcharge") was wrong.
+- GAME_OVER.
+- Gate fix: blocked_turns now returns NA for piece jumps > 4 (a transition spanning reset/game-over).
+
+# Attempt 6 (L5, panel-pattern search)
+- Gray-code walk over panel patterns (work/gray.py), one click per new pattern. 28 non-icon patterns were tested:
+  every subset of cells {0,1,2,3,4} except the icon {0,1,4}. Cells are numbered row-major 0..8.
+  None of them changed anything outside the panel. Pattern {0,1,4} (b icon) teleported the 4x4 to (17,33), as expected.
+- The pickup never respawns (checked over all attempt-5 frames).
+- GAME_OVER after the energy ran out.
+
+# Attempt 7 (L5, panel-pattern search continued)
+- Gray walk with reversed cell order (work/gray.py ORDER), 35 new non-icon patterns:
+  all subsets of {4,5,6,7,8}, plus {3,4}, {3,4,8}, {3,4,7,8}, {3,4,7}.
+  None of them changed anything outside the panel. Cumulative: 63 non-icon patterns plus the full panel.
+- GAME_OVER after the energy ran out (35th click at E=0).
+
+# Attempt 8 (L5, panel-pattern search continued)
+- Gray walk ORDER=[0,5,1,6,2,7,3,8,4], 35 clicks. New mixed patterns included {0,5}, {1,5}, {0,1,5}, {1,6}, {0,1,6},
+  {0,1,5,6}, {1,5,6}, {0,5,6}, {0,6}, {2,6}, {0,2,6}, {0,2,5,6}, {2,5,6}, {1,2,5,6}, {0,1,2,5,6}, {0,1,2,6}, {1,2,6},
+  {0,1,2,5}, {1,2,5}, {2,5}, {0,2,5}, {2,7}, {0,2,7}, {0,2,5,7}, {2,5,7}, among others.
+  None of them changed anything outside the panel. GAME_OVER when the energy ran out.

@@ -1,0 +1,117 @@
+# Formal system (amended after attempt 1). Lean: lean/L4Win.lean
+
+## a. Objects (level 4)
+| object | slots | dropping it would merge these two positions |
+|---|---|---|
+| player | r, c (top-left), sz (4/2), face | (25,37) vs (21,29): different moves possible; sz 4 vs 2: the stem is passable only at sz 2 |
+| panel | marks : 9 bools | 2 marks vs 0: the next click completes vs does not |
+| colour-6 box + colour-13 barrier | barrier : Bool (they always vanish together) | the corridor is open vs closed |
+| timer | u : units spent; budget B (level 4: 35) | u=34 vs u=36: winnable vs over |
+| status | won, over | absorbing |
+| floor | static rectangles (room, stem, corridor, goal interior, plus barrier/box when removed) | constant, not a slot |
+
+## b. Rules (as functions; all are `stepBase`/`step` in Lean)
+- R-move: mv d means k = the largest k ≤ sz whose shifted sz×sz square is all floor (0 = blocked); move by k; face := d; cost 1. Evidence: steps of 4 and 2, the L1 clamp (moved 2), blocked moves still turn the player.
+- R-win: after a move, the square overlaps the goal interior and the game is not over → won.
+- R-click: toggle panel cell i; cost 1.
+- R-plus: the marks become the plus pattern → sz := 2 (top-left kept), marks cleared, cost 2.
+- R-col: the marks become the middle column → marks cleared, cost 2, and the barrier is removed iff `near s`. `near` is NOT modelled: it is a parameter. Observed true at (13,29) sz4 (L3) and at (9,31) sz2 (L4). Observed false at (17,37) facing down (L3), and at (21,37) and (21,29) sz4 facing up (L4).
+- R-timer (new this attempt): cost per accepted action is 1, a recipe completion costs 2, no-op clicks cost 0. Display rows = 64 − 2·floor(32u/B). over iff u > B. Fit by brute force: B = 50/25/50/35 for L1/L2/L3/L4. It reproduces every observed bar reading, including all 31 in L4, and GAME_OVER exactly at u = 36.
+- Not in the model: the first action after a reset can be swallowed (cost 0, no effect); the 2×2 colour-14 tile in L4 (treated as plain floor: looser); clicks outside the panel (no-ops, cost 0, omitted: looser).
+
+## c. Simplify
+The box and the barrier are merged into one slot (they always change together). The colour slots of the player are dropped: face is kept only as an argument of `near`. The model's replay of the observed L4 action sequence matches the observed final position (15,31), size 2, barrier removed, every timer reading, and over at the last action.
+
+## d. Status of each rule in Lean
+definitions: R-move, R-win, R-click, R-plus, R-col (with `near` a parameter), R-timer.
+consequence: `l4_winnable`. Not in the model: swallowed first input, `near`'s definition, the budget formula for other levels.
+
+## Attempt 2 amendments (level 5)
+- L4 replayed with the lean/L4Win.lean plan: won at u=34 exactly as predicted. Every bar reading matched.
+- L5 budget B=35, pinned by bar readings at u=2,7,9,13,19.
+- New object: the colour-14 tile is a timer refill. Stepping on it raised the bar from 0 to 20 rows (about +10 units), and it is consumed.
+- New: R-shrink also redraws the markers. The teleport brackets shrink to a 2x2 landing (cols 34-35, an even column, which changes parity). Brackets appear around the colour-15 tile in room A, framing a 4x4 region (rows 36-39, cols 14-17); this is probably a grow spot. Untested.
+- R-col refined: completing the recipe affects only the box it is near, and that box's matching barrier (box with colour-12 interior ↔ colour-12 barrier). Fired at (21,21) 2x2, 8-row gap to the c box: only c cleared. Fired at (25,49) 2x2 (gap 7 rows / 4 cols to the d box): no effect.
+- ~~Parity: the 2x2 cannot enter the room-B stem (cols 46-47).~~ RETRACTED. The rectangle check against the frame shows the stem is cols 45-46, so a 2x2 at odd columns can enter it.
+
+## Attempt 2 formalisation (lean/L5Model.lean)
+- Objects added: second box/barrier pair (bc, bd), refill tile (tile). The panel marks are abstracted into recipe macros (M1). face is dropped: no rule in the L5 model reads it, which is looser.
+- R-col made concrete: near(box) := gap-sum ≤ T. All 8 observed firings fit exactly when T ∈ {9,10}. A centre-Manhattan metric (threshold 14-16) also fits; I checked it by search only (no win), not in Lean.
+- R-refill: entering the tile refunds 10 units once. It reproduces the bar readings after the refill (20, 18, 8, 0, then over).
+- R-tele: landing (18,34) for 2x2, (17,33) for 4x4 (assumed, M4).
+- Replay of the observed L5 sequence (work/l5_table.py): every bar reading matches, the c barrier clears, the d barrier does not, and the game is over on the last action.
+- Not in the model: the colour-15 tile (M3). The Python search with three "grow to 4x4" variants also found no win at B=35.
+- Result: the minimum cost to win is 47 (T=9) or 45 (T=10), against a budget of 35. Lean: L5.l5_impossible.
+
+## Attempt 3 amendments (level 5)
+- R-grow (new): plus while 2x2 grows back to 4x4. Observed (25,21) 2x2 facing down → 4x4 at (25,19): top row kept, shifted 2 columns left. The anchor's dependence on facing is untested. Cost 5.
+- R-col REVISED (gap-sum ≤ T is refuted): a 4x4 at (25,49) facing up, gap (7 rows, 2 cols) = 9, gave no effect on the d box. All 9 firings fit "aligned (zero gap on one axis) AND gap ≤ T, 9 ≤ T ≤ 11". Successes: (9,0), (8,0), (8,0), (0,0). Failures: (12,0), (7,4), (7,2), (13,5), (12,3). Consequence: the d box can only be reached aligned, i.e. from the strip rows 15-16 / region rows 17-20 behind the room-B stem (cols 45-46, 2x2 only).
+- R-tele: 4x4 lands at (17,33). CONFIRMED (M4, 4x4 half).
+- R-move REVISED: the clamp shortens the step to the largest free EVEN shift. A 4x4 at (17,33) moving up toward the d barrier moved 2 (to 15), not 3. L1's clamp of 2 also fits.
+- R-refill: CONFIRMED −10 units on a second occasion (bar 8 → 26 rows) with full cover.
+
+## Attempt 3 formalisation (lean/L5Model.lean, amended in place)
+- Changed definitions: `reach` (even-step clamp), `gap` (alignment required), `step .plus` (grow when 2x2). T range widened to {9,10,11}.
+- Replay check: the amended model reproduces every attempt-3 bar reading, the grow to (25,19), the teleport to (17,33), the clamp to (15,33), the failed d firing, and the game over at the last action. It still reproduces attempt 2.
+- Result: min cost to win = 48 (T=9) or 46 (T=10,11) against a budget of 35. Main theorem L5.l5_impossible (T ∈ {9,10,11}).
+- Untested (stricter-direction risk): the colour-15 tile; the reach when row-aligned (every success so far was column-aligned); facing; whether the grow anchor depends on facing; the 2x2 teleport landing.
+
+## Attempt 4 amendments (level 5, all tested by the game)
+- Colour-15 tile: stepping on it as 2x2 does nothing by itself, and it persists after leaving.
+- R-grow REVISED: grow places the 4x4 with the 2x2 as its bottom-right quadrant, i.e. at (r-2, c-2). Observed (37,15) → (35,13). In attempt 3 the (23,19) placement was blocked by the wall, and the 4x4 went to (25,19), i.e. (r, c-2). Fallback order otherwise unknown.
+- R-shrink: top-left kept while facing right, too ((17,33) → (17,33)). Facing-independent so far.
+- R-col: row-aligned at gap 18 (4x4 at (17,33) facing right, d box rows 14-17) had no effect. Consistent with aligned ∧ gap ≤ T (T ≤ 11) for row alignment too.
+- R-tele REVISED (M4 was wrong for 2x2): a 2x2 teleporting FROM the b-marker spot (17,33) went to the colour-15 tile (37,15), not to (18,34). The 4x4 from room A went to the b marker (17,33). Hypothesis: teleport goes to a bracketed marker other than the current spot; which markers are active depends on size. A 2x2 teleporting from elsewhere is still untested.
+
+## Attempt 4 formalisation (lean/L5Model.lean, amended in place)
+- `step .plus` grow: (r-2,c-2) first, then (r,c-2). New actions `telef` (2x2 → colour-15 tile) and `growA`/`growB` (unobserved grow placements). Both loosen the model to a superset of the uncertain rules.
+- Replay check: the amended model reproduces every attempt-4 bar reading and position. It still reproduces attempts 2 and 3.
+- Result unchanged: min cost to win = 48 (T=9) / 46 (T=10,11) > 35. Lean L5.l5_impossible re-proved with 1304-state tables.
+
+## Attempt 5 amendments (level 5, all tested by the game)
+- Clicks on map objects (both boxes, d barrier, f tile, e tile, goal), on the timer bar, and on the recipe cards: no cost. Map/timer clicks have no effect.
+- NEW: clicking a recipe card (left column) writes that recipe as the panel's 0-colour hint. Free, and it doesn't mark cells or complete anything. Panel cell hit boxes are wider than the 3x3 inner squares ((23,48) toggled cell 0).
+- ACTION5 is rejected by the service ("action must be one of [1, 2, 3, 4, 6]").
+- R-tele CONFIRMED size-based: a 2x2 teleport goes to the colour-15 tile (37,15) from room A and from the tile itself (it stays, still pays 4). The (18,34) landing never happens, so `tele` for 2x2 in the model is fiction (looser, harmless).
+- R-col: a column-aligned gap of 10 (2x2 at (23,21) → c box) cleared c, so T ≥ 10. With the earlier failures, T ∈ {10, 11}.
+- R-grow: with all four placements walled (2x2 at (23,21) in the stem), grow does nothing; cost 5, panel resets.
+
+## Attempt 5 formalisation (lean/L5Model.lean, amended in place)
+- `step .tele`: a 2x2 now lands on (37,15) (the observed destination), replacing the never-seen (18,34). `telef` is redundant.
+- Hypothesis range for R-col narrowed to T ∈ {10,11}: gap 10 succeeded, gap 12 failed. The unaligned failures are unchanged.
+- Not in the model: recipe-card clicks (free, hint only), map clicks (free no-ops), stray panel toggles (cost 1, never useful; omitting them is looser).
+- Replay of attempt 5 (with 2 units added for the two stray toggles): every bar reading and position matches.
+- Result: min cost to win = 47 (T=10,11) > 35. L5.l5_impossible re-proved.
+
+## Attempt 6 (level 5, followed the model's cheapest route; every prediction checked)
+- Bar readings and positions matched the model at every checkpoint: 62, 44 (c cleared from (23,21), gap 10), 30, refill 30, 14, 6.
+- R-grow fallback CONFIRMED: the 2x2 at (25,23) has (23,21) walled, and it grew to (25,21) = (r, c-2), not to the model's extra option (25,23).
+- A 2x2 entered the room-B stem (cols 45-46) and reached (17,45): stem geometry confirmed.
+- Colour-6 fired at (17,45) (row-aligned, gap 8) on the 36th unit: GAME_OVER on that click, and the final frame showed only the panel reset (no d clear). Ambiguous: either the game ends before the effect, or row-aligned gap 8 is not near. Not used to revise R-col.
+
+## Attempt 7 (level 5)
+- R-refill REVISED: the refill fires only when the player's top-left corner lands on the tile's top-left (37,49). A 4x4 at (37,47) covering the tile with its right half gave NO refill. The 4x4 at (37,49) then refilled (bar 14 → 30). All three observed refills had the player at (37,49). The old "any overlap" rule was too loose.
+- R-col: a 2x2 at (19,45), unaligned (gap 1 row + 8 cols = 9), had no effect on the d box. Alignment requirement confirmed in a new geometry.
+- R-grow fallback seen again ((25,21) → (25,19)).
+
+## Attempt 7 formalisation (lean/L5Model.lean, amended in place)
+- `step .mv`: onTile := tile ∧ new top-left = (37,49), replacing "any overlap". This matches all 4 observed tile contacts (3 refills at (37,49), 1 non-refill at (37,47)).
+- Replay check: attempts 3, 6 and 7 bar readings all match, including the missing refill at (37,47).
+- Result: min cost to win = 47 (T=10,11) > 35, unchanged. The refill is still worth it on the cheapest route, which already used (37,49). L5.l5_impossible re-proved.
+- Note: the earlier proof under the looser "any overlap" rule also gave 47, so the verdict does not depend on this revision.
+
+## Attempt 8 (level 5)
+- Under the attempt-7 refill rule, even firing at the d box costs ≥ 36 (searched), so the strip-firing question can't be settled within the budget.
+- Tested: mark 3 of the 4 plus cells, then click the plus recipe card. The card only rewrote the hint (cell 7 → 0); no completion, no shrink. Cards cannot finish recipes.
+- All predictions matched again: shrink at (29,17), c cleared from (23,21) (bar 40), grow fallback (25,19), refill at (37,49) (bar 26), game over at u=36.
+
+## Self-audit (attempts 9–12): R-col REFUTED and replaced (see work/selfaudit/pass1.md, pass2.md)
+- Old R-col: "aligned with the box ∧ gap ≤ T, T ∈ {10,11}". Refuted by attempt 11, transition b2622be3: a 2x2 at (25,21) facing up, gap 12, cleared the c box (bar 24→20; c box and c barrier vanished). The old rule predicted no effect.
+- New R-col' (beam): from the player's anchor lanes (cols c,c+1 facing up/down; rows r,r+1 facing left/right), scan in the facing direction over floor until a box cell is hit. No range limit (a 20-cell beam worked, att12).
+  - It fits every earlier firing; the L4 gap-12 failure had its anchor columns walled.
+  - Separating experiments: att12 4x4 vertical beam from (33,21) (c cleared, length 20); att12 2x2 horizontal beam from (15,47) facing right (d cleared).
+- Confirmed (no change): R4.4 (facing a barrier does nothing, att9); R10.1 (exact panel match, att9); R9.1 (2x2 teleport → (37,15) even with d cleared, att12).
+- R8.1 (win on the overrun step) is UNTESTABLE on L5.
+- Replay: 384/384 recorded L5 transitions agree with the corrected model (the old model gets 348/349 on the first 349, failing only b2622be3).
+- Corrected least budget: 37 (measured budget 35). With R8.1 loosened: 36.
+- Old Lean version kept in work/L5Model_attempt7.lean.bak.

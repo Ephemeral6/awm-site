@@ -1,0 +1,26 @@
+import L5CertTab
+
+namespace L5
+
+theorem C0_ok : (C0.toList).all chk = true := by decide +kernel
+theorem C1_ok : (C1.toList).all chk = true := by decide +kernel
+theorem C2_ok : (C2.toList).all chk = true := by decide +kernel
+theorem C3_ok : (C3.toList).all chk = true := by decide +kernel
+theorem C4_ok : (C4.toList).all chk = true := by decide +kernel
+theorem C5_ok : (C5.toList).all chk = true := by decide +kernel
+theorem C6_ok : (C6.toList).all chk = true := by decide +kernel
+theorem C7_ok : (C7.toList).all chk = true := by decide +kernel
+theorem C8_ok : (C8.toList).all chk = true := by decide +kernel
+theorem C9_ok : (C9.toList).all chk = true := by decide +kernel
+theorem C10_ok : (C10.toList).all chk = true := by decide +kernel
+theorem C11_ok : (C11.toList).all chk = true := by decide +kernel
+theorem C12_ok : (C12.toList).all chk = true := by decide +kernel
+theorem C13_ok : (C13.toList).all chk = true := by decide +kernel
+theorem C14_ok : (C14.toList).all chk = true := by decide +kernel
+theorem C15_ok : (C15.toList).all chk = true := by decide +kernel
+theorem C16_ok : (C16.toList).all chk = true := by decide +kernel
+theorem C17_ok : (C17.toList).all chk = true := by decide +kernel
+theorem C18_ok : (C18.toList).all chk = true := by decide +kernel
+theorem C19_ok : (C19.toList).all chk = true := by decide +kernel
+
+end L5

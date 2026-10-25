@@ -1,0 +1,43 @@
+"""方向键 ACTION1-4：光标沿该方向移动 k 格，k = 0..(光标沿该轴的边长) 中最大的、使平移 1..k 格后的 光标足迹（任意 h x w）全落在可通行色 {2,9,10,11,14} 上的值。"""
+LEVEL = "L1"
+SCOPE = "prev 帧预算条为空（跨服务端重开）NA；只看 ACTION1-4；光标前后帧都定位得到才判；换关 NA；reset 后第一个动作（实测被吞）NA"
+NOTE = ("v1『位移恰为 4』被 2e399d75288188da 打脸：在 col37 左移只走了 2 格到 col35（地板左缘）。"
+        "v2 改为：最多 4 格、被虚空截断。"
+        "v2 被 fb6f68604540b6d5 等 3 条打脸：2x2 光标在空竖井里每步只走 2 格。v3：步长上限 = 光标沿该轴边长。"
+        "v3 被 97fdc9241012011e 打脸：13 色屏障也挡路（旧版只认 5 为阻挡）。v4：可通行改为正面枚举 {2,9,10}。")
+EVIDENCE = ["3f5956007e12ca17", "3c367435761b27cf", "2e399d75288188da", "fb6f68604540b6d5", "20dccec1834ed10c", "3d57127a672811bb", "97fdc9241012011e", "129267c6180bfa25", "ce55c06d6390eaba", "e571568392377fe0"]
+PASSABLE = {2, 9, 10, 11, 14}   # 14：ce55c06d6390eaba 上压过 14 色 2x2 物件； 11：129267c6180bfa25 上走上过 b 角标； 正面枚举：只有见过被走上去的颜色
+SWALLOWED = {"2b3e5ed8fe7b90de"}
+from _lib import DIRS, cursor, cursor_box
+
+
+def predict_k(prev, a, action):
+    h, w = cursor_box(prev)[2:]
+    dr, dc = DIRS[action]
+    k = 0
+    for j in range(1, (h if dr else w) + 1):
+        ok = True
+        for r in range(h):
+            for c in range(w):
+                y, x = a[0] + r + dr * j, a[1] + c + dc * j
+                if not (0 <= y < 64 and 0 <= x < 64) or prev[y][x] not in PASSABLE:
+                    ok = False
+        if not ok:
+            break
+        k = j
+    return k
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or (ctx and ctx.get("level_prev") != ctx.get("level_next")):
+        return "NA"
+    if prev == nxt and action == "ACTION1" and cursor(prev) == (31, 45):
+        return "NA"   # reset 后被吞的那一步（唯一一次）
+    if not any(prev[r][62] == 14 for r in range(64)):
+        return "NA"   # prev 是耗尽后的 GAME_OVER 帧，中间隔着一次服务端重开本关（e571568392377fe0）
+    a, b = cursor(prev), cursor(nxt)
+    if a is None or b is None:
+        return "NA"
+    k = predict_k(prev, a, action)
+    dr, dc = DIRS[action]
+    return "TRUE" if (b[0] - a[0], b[1] - a[1]) == (dr * k, dc * k) else "FALSE"

@@ -1,0 +1,79 @@
+"""Fit per-level budget parameters to every recorded bar reading (all attempts so far = attempt 1).
+display rows = 2 * f(32 * R / B), R = B - spent; f in floor/ceil/round.
+costs: ordinary action c, ability-completing click c + x; reset-swallowed first action costs s in {0, c}.
+game over (L4 only observed): after action t65 not over, after t66 over; rule over iff R<0 or R<=0."""
+import json, math, sys, itertools
+sys.path[:0] = ['.', 'concepts']
+from _lib import panel, panel_hit
+L = [json.loads(l) for l in open('transitions.jsonl')]
+bar = lambda g: sum(1 for r in range(64) if g[r][62] == 14)
+levels = {}   # level -> list of sequences (one per attempt segment)
+prev_over = False
+for i, r in enumerate(L):
+    restart = prev_over          # the transition right after a GAME_OVER crosses a service restart
+    prev_over = r['ctx']['state_next'] == 'GAME_OVER'
+    lv = r['ctx']['level_prev']
+    if r['ctx']['level_next'] != lv:   # win step: reading belongs to next level
+        continue
+    p, n = r['prev'], r['nxt']
+    if lv not in levels or restart:   # new level, or service restarted the level after GAME_OVER
+        levels.setdefault(lv, []).append([])
+    comp = r['action'].startswith('ACTION6') and sum(v == 14 for row in panel(p) for v in row) >= 2 \
+        and not any(v == 14 for row in panel(n) for v in row)
+    a = r['action']
+    off = a.startswith('ACTION6') and panel_hit(*map(int, a.split(':')[1].split(','))) is None
+    kind = 'free' if off else 'swallow' if p == n and i == 0 else ('comp' if comp else ('refill' if bar(p) < bar(n) and not restart else 'norm'))
+    levels[lv][-1].append((kind, bar(n), r['ctx']['state_next']))
+F = {'floor': math.floor, 'ceil': math.ceil, 'round': lambda v: math.floor(v + 0.5)}
+out = {}
+for lv, seqs in levels.items():
+    sols = []
+    seq = [x for sq in seqs for x in sq]
+    for B in range(1, 401):
+        for c in range(1, 21):
+            for x in range(0, 41):
+              for rm in (['none'] if not any(k == 'refill' for k, _, _ in seq) else ['reset_charge', 'reset_free'] + ['refund%d' % q for q in range(0, 41)]):
+                for s in ((0, c) if any(k == 'swallow' for k, _, _ in seq) else (0,)):
+                    for fn, f in F.items():
+                        for over in (('lt', 'le') if lv == 4 else ('any',)):
+                          for free_cost in ((0, c) if any(k == 'free' for k, _, _ in seq) else (0,)):
+                            ok = True
+                            for sq in seqs:
+                              spent = 0
+                              if not ok: break
+                              for k, d, st in sq:
+                                if k == 'refill':
+                                    spent = c if rm == 'reset_charge' else (0 if rm == 'reset_free' else spent + c - int(rm[6:]))
+                                elif k == 'free':
+                                    spent += 0 + free_cost
+                                else:
+                                    spent += s if k == 'swallow' else (c + x if k == 'comp' else c)
+                                R = B - spent
+                                if st == 'GAME_OVER':
+                                    if over == 'lt' and not R < 0: ok = False
+                                    if over == 'le' and not R <= 0: ok = False
+                                    break
+                                if over == 'lt' and R < 0: ok = False
+                                if over == 'le' and R <= 0 and lv == 4: ok = False
+                                if 2 * f(32 * R / B) != d: ok = False
+                                if not ok: break
+                            if ok:
+                                sols.append((B, c, x, s, fn, over, rm + ('/offclick=%s' % ('0' if free_cost == 0 else 'c'))))
+    out[lv] = sols
+    # normalise by gcd-free representation: actions budget = B/c, completion extra = x/c
+    norm = sorted({(round(B / c, 3), round(x / c, 3), s // c if c else 0, fn, ov, rm) for B, c, x, s, fn, ov, rm in sols})
+    print('level', lv, 'raw solutions', len(sols), 'distinct (B/c, x/c, swallow, f, over):', len(norm))
+    for z in norm[:40]:
+        print('   ', z)
+
+print()
+from fractions import Fraction as Fr
+xs = {lv: {Fr(x, c) for B, c, x, s, fn, ov, rm in sols} for lv, sols in out.items()}
+common = set.intersection(*xs.values())
+print('x/c values consistent with all four levels:', sorted(float(v) for v in common)[:50], 'count', len(common))
+for lv, sols in out.items():
+    bs = sorted({Fr(B, c) for B, c, x, s, fn, ov, rm in sols if Fr(x, c) in common})
+    print('level', lv, 'B/c range given common x/c:', float(bs[0]), '..', float(bs[-1]), 'n', len(bs),
+          'rounding', sorted({fn for *_, fn, ov, rm in sols}), 'swallow cost/c', sorted({s // c for B, c, x, s, fn, ov, rm in sols}))
+l4 = sorted({(Fr(B, c), Fr(x, c)) for B, c, x, s, fn, ov, rm in out[4] if Fr(x, c) in common})
+print('L4 surviving (B/c, x/c):', [(float(a), float(b)) for a, b in l4], len(l4))

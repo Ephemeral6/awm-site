@@ -1,0 +1,50 @@
+"""Extra single-situation rows for step 1 (switch situations, grow-produced refill, anchors)."""
+import sys, json
+sys.path[:0] = ['.', 'concepts', 'work/selfaudit']
+import engine as E
+from replay import replay
+BASE = dict(refill_on_click=False, uncapped=False)
+class OneFire(E.M):
+    def __init__(self, extra, **kw):
+        super().__init__(**kw); self.extra = set(extra)
+    def switch_res(self, q):
+        s, r, c, f, op, it = q
+        fire = (c in (31, 32) and f == 0) or (s, c, f) in self.extra
+        return [(s, r, c, f, True, it)] if fire else [q]
+class FrontShrink(E.M):
+    """R8.1: a 4x4 facing DOWN shrinks to its bottom-left quadrant (other facings pinned to top-left)."""
+    def shrink_res(self, q):
+        s, r, c, f, op, it = q
+        if s == 4 and f == 1: return [(2, r, c, f, op, it), (2, r + 2, c, f, op, it)]
+        return super().shrink_res(q)
+class FacingGrow(E.M):
+    """R9.2: a 2x2 facing left/down (never observed growing) may grow to any free quadrant."""
+    def shrink_res(self, q):
+        s, r, c, f, op, it = q
+        if s == 2 and f in (1, 2):
+            out = [q]
+            for r2, c2 in ((r-2, c-2), (r-2, c), (r, c-2), (r, c)):
+                if self.foot_ok(op, r2, c2, 4): out.append((4, r2, c2, f, op, it))
+            return out
+        return super().shrink_res(q)
+rows = [
+  ('R10.1a', 'switch fires for a 4x4 at col 37 facing down (start position)', OneFire({(4, 37, 1)}, **BASE)),
+  ('R10.1b', 'switch fires for a 4x4 at col 41 facing down', OneFire({(4, 41, 1)}, **BASE)),
+  ('R10.1c', 'switch fires for a 4x4 at col 37 facing up', OneFire({(4, 37, 0)}, **BASE)),
+  ('R10.1d', 'switch fires for a 4x4 at col 25 facing up', OneFire({(4, 25, 0)}, **BASE)),
+  ('R10.1e', 'switch fires for a 2x2 at col 33 facing up', OneFire({(2, 33, 0)}, **BASE)),
+  ('R10.1f', 'switch fires for a 2x2 at col 29 facing up', OneFire({(2, 29, 0)}, **BASE)),
+  ('R10.2a', 'switch fires for a 4x4 at col 31 facing right', OneFire({(4, 31, 3)}, **BASE)),
+  ('R10.2b', 'switch fires for a 2x2 at col 31 facing down', OneFire({(2, 31, 1)}, **BASE)),
+  ('R10.2c', 'switch fires for a 2x2 at col 31 facing right', OneFire({(2, 31, 3)}, **BASE)),
+  ('R12.4', 'a 4x4 produced by a grow click that overlaps the item refills', E.M(refill_4x4_grow=True, **BASE)),
+  ('R8.1', 'a 4x4 facing down may shrink to its bottom-left quadrant', FrontShrink(**BASE)),
+  ('R9.2', 'a 2x2 facing left/down may grow to any free quadrant', FacingGrow(**BASE)),
+]
+out = []
+for rid, desc, m in rows:
+    n, ok, bad = replay(m)
+    L, path = E.least_budget(m, want_path=True)
+    out.append((rid, desc, ok == n, ok, n, L, path))
+    print(rid, desc, '| admissible', ok == n, '%d/%d' % (ok, n), '| L', L, path, flush=True)
+json.dump(out, open('work/selfaudit/sensitivity2.json', 'w'), default=str)

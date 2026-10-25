@@ -1,0 +1,197 @@
+"""跨局几何词汇：**只有几何，没有世界断言**。
+
+这里的每个函数都只是对一张帧做纯计算（连通块、直方图、帧差、折叠），
+不知道什么是精灵、什么是墙、哪一行是血条——那些是每一局自己的假设，
+写在 `ledger/games/<局>/concepts/_lib.py` 里，要走闸。
+
+概念文件里 `from geo import components, diff_sum` 就能用；settle 会把引用到的定义
+算进概念指纹，所以改这里等于让依赖它的概念一起重新受审。
+
+帧 g 是 list[list[int]]，g[row][col]，实测 64×64、颜色 0..15。
+坐标一律 (row, col)。
+"""
+from __future__ import annotations
+
+from collections import Counter
+
+
+def hist(g) -> dict[int, int]:
+    """色号 -> 格数。"""
+    c: Counter = Counter()
+    for row in g:
+        c.update(row)
+    return dict(sorted(c.items()))
+
+
+def cells_of(g, colors) -> list[tuple[int, int]]:
+    """取值属于 colors 的全部格子，(row, col)。colors 可以是单个 int。"""
+    if isinstance(colors, int):
+        colors = (colors,)
+    cs = set(colors)
+    return [(r, c) for r, row in enumerate(g) for c, v in enumerate(row) if v in cs]
+
+
+def bbox(cells) -> tuple[int, int, int, int] | None:
+    """(top, bottom, left, right)，闭区间；空集返回 None。"""
+    if not cells:
+        return None
+    rs = [r for r, _ in cells]
+    cs = [c for _, c in cells]
+    return (min(rs), max(rs), min(cs), max(cs))
+
+
+def components(cells, diag: bool = False) -> list[list[tuple[int, int]]]:
+    """把格子分成四邻接（diag=True 则八邻接）连通块，按格数降序。"""
+    rest = set(cells)
+    nb8 = ((1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1))
+    nbs = nb8 if diag else nb8[:4]
+    out = []
+    while rest:
+        seed = rest.pop()
+        comp = [seed]
+        stack = [seed]
+        while stack:
+            r, c = stack.pop()
+            for dr, dc in nbs:
+                n = (r + dr, c + dc)
+                if n in rest:
+                    rest.remove(n)
+                    comp.append(n)
+                    stack.append(n)
+        out.append(sorted(comp))
+    return sorted(out, key=len, reverse=True)
+
+
+def blobs(g, colors=None, diag: bool = False) -> list[dict]:
+    """每种颜色的连通块清单：[{color, n, bbox, cells}]，按颜色再按格数降序。
+
+    colors 不给就全部颜色都算。大面积底色（格数 > 1000）只报一块、不展开 cells。
+    """
+    h = hist(g)
+    out = []
+    for color in (sorted(h) if colors is None else colors):
+        cells = cells_of(g, color)
+        if not cells:
+            continue
+        if len(cells) > 1000:
+            out.append({"color": color, "n": len(cells), "bbox": bbox(cells), "cells": None})
+            continue
+        for comp in components(cells, diag):
+            out.append({"color": color, "n": len(comp), "bbox": bbox(comp), "cells": comp})
+    return out
+
+
+def diff(prev, nxt) -> list[tuple[int, int, int, int]]:
+    """逐格差：[(row, col, 旧色, 新色)]。"""
+    return [(r, c, u, v) for r, (a, b) in enumerate(zip(prev, nxt))
+            for c, (u, v) in enumerate(zip(a, b)) if u != v]
+
+
+def diff_groups(prev, nxt) -> dict[tuple[int, int], list[tuple[int, int]]]:
+    """帧差按 (旧色, 新色) 分组：{(u, v): [(row, col), …]}，按格数降序。"""
+    groups: dict[tuple[int, int], list[tuple[int, int]]] = {}
+    for r, c, u, v in diff(prev, nxt):
+        groups.setdefault((u, v), []).append((r, c))
+    return dict(sorted(groups.items(), key=lambda kv: -len(kv[1])))
+
+
+def diff_sum(prev, nxt) -> list[tuple[int, tuple[int, int, int, int]]]:
+    """把「这条转移改了多少格」拆成整数和：帧差格子按八邻接分块，返回 [(格数, bbox)]。
+
+    方法册「帧差拆整数和」：形如 总数 = 腾空 + 新占 + 计数器；分项的格数能直接定出
+    可动对象的尺寸、以及有没有搭便车的计数器，比从图样上猜快得多、也可证伪得多。
+    """
+    cells = [(r, c) for r, c, _, _ in diff(prev, nxt)]
+    return [(len(comp), bbox(comp)) for comp in components(cells, diag=True)]
+
+
+def fold(g, k: int, phase: tuple[int, int] = (0, 0)) -> list[list[int]]:
+    """按 k×k 折叠成 (H/k)×(W/k) 的格位图，每格报主色。phase = (行相位, 列相位)。
+
+    方法册「坐标系+格点图」：测出步长是 k 格，就把整帧折成格位图，之后在格位图上看，不逐格读帧。
+    """
+    H, W = len(g), len(g[0]) if g else 0
+    pr, pc = phase
+    out = []
+    for r0 in range(pr, H, k):
+        row = []
+        for c0 in range(pc, W, k):
+            c: Counter = Counter()
+            for r in range(r0, min(r0 + k, H)):
+                c.update(g[r][c0:c0 + k])
+            row.append(c.most_common(1)[0][0] if c else -1)
+        out.append(row)
+    return out
+
+
+def fold_phase(g, k: int, colors) -> tuple[int, int]:
+    """猜折叠相位：让指定颜色的格子在 k×k 块内最「整」（每块要么全是要么全不是）的 (行相位, 列相位)。"""
+    cells = set(cells_of(g, colors))
+    if not cells:
+        return (0, 0)
+    best, best_score = (0, 0), -1
+    for pr in range(k):
+        for pc in range(k):
+            full = part = 0
+            for r0 in range(pr, len(g), k):
+                for c0 in range(pc, len(g[0]), k):
+                    n = sum(1 for r in range(r0, min(r0 + k, len(g)))
+                            for c in range(c0, min(c0 + k, len(g[0]))) if (r, c) in cells)
+                    if n == k * k:
+                        full += 1
+                    elif n:
+                        part += 1
+            score = full - part
+            if score > best_score:
+                best, best_score = (pr, pc), score
+    return best
+
+
+def moved(prev, nxt, diag: bool = True) -> list[dict]:
+    """前后帧里「整体位移」的块：prev 里消失的一块和 nxt 里出现的一块形状相同、颜色相同。
+
+    返回 [{color, n, from_bbox, to_bbox, delta}]，delta = (d_row, d_col)。
+    这是「谁动了、动了多少」的几何读法，不预设它是精灵。
+    """
+    gone = {}
+    came = {}
+    for r, c, u, v in diff(prev, nxt):
+        gone.setdefault(u, []).append((r, c))
+        came.setdefault(v, []).append((r, c))
+    out = []
+    for color in set(gone) & set(came):
+        for a in components(gone[color], diag):
+            sa = {(r - a[0][0], c - a[0][1]) for r, c in a}
+            for b in components(came[color], diag):
+                if len(a) != len(b):
+                    continue
+                sb = {(r - b[0][0], c - b[0][1]) for r, c in b}
+                if sa == sb:
+                    out.append({"color": color, "n": len(a), "from_bbox": bbox(a), "to_bbox": bbox(b),
+                                "delta": (b[0][0] - a[0][0], b[0][1] - a[0][1])})
+                    break
+    return sorted(out, key=lambda d: -d["n"])
+
+
+def unique_blobs(g, max_n: int = 60) -> list[dict]:
+    """全图唯一的小物件：某种颜色只有一个连通块、且格数 ≤ max_n。方法册 L0：唯一的东西最可能是玩家或开关。"""
+    out = []
+    for color, n in hist(g).items():
+        if n > max_n:
+            continue
+        comps = components(cells_of(g, color))
+        if len(comps) == 1:
+            out.append({"color": color, "n": n, "bbox": bbox(comps[0]), "cells": comps[0]})
+    return out
+
+
+def region(g, r0: int, c0: int, h: int, w: int, oob: int = -1) -> set[int]:
+    """窗口 [r0, r0+h) × [c0, c0+w) 里出现的颜色集合；越界的格子记 oob。"""
+    out = set()
+    for r in range(r0, r0 + h):
+        for c in range(c0, c0 + w):
+            if 0 <= r < len(g) and 0 <= c < len(g[0]):
+                out.add(g[r][c])
+            else:
+                out.add(oob)
+    return out
