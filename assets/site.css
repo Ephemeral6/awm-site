@@ -327,6 +327,8 @@ dialog::backdrop { background: rgba(0, 0, 0, .35); }
 .objs li { padding: 7px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(150px, 220px) 1fr; gap: 2px 14px; }
 .objs li code { grid-column: 1; grid-row: 2; justify-self: start; font-size: 12.5px; }
 .objs li span { grid-column: 2; grid-row: 1 / span 2; color: var(--dim); }
+.objs li details, .objs li .pyonly { grid-column: 2; }
+.objs li .pyonly { font-style: normal; color: var(--faint); font-size: 14px; }
 /* name | description, the code links on their own line under the description */
 .rules li { padding: 9px 0; border-bottom: 1px solid var(--line); display: grid; grid-template-columns: minmax(150px, 230px) minmax(0, 1fr); gap: 2px 16px; }
 .rules .rn { font-weight: 600; justify-self: start; align-self: start; }
@@ -385,7 +387,7 @@ html:not(.js) .rp-ctl, html:not(.js) #rp-slider, html:not(.js) .rp-levels, html:
   .results ul { grid-template-columns: 1fr; }
   .reel-grid { gap: 8px; }
   .objs li, .rules li { grid-template-columns: 1fr; }
-  .objs li span, .rules .rd, .rules .rc { grid-column: 1; grid-row: auto; }
+  .objs li span, .objs li details, .objs li .pyonly, .rules .rd, .rules .rc { grid-column: 1; grid-row: auto; }
   .flist { columns: 1; }
   .game h1 { font-size: 32px; }
 }
