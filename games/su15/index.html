@@ -16,13 +16,16 @@
 <meta name="twitter:title" content="su15 · Algebraic World Model">
 <meta name="twitter:description" content="su15: Click to move and merge pieces until everything to be handed in lands inside the rings.">
 <meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="canonical" href="https://ephemeral6.github.io/awm-site/games/su15/">
 <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
 <link rel="stylesheet" href="../../assets/site.css">
 <script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
 <header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
-<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../sp80/" aria-label="Previous game">‹ sp80</a><a href="../tn36/" aria-label="Next game">tn36 ›</a></span></div><h1>su15</h1><p class="one">Click to move and merge pieces until everything to be handed in lands inside the rings.</p><p class="stat">9 levels · 16 rules · all levels replayed in Lean</p><nav class="subnav" aria-label="On this page"><a href="#replay" data-sec="replay">Replay</a><a href="#how" data-sec="how">How it plays</a><a href="#model" data-sec="model">Model</a><a href="#proof" data-sec="proof">Proof</a><a href="#files" data-sec="files">Check it yourself</a></nav><section class="sec" id="replay"><h2>Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it; they are also marked in the rule list below.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys, while the player is on screen: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="sec" id="how"><h2>How it plays</h2><div class="two"><div class="prose"><p>The squares on the board are graded by size and called pieces; the top draws what this level must hand in, and the field has rings. Click a place on the board: if there is only one piece within range, it jumps to the click; if there are two pieces of the same level, they merge into one piece one level higher, landing at the click. Then the hunters, diamonds and crabs on the field move in small steps, each small step toward the piece nearest to it at that moment; whichever piece it presses on, it bites down one level and flings far away, and the smallest piece is gone when bitten. The new piece just merged in this move cannot be bitten. When everything to be handed in lands whole inside the rings, the level is cleared; in some levels what must be handed in also includes diamonds or crabs. The bottom row is the budget, which shortens at every click on the board, and the game ends when it is deducted to zero.</p></div><div class="frames"><figure><img src="../../img/thumbs/su15.png" alt="su15, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/su15-last.png" alt="su15, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="sec" id="model"><h2>Model</h2><p class="lede">The final model: 5 object types and 16 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Pieces</b> <code>pieces</code><span>Squares on the board graded by size; each has a level and top-left position.</span></li><li><b>Creatures</b> <code>creatures</code><span>Hunters, diamonds, and crabs, which move by themselves after each board click.</span></li><li><b>Board</b> <code>board</code><span>Ring positions and what this level must hand in; fixed within a level.</span></li><li><b>Budget</b> <code>budget</code><span>Cells left in the bottom row; each board click shortens it.</span></li><li><b>Hidden creatures</b> <code>hidden</code><span>Creatures fully under a piece; unseen on screen, known only from the model&#x27;s earlier steps.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-click_lands_fresh"><code class="rn">click_lands_fresh</code><span>A board click moves the one piece in range there, or merges two same-level pieces.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../sp80/" aria-label="Previous game">‹ sp80</a><a href="../tn36/" aria-label="Next game">tn36 ›</a></span></div><h1>su15</h1><p class="one">Click to move and merge pieces until everything to be handed in lands inside the rings.</p><p class="stat">9 levels · 16 rules · all levels replayed in Lean</p><nav class="subnav" aria-label="On this page"><a href="#replay" data-sec="replay">Replay</a><a href="#how" data-sec="how">How it plays</a><a href="#model" data-sec="model">Model</a><a href="#proof" data-sec="proof">Proof</a><a href="#files" data-sec="files">Check it yourself</a></nav><section class="sec" id="replay"><h2>Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it; they are also marked in the rule list below.</p><div class="rp" id="rp"><div class="cv"><img class="rp-poster" src="../../img/thumbs/su15.png" alt="su15, first frame of the certified run" width="256" height="256"><canvas id="rp-cv" role="img" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos" aria-live="polite"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div></div><noscript><p class="note">The replay needs JavaScript; the first and last frames are under How it plays.</p></noscript><p class="note rp-keys">Press Play or step to load the run. Keys, while the player is on screen: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="sec" id="how"><h2>How it plays</h2><div class="two"><div class="prose"><p>The squares on the board are graded by size and called pieces; the top draws what this level must hand in, and the field has rings. Click a place on the board: if there is only one piece within range, it jumps to the click; if there are two pieces of the same level, they merge into one piece one level higher, landing at the click. Then the hunters, diamonds and crabs on the field move in small steps, each small step toward the piece nearest to it at that moment; whichever piece it presses on, it bites down one level and flings far away, and the smallest piece is gone when bitten. The new piece just merged in this move cannot be bitten. When everything to be handed in lands whole inside the rings, the level is cleared; in some levels what must be handed in also includes diamonds or crabs. The bottom row is the budget, which shortens at every click on the board, and the game ends when it is deducted to zero.</p></div><div class="frames"><figure><img src="../../img/thumbs/su15.png" alt="su15, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/su15-last.png" alt="su15, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="sec" id="model"><h2>Model</h2><p class="lede">The final model: 5 object types and 16 rules. Each rule is a Python check against every recorded step; 12 of them are translated into Lean (the paper's per-game table). Code under a rule is the file of the same name in the agent's Lean project.</p><h3>Object types</h3><ul class="objs"><li><b>Pieces</b> <code>pieces</code><span>Squares on the board graded by size; each has a level and top-left position.</span></li><li><b>Creatures</b> <code>creatures</code><span>Hunters, diamonds, and crabs, which move by themselves after each board click.</span></li><li><b>Board</b> <code>board</code><span>Ring positions and what this level must hand in; fixed within a level.</span></li><li><b>Budget</b> <code>budget</code><span>Cells left in the bottom row; each board click shortens it.</span></li><li><b>Hidden creatures</b> <code>hidden</code><span>Creatures fully under a piece; unseen on screen, known only from the model&#x27;s earlier steps.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-click_lands_fresh"><code class="rn">click_lands_fresh</code><span class="rd">A board click moves the one piece in range there, or merges two same-level pieces.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell, in_reach, resolve
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
@@ -52,7 +55,7 @@ HISTORY = [
     cell = click_cell(action)
     near = in_reach(w.pieces, cell)
     q = resolve(list(w.pieces), cell).fresh
-    <span class="tk-k">return</span> q <span class="tk-k">in</span> nw.pieces <span class="tk-k">and</span> all(p <span class="tk-k">not</span> <span class="tk-k">in</span> nw.pieces <span class="tk-k">or</span> p == q <span class="tk-k">for</span> p <span class="tk-k">in</span> near)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> q <span class="tk-k">in</span> nw.pieces <span class="tk-k">and</span> all(p <span class="tk-k">not</span> <span class="tk-k">in</span> nw.pieces <span class="tk-k">or</span> p == q <span class="tk-k">for</span> p <span class="tk-k">in</span> near)</code></pre></details><details><summary>Lean · LandsFresh.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -91,7 +94,7 @@ HISTORY = [
 <span class="tk-k">def</span> ident (ps : List Piece) (r c : Int) (res : Resolved) (p : Piece) : Piece :=
   <span class="tk-k">if</span> p ∈ inReach ps r c <span class="tk-k">then</span> res.fresh.getD p <span class="tk-k">else</span> p
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_top_band_inert"><code class="rn">click_top_band_inert</code><span>Clicking the top strip of the screen changes nothing.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-click_top_band_inert"><code class="rn">click_top_band_inert</code><span class="rd">Clicking the top strip of the screen changes nothing.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> not_click, next_is_elsewhere
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
@@ -110,13 +113,13 @@ HISTORY = [
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
-    <span class="tk-k">return</span> nw == w</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> nw == w</code></pre></details><details><summary>Lean · TopBandInert.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> isTopBand (r : Int) : Bool := <span class="tk-k">decide</span> (r &lt; <span class="tk-n">10</span>)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creature_chases_target"><code class="rn">creature_chases_target</code><span>A creature far from the click steps toward its nearest piece each small step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-creature_chases_target"><code class="rn">creature_chases_target</code><span class="rd">A creature far from the click steps toward its nearest piece each small step.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
@@ -180,7 +183,7 @@ HISTORY = [
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
     p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
     seen = p.outcome.world.creatures
-    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode == <span class="tk-s">&quot;chase&quot;</span> <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode == <span class="tk-s">&quot;chase&quot;</span> <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean · Chase.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -252,7 +255,7 @@ HISTORY = [
       | none =&gt; c
       | some (c&#x27;, t, stop) =&gt; <span class="tk-k">if</span> stop <span class="tk-k">then</span> c&#x27; <span class="tk-k">else</span> chaseRun srcs dst n (i + <span class="tk-n">1</span>) (some t) c&#x27;
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creature_dashes_near_click"><code class="rn">creature_dashes_near_click</code><span>Creatures near the click do not chase: hunters dash to it, diamonds pounce onto it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-creature_dashes_near_click"><code class="rn">creature_dashes_near_click</code><span class="rd">Creatures near the click do not chase: hunters dash to it, diamonds pounce onto it.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
@@ -302,7 +305,7 @@ HISTORY = [
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
     p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
     seen = p.outcome.world.creatures
-    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode <span class="tk-k">in</span> (<span class="tk-s">&quot;dash&quot;</span>, <span class="tk-s">&quot;pounce&quot;</span>) <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Bite
+    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode <span class="tk-k">in</span> (<span class="tk-s">&quot;dash&quot;</span>, <span class="tk-s">&quot;pounce&quot;</span>) <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean · Dash.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Bite
 
 <span class="tk-k">namespace</span> Game
 
@@ -327,7 +330,7 @@ HISTORY = [
 <span class="tk-k">def</span> pounceV (c : Creature) (r x : Int) : Int × Int :=
   ((r * <span class="tk-n">104</span> - (cCentre c).<span class="tk-n">1</span> + <span class="tk-n">52</span>) / <span class="tk-n">104</span>, (x * <span class="tk-n">104</span> - (cCentre c).<span class="tk-n">2</span> + <span class="tk-n">52</span>) / <span class="tk-n">104</span>)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creatures_merge_on_overlap"><code class="rn">creatures_merge_on_overlap</code><span>Two touching creatures of a kind merge: hunters into a diamond, diamonds into a crab.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-creatures_merge_on_overlap"><code class="rn">creatures_merge_on_overlap</code><span class="rd">Two touching creatures of a kind merge: hunters into a diamond, diamonds into a crab.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
@@ -367,7 +370,7 @@ HISTORY = [
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
     p = plan(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
     seen = p.outcome.world.creatures
-    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode == <span class="tk-s">&quot;born&quot;</span> <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+    <span class="tk-k">return</span> all(m.c <span class="tk-k">in</span> nw.creatures <span class="tk-k">for</span> m <span class="tk-k">in</span> p.movers <span class="tk-k">if</span> m.mode == <span class="tk-s">&quot;born&quot;</span> <span class="tk-k">and</span> m.c <span class="tk-k">in</span> seen)</code></pre></details><details><summary>Lean · Merge.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
 
 <span class="tk-k">namespace</span> Game
 
@@ -384,7 +387,7 @@ HISTORY = [
 <span class="tk-k">def</span> bornAt (a b : Creature) : Creature :=
   ⟨upKind a.kind, (a.row + b.row) / <span class="tk-n">2</span>, (a.col + b.col) / <span class="tk-n">2</span>⟩
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-bite_demotes_and_flings"><code class="rn">bite_demotes_and_flings</code><span>A chasing creature hitting an older piece bites it one level down and flings it.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-bite_demotes_and_flings"><code class="rn">bite_demotes_and_flings</code><span class="rd">A chasing creature hitting an older piece bites it one level down and flings it.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> plan
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
@@ -439,7 +442,7 @@ HISTORY = [
             <span class="tk-k">return</span> <span class="tk-k">False</span>
         <span class="tk-k">if</span> q <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">and</span> q <span class="tk-k">not</span> <span class="tk-k">in</span> nw.pieces:
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · Bite.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
 
 <span class="tk-k">namespace</span> Game
 
@@ -466,7 +469,7 @@ HISTORY = [
     <span class="tk-k">let</span> s : Int := (side (p.tier - <span class="tk-n">1</span>) : Int)
     some ⟨p.tier - <span class="tk-n">1</span>, min (max (p.row + sr) <span class="tk-n">10</span>) (<span class="tk-n">63</span> - s + <span class="tk-n">1</span>), min (max (p.col + sc) <span class="tk-n">0</span>) (<span class="tk-n">64</span> - s)⟩
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-levelup_iff_covered_after_step"><code class="rn">levelup_iff_covered_after_step</code><span>The level clears if, at any small step, everything to hand in lies in rings.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-levelup_iff_covered_after_step"><code class="rn">levelup_iff_covered_after_step</code><span class="rd">The level clears if, at any small step, everything to hand in lies in rings.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> step
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> not_board_click, refused
@@ -503,7 +506,7 @@ HISTORY = [
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
     o = step(w, action, ctx[<span class="tk-s">&quot;level&quot;</span>])
     won = <span class="tk-s">&quot;level_up&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()) <span class="tk-k">or</span> <span class="tk-s">&quot;win&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ())
-    <span class="tk-k">return</span> (o.kind == <span class="tk-s">&quot;won&quot;</span>) == won</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+    <span class="tk-k">return</span> (o.kind == <span class="tk-s">&quot;won&quot;</span>) == won</code></pre></details><details><summary>Lean · Covered.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
 
 <span class="tk-k">namespace</span> Game
 
@@ -541,7 +544,7 @@ HISTORY = [
 <span class="tk-k">def</span> covered (b : Board) (ps : List Piece) (cs : List Creature) : Bool :=
   !b.samples.isEmpty &amp;&amp; matchAll b.samples (things b.rings ps cs)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-budget_step_cost"><code class="rn">budget_step_cost</code><span>The budget shrinks in proportion to steps taken; only board clicks count as steps.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-budget_step_cost"><code class="rn">budget_step_cost</code><span class="rd">The budget shrinks in proportion to steps taken; only board clicks count as steps.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> delta_steps, next_is_elsewhere
@@ -571,7 +574,7 @@ HISTORY = [
         <span class="tk-k">return</span> <span class="tk-k">False</span>
     <span class="tk-k">if</span> action == <span class="tk-s">&quot;ACTION7&quot;</span> <span class="tk-k">or</span> click_cell(action)[<span class="tk-n">0</span>] &lt; <span class="tk-n">10</span>:
         <span class="tk-k">return</span> d == <span class="tk-n">0</span>
-    <span class="tk-k">return</span> d == <span class="tk-n">1</span> <span class="tk-k">or</span> d == <span class="tk-n">2</span> * (ctx[<span class="tk-s">&quot;refusals_before&quot;</span>] + <span class="tk-n">1</span>)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> d == <span class="tk-n">1</span> <span class="tk-k">or</span> d == <span class="tk-n">2</span> * (ctx[<span class="tk-s">&quot;refusals_before&quot;</span>] + <span class="tk-n">1</span>)</code></pre></details><details><summary>Lean · StepCost.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -586,7 +589,7 @@ HISTORY = [
 <span class="tk-k">def</span> refusedBar (bar n r : Nat) : Option Nat :=
   (stepsOf bar n).map (<span class="tk-k">fun</span> k =&gt; barOf (k + <span class="tk-n">2</span> * (r + <span class="tk-n">1</span>)) n)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-budget_game_over_at_zero"><code class="rn">budget_game_over_at_zero</code><span>The game ends exactly on the step that brings the budget to zero.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-budget_game_over_at_zero"><code class="rn">budget_game_over_at_zero</code><span class="rd">The game ends exactly on the step that brings the budget to zero.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.budget <span class="tk-k">import</span> N_OF_LEVEL, bar_of, steps_of
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell
@@ -615,13 +618,13 @@ HISTORY = [
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
     n = N_OF_LEVEL[ctx[<span class="tk-s">&quot;level&quot;</span>]]
     empty = bar_of(steps_of(w.budget, n) + <span class="tk-n">1</span>, n) == <span class="tk-n">0</span>
-    <span class="tk-k">return</span> empty == (<span class="tk-s">&quot;game_over&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()))</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> empty == (<span class="tk-s">&quot;game_over&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()))</code></pre></details><details><summary>Lean · GameOverAtZero.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> overAt (bar : Nat) : Bool := bar == <span class="tk-n">0</span>
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-pieces_out_of_reach_stay_or_bitten"><code class="rn">pieces_out_of_reach_stay_or_bitten</code><span>Pieces out of range either stay put or get bitten.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-pieces_out_of_reach_stay_or_bitten"><code class="rn">pieces_out_of_reach_stay_or_bitten</code><span class="rd">Pieces out of range either stay put or get bitten.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> click_cell, in_reach
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> board_step
@@ -652,7 +655,7 @@ HISTORY = [
         <span class="tk-k">if</span> <span class="tk-k">not</span> cand:
             <span class="tk-k">return</span> <span class="tk-k">False</span>
         spare.remove(cand[<span class="tk-n">0</span>])
-    <span class="tk-k">return</span> <span class="tk-k">not</span> spare</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Click.LandsFresh
+    <span class="tk-k">return</span> <span class="tk-k">not</span> spare</code></pre></details><details><summary>Lean · OutOfReach.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Click.LandsFresh
 
 <span class="tk-k">namespace</span> Game
 
@@ -688,7 +691,7 @@ HISTORY = [
       <span class="tk-k">exact</span> hp
   · <span class="tk-k">simp</span> at h
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-creature_step_bounded"><code class="rn">creature_step_bounded</code><span>A creature far from the click moves at most its chase steps per axis.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-creature_step_bounded"><code class="rn">creature_step_bounded</code><span class="rd">A creature far from the click moves at most its chase steps per axis.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.creature <span class="tk-k">import</span> near_click
 <span class="tk-k">from</span> derive.creature.chase <span class="tk-k">import</span> SPEED
@@ -730,7 +733,7 @@ HISTORY = [
         <span class="tk-k">if</span> <span class="tk-k">not</span> any(d.kind == c.kind <span class="tk-k">and</span> abs(d.row - c.row) &lt;= lim <span class="tk-k">and</span> abs(d.col - c.col) &lt;= lim
                    <span class="tk-k">for</span> d <span class="tk-k">in</span> nw.creatures):
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · StepBounded.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Creature.Chase
 
 <span class="tk-k">namespace</span> Game
 
@@ -803,7 +806,7 @@ HISTORY = [
   push_cast at h1 h2 h3 h4
   <span class="tk-k">exact</span> ⟨h1, h2, h3, h4⟩
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-still_uncovered_while_playing"><code class="rn">still_uncovered_while_playing</code><span>While play stays on this level, the hand-in is not fully matched.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-still_uncovered_while_playing"><code class="rn">still_uncovered_while_playing</code><span class="rd">While play stays on this level, the hand-in is not fully matched.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.goal <span class="tk-k">import</span> covered
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> next_is_elsewhere
@@ -818,7 +821,7 @@ HISTORY = [
     <span class="tk-k">return</span> next_is_elsewhere(ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
-    <span class="tk-k">return</span> <span class="tk-k">not</span> covered(nw.pieces, nw.creatures, nw.board)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> <span class="tk-k">not</span> covered(nw.pieces, nw.creatures, nw.board)</code></pre></details><details><summary>Lean · StillUncovered.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 <span class="tk-k">namespace</span> Game
 
@@ -875,7 +878,7 @@ HISTORY = [
               <span class="tk-k">exact</span> finish_ok _ _ _ _ _ _ _ h
       · <span class="tk-k">simp</span> at h
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-levelup_starts_fresh"><code class="rn">levelup_starts_fresh</code><span>Clearing a level opens the next with full budget and new rings and hand-in.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-levelup_starts_fresh"><code class="rn">levelup_starts_fresh</code><span class="rd">Clearing a level opens the next with full budget and new rings and hand-in.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 HISTORY = [
     …
@@ -890,7 +893,7 @@ HISTORY = [
     board_same = w.board == nw.board
     <span class="tk-k">if</span> <span class="tk-s">&quot;win&quot;</span> <span class="tk-k">in</span> ctx.get(<span class="tk-s">&quot;marks&quot;</span>, ()):
         <span class="tk-k">return</span> board_same <span class="tk-k">and</span> nw.budget == w.budget
-    <span class="tk-k">return</span> (<span class="tk-k">not</span> board_same) <span class="tk-k">and</span> nw.budget == <span class="tk-n">64</span></code></pre></details></li><li id="rule-undo_restores_before_last_click"><code class="rn">undo_restores_before_last_click</code><span>Undo restores pieces and creatures to before the last accepted board click; budget unchanged.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+    <span class="tk-k">return</span> (<span class="tk-k">not</span> board_same) <span class="tk-k">and</span> nw.budget == <span class="tk-n">64</span></code></pre></details><span class="pyonly">Python only</span></span></li><li id="rule-undo_restores_before_last_click"><code class="rn">undo_restores_before_last_click</code><span class="rd">Undo restores pieces and creatures to before the last accepted board click; budget unchanged.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> same_but_budget
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> next_is_elsewhere
@@ -913,7 +916,7 @@ HISTORY = [
     back = ctx.get(<span class="tk-s">&quot;undo_target&quot;</span>)
     <span class="tk-k">if</span> back <span class="tk-k">is</span> <span class="tk-k">None</span>:
         <span class="tk-k">return</span> nw == w
-    <span class="tk-k">return</span> same_but_budget(nw, back)</code></pre></details></li><li id="rule-reset_refills_budget"><code class="rn">reset_refills_budget</code><span>Restart refills the budget and returns everything to this level&#x27;s opening.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+    <span class="tk-k">return</span> same_but_budget(nw, back)</code></pre></details><span class="pyonly">Python only</span></span></li><li id="rule-reset_refills_budget"><code class="rn">reset_refills_budget</code><span class="rd">Restart refills the budget and returns everything to this level&#x27;s opening.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> same_but_budget
 
@@ -930,7 +933,7 @@ HISTORY = [
     <span class="tk-k">if</span> nw.budget != <span class="tk-n">64</span>:
         <span class="tk-k">return</span> <span class="tk-k">False</span>
     start = ctx.get(<span class="tk-s">&quot;level_start&quot;</span>)
-    <span class="tk-k">return</span> <span class="tk-k">True</span> <span class="tk-k">if</span> start <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">else</span> same_but_budget(nw, start)</code></pre></details></li><li id="rule-refusal_freezes_board"><code class="rn">refusal_freezes_board</code><span>A refused click moves no piece or creature but still costs budget, more each time.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+    <span class="tk-k">return</span> <span class="tk-k">True</span> <span class="tk-k">if</span> start <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">else</span> same_but_budget(nw, start)</code></pre></details><span class="pyonly">Python only</span></span></li><li id="rule-refusal_freezes_board"><code class="rn">refusal_freezes_board</code><span class="rd">A refused click moves no piece or creature but still costs budget, more each time.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> board_frozen
 <span class="tk-k">from</span> rule._scope <span class="tk-k">import</span> delta_steps, not_board_click, next_is_elsewhere, refused
@@ -952,9 +955,11 @@ HISTORY = [
     …
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx) -&gt; bool:
-    <span class="tk-k">return</span> board_frozen(w, nw) <span class="tk-k">and</span> delta_steps(w, nw, ctx) == <span class="tk-n">2</span> * (ctx[<span class="tk-s">&quot;refusals_before&quot;</span>] + <span class="tk-n">1</span>)</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are in the archive under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="proof"><h2>Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (boardOf <span class="tk-n">0</span>) (limitOf <span class="tk-n">0</span>) L0_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (boardOf <span class="tk-n">1</span>) (limitOf <span class="tk-n">1</span>) L1_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (boardOf <span class="tk-n">2</span>) (limitOf <span class="tk-n">2</span>) L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (boardOf <span class="tk-n">3</span>) (limitOf <span class="tk-n">3</span>) L3_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (boardOf <span class="tk-n">4</span>) (limitOf <span class="tk-n">4</span>) L4_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (boardOf <span class="tk-n">5</span>) (limitOf <span class="tk-n">5</span>) L5_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable (boardOf <span class="tk-n">6</span>) (limitOf <span class="tk-n">6</span>) L6_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L7_winnable : Winnable (boardOf <span class="tk-n">7</span>) (limitOf <span class="tk-n">7</span>) L7_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L8_winnable : Winnable (boardOf <span class="tk-n">8</span>) (limitOf <span class="tk-n">8</span>) L8_start := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are in the archive, with the steps to re-run them, under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="files"><h2>Check it yourself</h2><p class="lede">Everything on this page comes from files you can download and check. The archive holds the files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/su15.zip" download>Download su15.zip</a> <span class="note">0.7 MB · 56 files</span></p><h3>Re-run the proof</h3><ol class="ck-steps"><li>Download <a href="../../raw/su15.zip" download>su15.zip</a> and unpack it. The model and its theorems are in <code>archive/su15-20260924/formal/Game.lean</code>; its SHA-256 is<br><code class="sha">8dc04ecb0d7f47f60cab466a46c66fa23faa1746f0217f3a5b4ba37d7de16edc</code></li><li>Install Lean <code>leanprover/lean4:v4.34.0</code> (the version is in <code>lean-toolchain</code>).</li><li>Append these two lines to the file and run <code>lean</code> on it:<pre class="code"><code class="lang-lean">#print axioms consistent
-#print axioms faithful</code></pre></li><li>Lean should finish without errors and print:<pre class="code"><code class="lang-text"><span class="tk-s">&#x27;consistent&#x27;</span> depends on axioms: [propext]
-<span class="tk-s">&#x27;faithful&#x27;</span> depends on axioms: [propext]</code></pre></li></ol><p class="note">Our run of this check (2026-10-25): 85 s, 5.7 GB peak memory. <code>consistent</code> checks the rules against every recorded transition; <code>faithful</code> recomputes the certified run step by step from the first screen, checks each step against the record, and checks that it ends in a win. Axioms used: <code>propext</code>, all among Lean's standard ones.</p></section></main>
+    <span class="tk-k">return</span> board_frozen(w, nw) <span class="tk-k">and</span> delta_steps(w, nw, ctx) == <span class="tk-n">2</span> * (ctx[<span class="tk-s">&quot;refusals_before&quot;</span>] + <span class="tk-n">1</span>)</code></pre></details><span class="pyonly">Python only</span></span></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are in the archive under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="proof"><h2>Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame on the components the model represents, and that the last one wins. Each theorem is closed by the Lean kernel and is a statement about the learned model.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (boardOf <span class="tk-n">0</span>) (limitOf <span class="tk-n">0</span>) L0_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (boardOf <span class="tk-n">1</span>) (limitOf <span class="tk-n">1</span>) L1_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (boardOf <span class="tk-n">2</span>) (limitOf <span class="tk-n">2</span>) L2_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (boardOf <span class="tk-n">3</span>) (limitOf <span class="tk-n">3</span>) L3_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (boardOf <span class="tk-n">4</span>) (limitOf <span class="tk-n">4</span>) L4_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (boardOf <span class="tk-n">5</span>) (limitOf <span class="tk-n">5</span>) L5_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable (boardOf <span class="tk-n">6</span>) (limitOf <span class="tk-n">6</span>) L6_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L7_winnable : Winnable (boardOf <span class="tk-n">7</span>) (limitOf <span class="tk-n">7</span>) L7_start := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L8_winnable : Winnable (boardOf <span class="tk-n">8</span>) (limitOf <span class="tk-n">8</span>) L8_start := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are in the archive, with the steps to re-run them, under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="files"><h2>Check it yourself</h2><p class="lede">Everything on this page comes from files you can download and check. The archive holds the agent's files: the recorded run, the concept book, the concept sources, the Lean project and the sealed model file, plus the record of our kernel check.</p><p><a class="btn primary" href="../../raw/su15.zip" download>Download su15.zip</a> <span class="note">0.8 MB · 59 files</span></p><h3>Re-run the proof</h3><p class="note">Before you start: our run of this check took 69 s and 5.6 GB of memory at its peak (2026-10-25).</p><ol class="ck-steps"><li>Download <a href="../../raw/su15.zip" download>su15.zip</a> and unpack it. The model and its theorems are in <code>archive/su15-20260924/formal/Game.lean</code>. Before changing it, check that its SHA-256 is<br><code class="sha">d675a32e40484a1941494cd28c1063bcd267a3a17c5343b86b9f6690260fcf95</code><br><span class="note">The sealed <code>VERIFY.json</code> next to it records an older hash: comment lines of this file were changed on 2026-10-25, and the check below was re-run on the published file.</span></li><li>Install Lean with <a href="https://github.com/leanprover/elan">elan</a>, then the version named in the archive's <code>lean-toolchain</code>:<pre class="code"><code class="lang-text">elan toolchain install leanprover/lean4:v4.34.0</code></pre></li><li>Copy the model file to <code>Check.lean</code> and append these two lines to the copy:<pre class="code"><code class="lang-lean">#print axioms consistent
+#print axioms faithful</code></pre></li><li>In the folder that holds <code>Check.lean</code>, run:<pre class="code"><code class="lang-text">lean +leanprover/lean4:v4.34.0 -M60000 Check.lean</code></pre></li><li>Lean should finish without errors and print:<pre class="code"><code class="lang-text">GUARD_HITS click_in_top_band_inert=<span class="tk-n">4</span>,budget_step_cost=<span class="tk-n">92</span>,budget_cost_law=<span class="tk-n">505</span>,capacity_drops_one_tier_at_most=<span class="tk-n">505</span>,pieces_merge_at_click=<span class="tk-n">148</span>,click_two_tiers_refused=<span class="tk-n">11</span>,mover_captures_piece=<span class="tk-n">47</span>,captured_piece_flung_ten=<span class="tk-n">47</span>,mover7_clamp_far_from_click_no_capture=<span class="tk-n">281</span>,mover14_pounces_when_close=<span class="tk-n">16</span>,movers_merge_on_immune_piece=<span class="tk-n">24</span>,action7_undo_conserves=<span class="tk-n">88</span>
+<span class="tk-s">&#x27;consistent&#x27;</span> depends on axioms: [propext]
+<span class="tk-s">&#x27;faithful&#x27;</span> depends on axioms: [propext]</code></pre><span class="note">The first line is printed by the file itself: for each rule, how many recorded transitions meet its condition.</span></li></ol><h3>What a pass establishes</h3><p><code>consistent</code>: for every recorded transition, as read by the agent's parser and with duplicates removed, every rule whose condition holds also has its effect hold. <code>faithful</code>: the certified run, recomputed step by step from the first screen of each level, matches the record and ends in a win. Axioms used: <code>propext</code>, all among Lean's standard ones.</p><p class="note">What it does not establish: that the parser reads the screens correctly (that step runs in Python, outside Lean), or that a rule whose condition never occurs in the record is right. The Python file that produced the readings inside the model file is in the archive at <code>meta/repair-20260928/lib/su15-20260924/_lib.py</code>.</p></section></main>
+<footer class="site-foot"><div class="in"><span>Algebraic World Model · <a href="../../paper.pdf">Paper</a> · <a href="../../games/">Games</a> · <a href="../../#cite">Cite</a></span><span>Contact: <a href="mailto:yuanyang@tsinghua.edu.cn">yuanyang@tsinghua.edu.cn</a></span></div></footer>
 <script src="../../assets/site.js"></script>
 <script>window.AWM_GAME="su15";</script>
 <script src="../../assets/game.js"></script>

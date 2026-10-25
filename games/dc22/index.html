@@ -16,13 +16,16 @@
 <meta name="twitter:title" content="dc22 · Algebraic World Model">
 <meta name="twitter:description" content="dc22: Walk on the map, click cards that change it, and walk into the yellow exit to clear the level.">
 <meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="canonical" href="https://ephemeral6.github.io/awm-site/games/dc22/">
 <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
 <link rel="stylesheet" href="../../assets/site.css">
 <script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
 <header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
-<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../cn04/" aria-label="Previous game">‹ cn04</a><a href="../ft09/" aria-label="Next game">ft09 ›</a></span></div><h1>dc22</h1><p class="one">Walk on the map, click cards that change it, and walk into the yellow exit to clear the level.</p><p class="stat">6 levels · 17 rules · all levels replayed in Lean</p><nav class="subnav" aria-label="On this page"><a href="#replay" data-sec="replay">Replay</a><a href="#how" data-sec="how">How it plays</a><a href="#model" data-sec="model">Model</a><a href="#proof" data-sec="proof">Proof</a><a href="#files" data-sec="files">Check it yourself</a></nav><section class="sec" id="replay"><h2>Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it; they are also marked in the rule list below.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys, while the player is on screen: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="sec" id="how"><h2>How it plays</h2><div class="two"><div class="prose"><p>The left of the screen is the map and the right is the card panel. The arrow keys make the player walk on the map, and clicking presses a card on the panel. Each card remote-controls a group of cells on the map that belongs to it: a bridge of the same colour flips once between passable and impassable, the arm of a hub flips over along the diagonal, a bar on a track moves one notch to the right, a band extends or retracts one notch, a teleport card makes the player swap places with a pad of the same pattern colour, and the four-colour small icon changes the pattern colour of a pad. Walking into an icon on the ground adds one card of the same colour to the panel. Use the cards to pave the road through, and walk into the yellow exit to clear the level. The cell under the player&#x27;s feet will not be pulled away, and a click that would leave the player hanging in the air has no effect; when standing on a bridge of a certain colour, clicking the card of the same colour does not flip it. The last two levels also have mechanisms such as claws, rods, cross pieces and square frames.</p></div><div class="frames"><figure><img src="../../img/thumbs/dc22.png" alt="dc22, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/dc22-last.png" alt="dc22, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="sec" id="model"><h2>Model</h2><p class="lede">The final model: 8 object types and 17 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Player</b> <code>me</code><span>The cell the player stands on right now.</span></li><li><b>Exit</b> <code>goal</code><span>The yellow exit cell; walking into it clears the level.</span></li><li><b>Passable cells</b> <code>open</code><span>Map cells that can be walked into right now.</span></li><li><b>Pads</b> <code>pads</code><span>Visible two-colour checkered pads: their cells and pattern colour pair.</span></li><li><b>Bridges</b> <code>bridges</code><span>Cells that switch between solid and checkered looks, each controlled by same-colour cards.</span></li><li><b>Hubs</b> <code>hubs</code><span>A hub block and the arms extending from it.</span></li><li><b>Icons</b> <code>icons</code><span>Small icons on the ground that can be picked up.</span></li><li><b>Cards</b> <code>cards</code><span>Cards on the right panel that can be clicked.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-move"><code class="rn">move</code><span>An arrow key moves the player into the next cell if passable; otherwise it stays.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../cn04/" aria-label="Previous game">‹ cn04</a><a href="../ft09/" aria-label="Next game">ft09 ›</a></span></div><h1>dc22</h1><p class="one">Walk on the map, click cards that change it, and walk into the yellow exit to clear the level.</p><p class="stat">6 levels · 17 rules · all levels replayed in Lean</p><nav class="subnav" aria-label="On this page"><a href="#replay" data-sec="replay">Replay</a><a href="#how" data-sec="how">How it plays</a><a href="#model" data-sec="model">Model</a><a href="#proof" data-sec="proof">Proof</a><a href="#files" data-sec="files">Check it yourself</a></nav><section class="sec" id="replay"><h2>Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it; they are also marked in the rule list below.</p><div class="rp" id="rp"><div class="cv"><img class="rp-poster" src="../../img/thumbs/dc22.png" alt="dc22, first frame of the certified run" width="256" height="256"><canvas id="rp-cv" role="img" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos" aria-live="polite"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div></div><noscript><p class="note">The replay needs JavaScript; the first and last frames are under How it plays.</p></noscript><p class="note rp-keys">Press Play or step to load the run. Keys, while the player is on screen: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="sec" id="how"><h2>How it plays</h2><div class="two"><div class="prose"><p>The left of the screen is the map and the right is the card panel. The arrow keys make the player walk on the map, and clicking presses a card on the panel. Each card remote-controls a group of cells on the map that belongs to it: a bridge of the same colour flips once between passable and impassable, the arm of a hub flips over along the diagonal, a bar on a track moves one notch to the right, a band extends or retracts one notch, a teleport card makes the player swap places with a pad of the same pattern colour, and the four-colour small icon changes the pattern colour of a pad. Walking into an icon on the ground adds one card of the same colour to the panel. Use the cards to pave the road through, and walk into the yellow exit to clear the level. The cell under the player&#x27;s feet will not be pulled away, and a click that would leave the player hanging in the air has no effect; when standing on a bridge of a certain colour, clicking the card of the same colour does not flip it. The last two levels also have mechanisms such as claws, rods, cross pieces and square frames.</p></div><div class="frames"><figure><img src="../../img/thumbs/dc22.png" alt="dc22, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/dc22-last.png" alt="dc22, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="sec" id="model"><h2>Model</h2><p class="lede">The final model: 8 object types and 17 rules. Each rule is a Python check against every recorded step; 14 of them are translated into Lean (the paper's per-game table). Code under a rule is the file of the same name in the agent's Lean project.</p><h3>Object types</h3><ul class="objs"><li><b>Player</b> <code>me</code><span>The cell the player stands on right now.</span></li><li><b>Exit</b> <code>goal</code><span>The yellow exit cell; walking into it clears the level.</span></li><li><b>Passable cells</b> <code>open</code><span>Map cells that can be walked into right now.</span></li><li><b>Pads</b> <code>pads</code><span>Visible two-colour checkered pads: their cells and pattern colour pair.</span></li><li><b>Bridges</b> <code>bridges</code><span>Cells that switch between solid and checkered looks, each controlled by same-colour cards.</span></li><li><b>Hubs</b> <code>hubs</code><span>A hub block and the arms extending from it.</span></li><li><b>Icons</b> <code>icons</code><span>Small icons on the ground that can be picked up.</span></li><li><b>Cards</b> <code>cards</code><span>Cards on the right panel that can be clicked.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-move"><code class="rn">move</code><span class="rd">An arrow key moves the player into the next cell if passable; otherwise it stays.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.target <span class="tk-k">import</span> target
@@ -48,7 +51,7 @@ LEAN = <span class="tk-s">&quot;Rule/Move/Move.lean&quot;</span>
     a = read(action)
     t = target(w, a)
     want = t <span class="tk-k">if</span> t <span class="tk-k">in</span> w.open <span class="tk-k">else</span> w.me
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw.me == want <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw.me == want <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · Move.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
 <span class="tk-k">import</span> Rule.Win.ReachGoal
 
 <span class="tk-k">namespace</span> Game
@@ -67,7 +70,7 @@ LEAN = <span class="tk-s">&quot;Rule/Move/Move.lean&quot;</span>
     <span class="tk-k">else</span> <span class="tk-k">if</span> t.inMask w.opn <span class="tk-k">then</span> .goTo t
     <span class="tk-k">else</span> .stay
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-reach_goal"><code class="rn">reach_goal</code><span>Walking into the exit clears the level on that step; nothing else does.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-reach_goal"><code class="rn">reach_goal</code><span class="rd">Walking into the exit clears the level on that step; nothing else does.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.target <span class="tk-k">import</span> target
@@ -88,13 +91,13 @@ LEAN = <span class="tk-s">&quot;Rule/Win/ReachGoal.lean&quot;</span>
     a = read(action)
     up = (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;level_next&quot;</span>, <span class="tk-n">0</span>) - (ctx <span class="tk-k">or</span> {}).get(<span class="tk-s">&quot;level_prev&quot;</span>, <span class="tk-n">0</span>)
     want = <span class="tk-n">1</span> <span class="tk-k">if</span> (a.kind == <span class="tk-s">&quot;move&quot;</span> <span class="tk-k">and</span> target(w, a) <span class="tk-k">in</span> w.goal) <span class="tk-k">else</span> <span class="tk-n">0</span>
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> up == want <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> up == want <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · ReachGoal.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> isGoal (b : Board) (c : Cell) : Bool := c.inMask b.goal
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-phase_flip"><code class="rn">phase_flip</code><span>A card flips all bridges of its colour, unless the player stands on one.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-phase_flip"><code class="rn">phase_flip</code><span class="rd">A card flips all bridges of its colour, unless the player stands on one.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -129,7 +132,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/PhaseFlip.lean&quot;</span>
         want = w.open &amp; cells
     <span class="tk-k">else</span>:
         want = ((w.open ^ cells) | {w.me}) &amp; cells
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> (nw.open &amp; cells) == want <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> (nw.open &amp; cells) == want <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · PhaseFlip.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 <span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
@@ -138,7 +141,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/PhaseFlip.lean&quot;</span>
   <span class="tk-k">if</span> w.me.inMask (bridgeMask b.bridges k) <span class="tk-k">then</span> w
   <span class="tk-k">else</span> { w <span class="tk-k">with</span> opn := w.opn ^^^ bridgeMask b.bridges k }
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-hub_transpose"><code class="rn">hub_transpose</code><span>A hub card flips arms along the diagonal unless the player stands on an arm.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-hub_transpose"><code class="rn">hub_transpose</code><span class="rd">A hub card flips arms along the diagonal unless the player stands on an arm.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -177,7 +180,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/HubTranspose.lean&quot;</span>
         nh = [x <span class="tk-k">for</span> x <span class="tk-k">in</span> nw.hubs <span class="tk-k">if</span> x.cell == h.cell <span class="tk-k">and</span> x.color == h.color]
         <span class="tk-k">if</span> <span class="tk-k">not</span> nh <span class="tk-k">or</span> nh[<span class="tk-n">0</span>].arms != want_arms <span class="tk-k">or</span> (nw.open &amp; zone) != want_open:
             <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean · HubTranspose.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 <span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
@@ -192,7 +195,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/HubTranspose.lean&quot;</span>
 <span class="tk-k">def</span> hubTurn (b : Board) (k : Nat) (w : World) : World :=
   b.hubs.foldl (<span class="tk-k">fun</span> w h =&gt; <span class="tk-k">if</span> h.card == k <span class="tk-k">then</span> h.turn w <span class="tk-k">else</span> w) w
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-bars_shift"><code class="rn">bars_shift</code><span>A bar card shifts bars one notch right, wrapping, unless that moves the player&#x27;s bar.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-bars_shift"><code class="rn">bars_shift</code><span class="rd">A bar card shifts bars one notch right, wrapping, unless that moves the player&#x27;s bar.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.bars <span class="tk-k">import</span> bars_on, shifted
@@ -234,7 +237,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/BarsShift.lean&quot;</span>
         want = {x <span class="tk-k">for</span> x <span class="tk-k">in</span> w.open <span class="tk-k">if</span> x.row == r <span class="tk-k">and</span> c0 &lt;= x.col &lt;= c1} <span class="tk-k">if</span> refused <span class="tk-k">else</span> set(cells)
         <span class="tk-k">if</span> got != want:
             <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean · BarsShift.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 <span class="tk-k">import</span> Obj.Frame.World
 
 set_option autoImplicit false
@@ -268,7 +271,7 @@ set_option autoImplicit false
   <span class="tk-k">if</span> b.tracks.any (strands w) <span class="tk-k">then</span> w
   <span class="tk-k">else</span> { w <span class="tk-k">with</span> opn := b.tracks.foldl (setTrack w.opn) w.opn }
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-bands_notch"><code class="rn">bands_notch</code><span>A band card extends or retracts each band one notch, reversing at either end.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-bands_notch"><code class="rn">bands_notch</code><span class="rd">A band card extends or retracts each band one notch, reversing at either end.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -309,7 +312,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/BandsNotch.lean&quot;</span>
         t = band_state(nw.open, r, c0)
         <span class="tk-k">if</span> t != (<span class="tk-n">4</span> - s1 <span class="tk-k">if</span> inv <span class="tk-k">else</span> s1):
             <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean · BandsNotch.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 <span class="tk-k">import</span> Obj.Frame.World
 
 set_option autoImplicit false
@@ -342,7 +345,7 @@ set_option autoImplicit false
   | []              =&gt; w
   | (r, c0, _) :: _ =&gt; bandsNotchFrom b w (bandState w.opn r c0) (nextBand (bandState w.opn r c0) w.rise)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-teleport"><code class="rn">teleport</code><span>The teleport card swaps the player with a pad of the same pattern colour.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-teleport"><code class="rn">teleport</code><span class="rd">The teleport card swaps the player with a pad of the same pattern colour.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -373,7 +376,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/Teleport.lean&quot;</span>
         <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
     rest = {k: v <span class="tk-k">for</span> k, v <span class="tk-k">in</span> vis.items() <span class="tk-k">if</span> k != nw.me}
     nrest = {k: v <span class="tk-k">for</span> k, v <span class="tk-k">in</span> nvis.items() <span class="tk-k">if</span> k != w.me}
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> rest == nrest <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> rest == nrest <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · Teleport.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -385,7 +388,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/Teleport.lean&quot;</span>
     | none   =&gt; w
     | some p =&gt; { w <span class="tk-k">with</span> me := p.cell, pads := ⟨w.me, k⟩ :: dropPad w.pads p.cell, under := some k }
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-icon_cycles_pad"><code class="rn">icon_cycles_pad</code><span>Clicking the four-colour icon changes one fixed pad to the next pattern colour pair.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-icon_cycles_pad"><code class="rn">icon_cycles_pad</code><span class="rd">Clicking the four-colour icon changes one fixed pad to the next pattern colour pair.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked
@@ -418,7 +421,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/IconCyclesPad.lean&quot;</span>
     <span class="tk-k">if</span> len(changed) != <span class="tk-n">1</span>:
         <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
     k = changed[<span class="tk-n">0</span>]
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nvis[k] == (vis[k] + <span class="tk-n">1</span>) % <span class="tk-n">4</span> <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nvis[k] == (vis[k] + <span class="tk-n">1</span>) % <span class="tk-n">4</span> <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · IconCyclesPad.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 <span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
@@ -430,7 +433,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/IconCyclesPad.lean&quot;</span>
     <span class="tk-k">if</span> w.me == s <span class="tk-k">then</span> { w <span class="tk-k">with</span> under := w.under.map (<span class="tk-k">fun</span> k =&gt; (k + <span class="tk-n">1</span>) % <span class="tk-n">4</span>) }
     <span class="tk-k">else</span> { w <span class="tk-k">with</span> pads := w.pads.map (<span class="tk-k">fun</span> p =&gt; <span class="tk-k">if</span> p.cell == s <span class="tk-k">then</span> { p <span class="tk-k">with</span> pair := (p.pair + <span class="tk-n">1</span>) % <span class="tk-n">4</span> } <span class="tk-k">else</span> p) }
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-pickup"><code class="rn">pickup</code><span>Walking into an icon removes it and adds a same-colour card to the panel.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-pickup"><code class="rn">pickup</code><span class="rd">Walking into an icon removes it and adds a same-colour card to the panel.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.target <span class="tk-k">import</span> target
@@ -459,7 +462,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/Pickup.lean&quot;</span>
     gone = ic <span class="tk-k">not</span> <span class="tk-k">in</span> nw.icons <span class="tk-k">and</span> nw.me == target(w, read(action))
     before = {c.color <span class="tk-k">for</span> c <span class="tk-k">in</span> w.cards}
     after = {c.color <span class="tk-k">for</span> c <span class="tk-k">in</span> nw.cards}
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> (gone <span class="tk-k">and</span> ic.color <span class="tk-k">in</span> after - before) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> (gone <span class="tk-k">and</span> ic.color <span class="tk-k">in</span> after - before) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · Pickup.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.Board
 <span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
@@ -469,7 +472,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/Pickup.lean&quot;</span>
   | some ic =&gt; <span class="tk-k">if</span> w.cards.contains ic.color <span class="tk-k">then</span> w <span class="tk-k">else</span> { w <span class="tk-k">with</span> cards := ic.color :: w.cards }
   | none    =&gt; w
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-under_revealed"><code class="rn">under_revealed</code><span>When the player walks off a cell, the pad under the player&#x27;s feet reappears.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-under_revealed"><code class="rn">under_revealed</code><span class="rd">When the player walks off a cell, the pad under the player&#x27;s feet reappears.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.target <span class="tk-k">import</span> target
@@ -498,7 +501,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/Under.lean&quot;</span>
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>):
     u = ctx[<span class="tk-s">&quot;under&quot;</span>]
     got = {p.cell: p.pair <span class="tk-k">for</span> p <span class="tk-k">in</span> nw.pads}.get(w.me)
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> got == u <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> got == u <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · Under.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -510,7 +513,7 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/Under.lean&quot;</span>
               | none   =&gt; dropPad w.pads t)
     under := padAt w.pads t }
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_nothing"><code class="rn">click_nothing</code><span>A click outside the cards changes nothing.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-click_nothing"><code class="rn">click_nothing</code><span class="rd">A click outside the cards changes nothing.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked
@@ -532,13 +535,13 @@ LEAN = <span class="tk-s">&quot;Rule/Respond/ClickNothing.lean&quot;</span>
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>):
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw == w <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw == w <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · ClickNothing.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Frame.World
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> clickNothing (w : World) : World := w
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_keeps_player"><code class="rn">click_keeps_player</code><span>Clicking a card never moves the player, except the teleport card; derived from other rules.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-click_keeps_player"><code class="rn">click_keeps_player</code><span class="rd">Clicking a card never moves the player, except the teleport card; derived from other rules.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -563,7 +566,7 @@ LEAN = <span class="tk-s">&quot;Derived/ClickKeepsPlayer.lean&quot;</span>
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>):
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw.me == w.me <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw.me == w.me <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · ClickKeepsPlayer.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 set_option autoImplicit false
 
@@ -624,7 +627,7 @@ set_option autoImplicit false
   <span class="tk-k">cases</span> h
   <span class="tk-k">exact</span> press_keeps_me b w p h6
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_touches_own_cells"><code class="rn">click_touches_own_cells</code><span>A card changes only its own cells and the player&#x27;s cell; derived from other rules.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-click_touches_own_cells"><code class="rn">click_touches_own_cells</code><span class="rd">A card changes only its own cells and the player&#x27;s cell; derived from other rules.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -668,7 +671,7 @@ LEAN = <span class="tk-s">&quot;Derived/ClickTouchesOwnCells.lean&quot;</span>
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>):
     c = clicked(w, read(action))
     allowed = own_cells(w, c, ctx[<span class="tk-s">&quot;board&quot;</span>]) | set(ctx[<span class="tk-s">&quot;board&quot;</span>].unmodeled) | {w.me, nw.me}
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> <span class="tk-k">not</span> ((w.open ^ nw.open) - allowed) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> <span class="tk-k">not</span> ((w.open ^ nw.open) - allowed) <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean · ClickTouchesOwnCells.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 set_option autoImplicit false
 
@@ -846,7 +849,7 @@ set_option autoImplicit false
       · <span class="tk-k">exact</span> e3
     · <span class="tk-k">rfl</span>
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-move_keeps_map"><code class="rn">move_keeps_map</code><span>Walking changes only the two cells left and entered; derived from other rules.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-move_keeps_map"><code class="rn">move_keeps_map</code><span class="rd">Walking changes only the two cells left and entered; derived from other rules.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> skip_mark
@@ -873,7 +876,7 @@ LEAN = <span class="tk-s">&quot;Derived/MoveKeepsMap.lean&quot;</span>
         nh = [x <span class="tk-k">for</span> x <span class="tk-k">in</span> nw.hubs <span class="tk-k">if</span> x.cell == h.cell <span class="tk-k">and</span> x.color == h.color]
         <span class="tk-k">if</span> <span class="tk-k">not</span> nh <span class="tk-k">or</span> (set(h.arms) - two) != (set(nh[<span class="tk-n">0</span>].arms) - two):
             <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean · MoveKeepsMap.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 set_option autoImplicit false
 
@@ -918,7 +921,7 @@ set_option autoImplicit false
       · <span class="tk-k">exact</span> Or.inl (List.mem_filter.mp h1).<span class="tk-n">1</span>
     · <span class="tk-k">exact</span> Or.inl (List.mem_filter.mp hp).<span class="tk-n">1</span>
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-reset_to_start"><code class="rn">reset_to_start</code><span>A level reset returns to that level&#x27;s start; a full reset returns to level 1.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-reset_to_start"><code class="rn">reset_to_start</code><span class="rd">A level reset returns to that level&#x27;s start; a full reset returns to level 1.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 
@@ -937,26 +940,7 @@ LEAN = <span class="tk-s">&quot;Obs/Assume/ResetToStart.lean&quot;</span>
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>):
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw == ctx[<span class="tk-s">&quot;start&quot;</span>] <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obs.Replay
-
-set_option autoImplicit false
-set_option maxRecDepth <span class="tk-n">200000</span>
-
-<span class="tk-k">namespace</span> Game
-<span class="tk-k">namespace</span> Assume
-
-<span class="tk-k">open</span> Replay
-
-<span class="tk-k">def</span> resetPairs : List (Nat × Nat) := [(<span class="tk-n">42</span>, <span class="tk-n">1</span>), (<span class="tk-n">57</span>, <span class="tk-n">1</span>), (<span class="tk-n">662</span>, <span class="tk-n">1</span>), (<span class="tk-n">1167</span>, <span class="tk-n">1</span>), (<span class="tk-n">1627</span>, <span class="tk-n">1</span>), (<span class="tk-n">2088</span>, <span class="tk-n">1946</span>), (<span class="tk-n">2226</span>, <span class="tk-n">1946</span>), (<span class="tk-n">2279</span>, <span class="tk-n">1946</span>), (<span class="tk-n">2345</span>, <span class="tk-n">1946</span>), (<span class="tk-n">2468</span>, <span class="tk-n">1946</span>)]
-
-<span class="tk-k">theorem</span> reset_scope : resetPairs.length = <span class="tk-n">10</span> := <span class="tk-k">by</span> <span class="tk-k">decide</span>
-
-<span class="tk-k">theorem</span> reset_holds :
-    resetPairs.all (<span class="tk-k">fun</span> (r, s) =&gt; seenEq (boardAt (bySeq r).lvl) (frameAt (bySeq r).post) (frameAt (bySeq s).pre)) = true := <span class="tk-k">by</span>
-  <span class="tk-k">decide</span> +kernel
-
-<span class="tk-k">end</span> Assume
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-union_open"><code class="rn">union_open</code><span>In levels 5 and 6, mechanism cells the player walks into are always passable.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> nw == ctx[<span class="tk-s">&quot;start&quot;</span>] <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><span class="pyonly">Python only</span></span></li><li id="rule-union_open"><code class="rn">union_open</code><span class="rd">In levels 5 and 6, mechanism cells the player walks into are always passable.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.target <span class="tk-k">import</span> target
@@ -980,36 +964,7 @@ LEAN = <span class="tk-s">&quot;Obs/Assume/UnionOpen.lean&quot;</span>
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>):
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> target(w, read(action)) <span class="tk-k">in</span> w.open <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obs.Replay
-
-set_option autoImplicit false
-set_option maxRecDepth <span class="tk-n">200000</span>
-
-<span class="tk-k">namespace</span> Game
-<span class="tk-k">namespace</span> Assume
-
-<span class="tk-k">open</span> Replay
-
-<span class="tk-k">def</span> uTarget (s : Step) : Option Cell :=
-  <span class="tk-k">match</span> s.act <span class="tk-k">with</span>
-  | .move d =&gt;
-    <span class="tk-k">match</span> (frameAt s.pre).me.move d <span class="tk-k">with</span>
-    | some t =&gt; <span class="tk-k">if</span> s.kind == <span class="tk-n">0</span> &amp;&amp; !(t.inMask (boardAt s.lvl).keep) &amp;&amp; !(t.inMask (boardAt s.lvl).goal)
-                <span class="tk-k">then</span> some t <span class="tk-k">else</span> none
-    | none =&gt; none
-  | _ =&gt; none
-
-<span class="tk-k">def</span> uScope : List Step := steps.filter (<span class="tk-k">fun</span> s =&gt; (uTarget s).isSome)
-
-<span class="tk-k">theorem</span> unionOpen_scope : uScope.length = <span class="tk-n">316</span> := <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel
-
-<span class="tk-k">theorem</span> unionOpen_holds :
-    uScope.all (<span class="tk-k">fun</span> s =&gt; <span class="tk-k">match</span> uTarget s <span class="tk-k">with</span>
-                         | some t =&gt; t.inMask (frameAt s.pre).opn
-                         | none   =&gt; true) = true := <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel
-
-<span class="tk-k">end</span> Assume
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-unmodeled_cards_leave_model_alone"><code class="rn">unmodeled_cards_leave_model_alone</code><span>Claw and frame cards leave the player, pads, bridges, arms, bars and bands unchanged.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span> <span class="tk-k">if</span> target(w, read(action)) <span class="tk-k">in</span> w.open <span class="tk-k">else</span> <span class="tk-s">&quot;FALSE&quot;</span></code></pre></details><span class="pyonly">Python only</span></span></li><li id="rule-unmodeled_cards_leave_model_alone"><code class="rn">unmodeled_cards_leave_model_alone</code><span class="rd">Claw and frame cards leave the player, pads, bridges, arms, bars and bands unchanged.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.action <span class="tk-k">import</span> read
 <span class="tk-k">from</span> derive.clicked <span class="tk-k">import</span> clicked, is_big
@@ -1058,34 +1013,10 @@ LEAN = <span class="tk-s">&quot;Obs/Assume/UnmodeledCards.lean&quot;</span>
     zone = set(b.modeled) <span class="tk-k">if</span> b <span class="tk-k">else</span> set()
     <span class="tk-k">if</span> (w.open ^ nw.open) &amp; zone:
         <span class="tk-k">return</span> <span class="tk-s">&quot;FALSE&quot;</span>
-    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obs.Corpus
-
-set_option autoImplicit false
-set_option maxRecDepth <span class="tk-n">200000</span>
-
-<span class="tk-k">namespace</span> Game
-<span class="tk-k">namespace</span> Assume
-
-<span class="tk-k">open</span> Replay
-
-<span class="tk-k">def</span> unmodeled (s : Step) : Bool :=
-  s.kind == <span class="tk-n">0</span> &amp;&amp;
-  <span class="tk-k">match</span> s.act <span class="tk-k">with</span>
-  | .press (.card k big) =&gt;
-    !big || (bridgeMask (boardAt s.lvl).bridges k == <span class="tk-n">0</span> &amp;&amp; !((boardAt s.lvl).hubs.any (<span class="tk-k">fun</span> h =&gt; h.card == k)) &amp;&amp; k != <span class="tk-n">6</span>
-             &amp;&amp; !(k == <span class="tk-n">11</span> &amp;&amp; !(boardAt s.lvl).tracks.isEmpty) &amp;&amp; !(k == <span class="tk-n">2</span> &amp;&amp; !(boardAt s.lvl).bands.isEmpty))
-  | _ =&gt; false
-
-<span class="tk-k">def</span> unmodScope : List Step := steps.filter unmodeled
-
-<span class="tk-k">theorem</span> unmodeled_scope : unmodScope.length = <span class="tk-n">239</span> := <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel
-
-<span class="tk-k">theorem</span> unmodeled_holds : unmodScope.all Corpus.ok = true := <span class="tk-k">by</span> <span class="tk-k">decide</span> +kernel
-
-<span class="tk-k">end</span> Assume
-<span class="tk-k">end</span> Game</code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are in the archive under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="proof"><h2>Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (boardAt <span class="tk-n">0</span>) (startAt <span class="tk-n">0</span> <span class="tk-n">1628</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (boardAt <span class="tk-n">1</span>) (startAt <span class="tk-n">1</span> <span class="tk-n">1652</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (boardAt <span class="tk-n">2</span>) (startAt <span class="tk-n">2</span> <span class="tk-n">1695</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (boardAt <span class="tk-n">3</span>) (startAt <span class="tk-n">3</span> <span class="tk-n">1740</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (boardAt <span class="tk-n">4</span>) (startAt <span class="tk-n">4</span> <span class="tk-n">1832</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (boardAt <span class="tk-n">5</span>) (startAt <span class="tk-n">5</span> <span class="tk-n">1946</span>) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are in the archive, with the steps to re-run them, under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="files"><h2>Check it yourself</h2><p class="lede">Everything on this page comes from files you can download and check. The archive holds the files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/dc22.zip" download>Download dc22.zip</a> <span class="note">4.2 MB · 84 files</span></p><h3>Re-run the proof</h3><ol class="ck-steps"><li>Download <a href="../../raw/dc22.zip" download>dc22.zip</a> and unpack it. The model and its theorems are in <code>archive/dc22-20260920/formal/Game.lean</code>; its SHA-256 is<br><code class="sha">d1021cb4846d84634f376a24006d7d39b05888a2b99e57cb2b5b2f07e8005bd4</code></li><li>Install Lean <code>leanprover/lean4:v4.34.0</code> (the version is in <code>lean-toolchain</code>).</li><li>Append these two lines to the file and run <code>lean</code> on it:<pre class="code"><code class="lang-lean">#print axioms consistent
-#print axioms faithful</code></pre></li><li>Lean should finish without errors and print:<pre class="code"><code class="lang-text"><span class="tk-s">&#x27;consistent&#x27;</span> depends on axioms: [propext]
-<span class="tk-s">&#x27;faithful&#x27;</span> depends on axioms: [propext]</code></pre></li></ol><p class="note">Our run of this check (2026-10-23): 426 s, 18.6 GB peak memory. <code>consistent</code> checks the rules against every recorded transition; <code>faithful</code> recomputes the certified run step by step from the first screen, checks each step against the record, and checks that it ends in a win. Axioms used: <code>propext</code>, all among Lean's standard ones.</p></section></main>
+    <span class="tk-k">return</span> <span class="tk-s">&quot;TRUE&quot;</span></code></pre></details><span class="pyonly">Python only</span></span></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are in the archive under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="proof"><h2>Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame on the components the model represents, and that the last one wins. Each theorem is closed by the Lean kernel and is a statement about the learned model.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (boardAt <span class="tk-n">0</span>) (startAt <span class="tk-n">0</span> <span class="tk-n">1628</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (boardAt <span class="tk-n">1</span>) (startAt <span class="tk-n">1</span> <span class="tk-n">1652</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (boardAt <span class="tk-n">2</span>) (startAt <span class="tk-n">2</span> <span class="tk-n">1695</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (boardAt <span class="tk-n">3</span>) (startAt <span class="tk-n">3</span> <span class="tk-n">1740</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (boardAt <span class="tk-n">4</span>) (startAt <span class="tk-n">4</span> <span class="tk-n">1832</span>) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (boardAt <span class="tk-n">5</span>) (startAt <span class="tk-n">5</span> <span class="tk-n">1946</span>) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are in the archive, with the steps to re-run them, under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="files"><h2>Check it yourself</h2><p class="lede">Everything on this page comes from files you can download and check. The archive holds the agent's files: the recorded run, the concept book, the concept sources, the Lean project and the sealed model file, plus the record of our kernel check.</p><p><a class="btn primary" href="../../raw/dc22.zip" download>Download dc22.zip</a> <span class="note">4.2 MB · 87 files</span></p><h3>Re-run the proof</h3><p class="note">Before you start: our run of this check took 426 s and 18.6 GB of memory at its peak (2026-10-23).</p><ol class="ck-steps"><li>Download <a href="../../raw/dc22.zip" download>dc22.zip</a> and unpack it. The model and its theorems are in <code>archive/dc22-20260920/formal/Game.lean</code>. Before changing it, check that its SHA-256 is<br><code class="sha">d1021cb4846d84634f376a24006d7d39b05888a2b99e57cb2b5b2f07e8005bd4</code></li><li>Install Lean with <a href="https://github.com/leanprover/elan">elan</a>, then the version named in the archive's <code>lean-toolchain</code>:<pre class="code"><code class="lang-text">elan toolchain install leanprover/lean4:v4.34.0</code></pre></li><li>Copy the model file to <code>Check.lean</code> and append these two lines to the copy:<pre class="code"><code class="lang-lean">#print axioms consistent
+#print axioms faithful</code></pre></li><li>In the folder that holds <code>Check.lean</code>, run:<pre class="code"><code class="lang-text">lean +leanprover/lean4:v4.34.0 -M60000 Check.lean</code></pre></li><li>Lean should finish without errors and print:<pre class="code"><code class="lang-text"><span class="tk-s">&#x27;consistent&#x27;</span> depends on axioms: [propext]
+<span class="tk-s">&#x27;faithful&#x27;</span> depends on axioms: [propext]</code></pre></li></ol><h3>What a pass establishes</h3><p><code>consistent</code>: for every recorded transition, as read by the agent's parser and with duplicates removed, every rule whose condition holds also has its effect hold. <code>faithful</code>: the certified run, recomputed step by step from the first screen of each level, matches the record and ends in a win. Axioms used: <code>propext</code>, all among Lean's standard ones.</p><p class="note">What it does not establish: that the parser reads the screens correctly (that step runs in Python, outside Lean), or that a rule whose condition never occurs in the record is right. The Python file that produced the readings inside the model file is in the archive at <code>meta/repair-20260928/lib/dc22-20260920/_lib.py</code>.</p></section></main>
+<footer class="site-foot"><div class="in"><span>Algebraic World Model · <a href="../../paper.pdf">Paper</a> · <a href="../../games/">Games</a> · <a href="../../#cite">Cite</a></span><span>Contact: <a href="mailto:yuanyang@tsinghua.edu.cn">yuanyang@tsinghua.edu.cn</a></span></div></footer>
 <script src="../../assets/site.js"></script>
 <script>window.AWM_GAME="dc22";</script>
 <script src="../../assets/game.js"></script>

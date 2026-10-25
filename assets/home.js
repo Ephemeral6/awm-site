@@ -51,7 +51,10 @@
       cap = c; k = 0;
       bOut.textContent = c;
       capMark.style.left = (100 * parseInt(c, 10) / METER_MAX) + "%";
-      capBtns.forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-cap") === c); });
+      capBtns.forEach(function (b) {
+        var on = b.getAttribute("data-cap") === c;
+        b.classList.toggle("on", on); b.setAttribute("aria-pressed", on ? "true" : "false");
+      });
       box.classList.remove("lost", "won");
       banner.textContent = "";
       show(0);
@@ -80,8 +83,10 @@
     function stop() { gen++; clearTimeout(timer); timer = null; }
     function play() { stop(); paused = false; playBtn.textContent = "Pause"; later(tick, 500); }
     function pause() { stop(); paused = true; playBtn.textContent = "Play"; }
-    playBtn.onclick = function () { if (paused) { if (k >= runs[cap].length - 1) setCap(cap); play(); } else pause(); };
-    capBtns.forEach(function (b) { b.onclick = function () { stop(); setCap(b.getAttribute("data-cap")); play(); }; });
+    // the banner is announced only after the reader uses a control, not on every automatic loop
+    function heard() { banner.setAttribute("aria-live", "polite"); }
+    playBtn.onclick = function () { heard(); if (paused) { if (k >= runs[cap].length - 1) setCap(cap); play(); } else pause(); };
+    capBtns.forEach(function (b) { b.onclick = function () { heard(); stop(); setCap(b.getAttribute("data-cap")); play(); }; });
     // play only while the demo is on screen
     if ("IntersectionObserver" in window) {
       new IntersectionObserver(function (es) {

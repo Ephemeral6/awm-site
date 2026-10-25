@@ -9,7 +9,8 @@
   function toRule(rule) {
     var el = document.getElementById("rule-" + rule);
     if (!el) return;
-    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
     el.classList.add("hl"); setTimeout(function () { el.classList.remove("hl"); }, 1600);
   }
   function fromHash() {
@@ -29,7 +30,12 @@
     var cur = 0;
     secs.forEach(function (s, i) { if (s && s.getBoundingClientRect().top <= 130) cur = i; });
     if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) cur = secs.length - 1;
-    links.forEach(function (a, i) { a.classList.toggle("on", i === cur); });
+    links.forEach(function (a, i) {
+      var on = i === cur, was = a.classList.contains("on");
+      a.classList.toggle("on", on);
+      // on a narrow screen the bar scrolls sideways: keep the current link in view
+      if (on && !was) { var bar = a.parentNode; bar.scrollLeft = Math.max(0, a.offsetLeft - (bar.clientWidth - a.offsetWidth) / 2); }
+    });
   }
   window.addEventListener("scroll", function () { if (!queued) { queued = true; requestAnimationFrame(mark); } }, { passive: true });
   mark();
@@ -43,12 +49,19 @@
       document.head.appendChild(s);
     });
   }
-  function startReplay() {
-    if (RP || loading) return;
+  // the run (up to about 0.9 MB) is downloaded on the first use of a control, not with the page; then the pending action runs
+  var pending = null;
+  function startReplay(then) {
+    if (RP) { if (then) then(RP); return; }
+    if (then) pending = then;
+    if (loading) return;
     loading = true;
     document.getElementById("rp-act").textContent = "Loading…";
-    load("../../data/replay-" + G + ".js").then(function () { RP = replay(window.AWM_REPLAY[G]); })
-      .catch(function (e) { document.getElementById("rp-act").textContent = e.message; });
+    load("../../data/replay-" + G + ".js").then(function () {
+      RP = replay(window.AWM_REPLAY[G]);
+      document.getElementById("rp").classList.add("live");
+      if (pending) { var f = pending; pending = null; f(RP); }
+    }).catch(function (e) { document.getElementById("rp-act").textContent = e.message; });
   }
 
   var ACT = { ACTION1: "↑ up", ACTION2: "↓ down", ACTION3: "← left", ACTION4: "→ right", ACTION5: "space", ACTION7: "undo", RESET: "reset" };
@@ -121,13 +134,15 @@
       document.getElementById("rp-play").textContent = "Pause";
       timer = setInterval(function () { if (cur >= N - 1) { stop(); return; } show(cur + 1); }, 1000 / parseFloat(document.getElementById("rp-speed").value));
     }
-    document.getElementById("rp-play").onclick = play;
-    document.getElementById("rp-first").onclick = function () { stop(); show(0); };
-    document.getElementById("rp-prev").onclick = function () { stop(); show(cur - 1); };
-    document.getElementById("rp-next").onclick = function () { stop(); show(cur + 1); };
-    document.getElementById("rp-last").onclick = function () { stop(); show(N - 1); };
-    document.getElementById("rp-speed").onchange = function () { if (timer) { stop(); play(); } };
-    sl.oninput = function () { stop(); show(parseInt(sl.value, 10)); };
+    var api = {
+      play: play,
+      first: function () { stop(); show(0); },
+      prev: function () { stop(); show(cur - 1); },
+      next: function () { stop(); show(cur + 1); },
+      last: function () { stop(); show(N - 1); },
+      speed: function () { if (timer) { stop(); play(); } },
+      seek: function () { stop(); show(parseInt(sl.value, 10)); }
+    };
     document.getElementById("rp-rules") && document.getElementById("rp-rules").addEventListener("click", function (e) {
       var a = e.target.closest("a");
       if (!a) return;
@@ -135,15 +150,22 @@
       history.replaceState(null, "", a.getAttribute("href"));
       toRule(decodeURIComponent(a.getAttribute("href").split("/")[1]));
     });
-    function onScreen() { var r = cv.getBoundingClientRect(); return r.bottom > 60 && r.top < window.innerHeight - 60; }
-    document.addEventListener("keydown", function (e) {
-      if (!onScreen() || /INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName)) return;
-      if (e.key === "ArrowRight") { stop(); show(cur + 1); e.preventDefault(); }
-      else if (e.key === "ArrowLeft") { stop(); show(cur - 1); e.preventDefault(); }
-      else if (e.key === " ") { play(); e.preventDefault(); }
-    });
     show(0);
-    return { stop: stop };
+    api.stop = stop;
+    return api;
   }
-  startReplay();
+
+  // controls: each one loads the run on first use
+  function on(id, ev, act) { var el = document.getElementById(id); if (el) el.addEventListener(ev, function () { startReplay(function (r) { r[act](); }); }); }
+  on("rp-play", "click", "play"); on("rp-first", "click", "first"); on("rp-prev", "click", "prev");
+  on("rp-next", "click", "next"); on("rp-last", "click", "last"); on("rp-speed", "change", "speed"); on("rp-slider", "input", "seek");
+  var box = document.getElementById("rp");
+  function onScreen() { var r = box.getBoundingClientRect(); return r.bottom > 60 && r.top < window.innerHeight - 60; }
+  document.addEventListener("keydown", function (e) {
+    // leave keys to links, buttons, form fields and <summary>
+    if (!onScreen() || /INPUT|SELECT|TEXTAREA|BUTTON|SUMMARY|^A$/.test(e.target.tagName)) return;
+    var act = { ArrowRight: "next", ArrowLeft: "prev", " ": "play" }[e.key];
+    if (act) { e.preventDefault(); startReplay(function (r) { r[act](); }); }
+  });
+  document.getElementById("rp-act").textContent = "Press Play to load the run.";
 })();

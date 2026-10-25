@@ -16,13 +16,16 @@
 <meta name="twitter:title" content="s5i5 · Algebraic World Model">
 <meta name="twitter:description" content="s5i5: Click to extend, retract and rotate coloured bars; the level is cleared when all tips land on diamond target centres.">
 <meta name="twitter:image" content="https://ephemeral6.github.io/awm-site/og.png">
+<link rel="canonical" href="https://ephemeral6.github.io/awm-site/games/s5i5/">
 <link rel="icon" href="../../assets/icon.svg" type="image/svg+xml">
+<link rel="icon" href="../../favicon.ico" sizes="32x32">
+<link rel="apple-touch-icon" href="../../assets/apple-touch-icon.png">
 <link rel="stylesheet" href="../../assets/site.css">
 <script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
 </head>
 <body>
 <header class="top"><div class="in"><a class="brand" href="../../">AWM</a><nav><a href="../../games/" class=on>Games</a><a href="../../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
-<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../re86/" aria-label="Previous game">‹ re86</a><a href="../sb26/" aria-label="Next game">sb26 ›</a></span></div><h1>s5i5</h1><p class="one">Click to extend, retract and rotate coloured bars; the level is cleared when all tips land on diamond target centres.</p><p class="stat">8 levels · 19 rules · all levels replayed in Lean</p><nav class="subnav" aria-label="On this page"><a href="#replay" data-sec="replay">Replay</a><a href="#how" data-sec="how">How it plays</a><a href="#model" data-sec="model">Model</a><a href="#proof" data-sec="proof">Proof</a><a href="#files" data-sec="files">Check it yourself</a></nav><section class="sec" id="replay"><h2>Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it; they are also marked in the rule list below.</p><div class="rp" id="rp"><div class="cv"><canvas id="rp-cv" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div></div><p class="note">Keys, while the player is on screen: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="sec" id="how"><h2>How it plays</h2><div class="two"><div class="prose"><p>There are several coloured long bars on the board, with a grey cap at one end and the other end able to extend and retract; the cap of one bar hangs on another bar, strung into an arm, and the bar at the end carries a dark-red tip. The panels in the lower row each govern one colour: click the left icon and every bar of this colour retracts by 3 cells, click the right one and it extends by 3 cells; the bar that would press on the panel stays in place, and the others move as usual; the bars or walls hanging on the extending/retracting end are pushed away or dragged back along. Clicking a legend frame in the upper row makes the bars of this colour, together with the whole arm hanging behind it, rotate counterclockwise about the joint. The level is cleared when all the tips land on the centres of the diamond targets. In many cases this step is voided entirely: two things fight for the same cell, pressing on a purple fixed wall, retracting until the body is not enough, a pushed-away wall has nowhere to land, being unable to rotate through (pressing on the panel while rotating also counts).</p></div><div class="frames"><figure><img src="../../img/thumbs/s5i5.png" alt="s5i5, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/s5i5-last.png" alt="s5i5, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="sec" id="model"><h2>Model</h2><p class="lede">The final model: 5 object types and 19 rules. Each rule is a Python check against every recorded step; most are also Lean definitions.</p><h3>Object types</h3><ul class="objs"><li><b>Board</b> <code>board</code><span>Panels, legend frames, diamond targets, joints and purple fixed walls; unchanged within a level.</span></li><li><b>Bars</b> <code>bars</code><span>Coloured bars with a grey cap, hung cap-on-bar into arms; the last carries a tip.</span></li><li><b>Pushable walls</b> <code>walls</code><span>Solid rectangles in no bar; pushed or dragged when touching an extending or retracting end.</span></li><li><b>Counter row</b> <code>spent</code><span>The bottom row, recording how many cells this level has spent.</span></li><li><b>Uncertain boundary</b> <code>unsure</code><span>Marks frames where two same-colour bars meet end to end with an unseen boundary.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-free_end_moves"><code class="rn">free_end_moves</code><span>Clicking a panel icon extends or retracts every bar of that colour by 3 cells.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<main class="game"><div class="gnav"><a href="../">← All games</a><span><a href="../re86/" aria-label="Previous game">‹ re86</a><a href="../sb26/" aria-label="Next game">sb26 ›</a></span></div><h1>s5i5</h1><p class="one">Click to extend, retract and rotate coloured bars; the level is cleared when all tips land on diamond target centres.</p><p class="stat">8 levels · 19 rules · all levels replayed in Lean</p><nav class="subnav" aria-label="On this page"><a href="#replay" data-sec="replay">Replay</a><a href="#how" data-sec="how">How it plays</a><a href="#model" data-sec="model">Model</a><a href="#proof" data-sec="proof">Proof</a><a href="#files" data-sec="files">Check it yourself</a></nav><section class="sec" id="replay"><h2>Replay</h2><p class="lede">The certified run that cleared every level, one action at a time. Beside each step: the rules of the model that explain it; they are also marked in the rule list below.</p><div class="rp" id="rp"><div class="cv"><img class="rp-poster" src="../../img/thumbs/s5i5.png" alt="s5i5, first frame of the certified run" width="256" height="256"><canvas id="rp-cv" role="img" aria-label="Game screen"></canvas></div><div class="rp-side"><div class="rp-pos" aria-live="polite"><span id="rp-step"></span><span id="rp-lv"></span></div><div class="rp-act" id="rp-act"></div><div class="rp-ctl"><button type="button" id="rp-first" aria-label="First step">⏮</button><button type="button" id="rp-prev" aria-label="Previous step">◀</button><button type="button" id="rp-play" class="play">Play</button><button type="button" id="rp-next" aria-label="Next step">▶</button><button type="button" id="rp-last" aria-label="Last step">⏭</button><select id="rp-speed" aria-label="Speed"><option value="2">2 steps/s</option><option value="5" selected>5 steps/s</option><option value="12">12 steps/s</option></select></div><input type="range" id="rp-slider" min="0" value="0" aria-label="Position in the run"><div class="rp-levels" id="rp-levels"></div><h3>Explained by</h3><div class="rp-rules" id="rp-rules"></div></div></div><noscript><p class="note">The replay needs JavaScript; the first and last frames are under How it plays.</p></noscript><p class="note rp-keys">Press Play or step to load the run. Keys, while the player is on screen: ← → step, Space play / pause. A click is circled; cells that changed are outlined.</p></section><section class="sec" id="how"><h2>How it plays</h2><div class="two"><div class="prose"><p>There are several coloured long bars on the board, with a grey cap at one end and the other end able to extend and retract; the cap of one bar hangs on another bar, strung into an arm, and the bar at the end carries a dark-red tip. The panels in the lower row each govern one colour: click the left icon and every bar of this colour retracts by 3 cells, click the right one and it extends by 3 cells; the bar that would press on the panel stays in place, and the others move as usual; the bars or walls hanging on the extending/retracting end are pushed away or dragged back along. Clicking a legend frame in the upper row makes the bars of this colour, together with the whole arm hanging behind it, rotate counterclockwise about the joint. The level is cleared when all the tips land on the centres of the diamond targets. In many cases this step is voided entirely: two things fight for the same cell, pressing on a purple fixed wall, retracting until the body is not enough, a pushed-away wall has nowhere to land, being unable to rotate through (pressing on the panel while rotating also counts).</p></div><div class="frames"><figure><img src="../../img/thumbs/s5i5.png" alt="s5i5, first frame of the certified run" width="256" height="256"><figcaption>Start</figcaption></figure><figure><img src="../../img/thumbs/s5i5-last.png" alt="s5i5, last frame of the certified run" width="256" height="256"><figcaption>After the winning move</figcaption></figure></div></div></section><section class="sec" id="model"><h2>Model</h2><p class="lede">The final model: 5 object types and 19 rules. Each rule is a Python check against every recorded step; 17 of them are translated into Lean (the paper's per-game table). Code under a rule is the file of the same name in the agent's Lean project.</p><h3>Object types</h3><ul class="objs"><li><b>Board</b> <code>board</code><span>Panels, legend frames, diamond targets, joints and purple fixed walls; unchanged within a level.</span></li><li><b>Bars</b> <code>bars</code><span>Coloured bars with a grey cap, hung cap-on-bar into arms; the last carries a tip.</span></li><li><b>Pushable walls</b> <code>walls</code><span>Solid rectangles in no bar; pushed or dragged when touching an extending or retracting end.</span></li><li><b>Counter row</b> <code>spent</code><span>The bottom row, recording how many cells this level has spent.</span></li><li><b>Uncertain boundary</b> <code>unsure</code><span>Marks frames where two same-colour bars meet end to end with an unseen boundary.</span></li></ul><h3>Rules</h3><ul class="rules"><li id="rule-free_end_moves"><code class="rn">free_end_moves</code><span class="rd">Clicking a panel icon extends or retracts every bar of that colour by 3 cells.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> dataclasses <span class="tk-k">import</span> replace
 
@@ -68,7 +71,7 @@ HISTORY = [
         o = find_bar(nw, out.world.bars[i])
         <span class="tk-k">if</span> o <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> <span class="tk-k">not</span> same_bar(out.world.bars[i], o):
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.Mark
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · FreeEndMoves.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.Mark
 <span class="tk-k">import</span> Rule.Stretch.BoxStopsOneBar
 
 <span class="tk-k">namespace</span> Game
@@ -84,7 +87,7 @@ HISTORY = [
       (<span class="tk-k">if</span> grow &amp;&amp; boxStops bd b <span class="tk-k">then</span> (b, .stopped) <span class="tk-k">else</span> (b, .grown (freeEndDir b grow)))
     <span class="tk-k">else</span> (b, .still))
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-chain_follows_free_end"><code class="rn">chain_follows_free_end</code><span>Caps and walls touching a moving end move too: pushed when extending, dragged when retracting.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-chain_follows_free_end"><code class="rn">chain_follows_free_end</code><span class="rd">Caps and walls touching a moving end move too: pushed when extending, dragged when retracting.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.attach <span class="tk-k">import</span> bars_on_face, walls_on_face
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> decode
@@ -147,7 +150,7 @@ HISTORY = [
         o = find_bar(nw, m.nb[j])
         <span class="tk-k">if</span> o <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> <span class="tk-k">not</span> same_bar(m.nb[j], o):
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> all(m.nw[j] <span class="tk-k">in</span> set(nw.walls) <span class="tk-k">for</span> j <span class="tk-k">in</span> m.movedw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.Mark
+    <span class="tk-k">return</span> all(m.nw[j] <span class="tk-k">in</span> set(nw.walls) <span class="tk-k">for</span> j <span class="tk-k">in</span> m.movedw)</code></pre></details><details><summary>Lean · ChainFollowsFreeEnd.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.Mark
 <span class="tk-k">import</span> Obj.Derive.Attach
 
 <span class="tk-k">namespace</span> Game
@@ -186,7 +189,7 @@ HISTORY = [
     List (Bar × Mark) × List (Wall × Option Dir) :=
   followFrom (marks.length + <span class="tk-n">1</span>) marks marks (walls.map (<span class="tk-k">fun</span> w =&gt; (w, none)))
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-box_stops_one_bar"><code class="rn">box_stops_one_bar</code><span>A bar that would extend into a panel or legend frame stays; others move.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-box_stops_one_bar"><code class="rn">box_stops_one_bar</code><span class="rd">A bar that would extend into a panel or legend frame stays; others move.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> dataclasses <span class="tk-k">import</span> replace
 
@@ -230,14 +233,14 @@ HISTORY = [
         o = find_bar(nw, w.bars[i])
         <span class="tk-k">if</span> o <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> <span class="tk-k">not</span> same_bar(w.bars[i], o):
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · BoxStopsOneBar.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> boxStops (bd : Board) (b : Bar) : Bool :=
   meetsAny ({ b <span class="tk-k">with</span> len := b.len + <span class="tk-n">3</span> }).body bd.boxes
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-others_stay"><code class="rn">others_stay</code><span>Bars and walls not moved this step stay exactly where they are.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-others_stay"><code class="rn">others_stay</code><span class="rd">Bars and walls not moved this step stay exactly where they are.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> decode
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> predict_cached, touched, unreadable_input
@@ -273,7 +276,7 @@ HISTORY = [
             <span class="tk-k">return</span> <span class="tk-k">False</span>
     mw = set(out.move.movedw) <span class="tk-k">if</span> out.move <span class="tk-k">is</span> <span class="tk-k">not</span> <span class="tk-k">None</span> <span class="tk-k">else</span> set()
     keep = {x <span class="tk-k">for</span> j, x <span class="tk-k">in</span> enumerate(w.walls) <span class="tk-k">if</span> j <span class="tk-k">not</span> <span class="tk-k">in</span> mw}
-    <span class="tk-k">return</span> keep &lt;= set(nw.walls)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.FreeEndMoves
+    <span class="tk-k">return</span> keep &lt;= set(nw.walls)</code></pre></details><details><summary>Lean · OthersStay.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.FreeEndMoves
 
 <span class="tk-k">namespace</span> Game
 
@@ -287,7 +290,7 @@ HISTORY = [
   | (w, some d) =&gt; w.shift d
   | (w, none) =&gt; w
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-legend_rotates_chain"><code class="rn">legend_rotates_chain</code><span>Clicking a legend frame rotates the arm counterclockwise about the joint until it fits.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-legend_rotates_chain"><code class="rn">legend_rotates_chain</code><span class="rd">Clicking a legend frame rotates the arm counterclockwise about the joint until it fits.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> dataclasses <span class="tk-k">import</span> replace
 
@@ -385,7 +388,7 @@ HISTORY = [
         o = find_bar(nw, out.world.bars[j])
         <span class="tk-k">if</span> o <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> <span class="tk-k">not</span> same_bar(out.world.bars[j], o):
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Attach
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · LegendRotatesChain.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.Derive.Attach
 <span class="tk-k">import</span> Rule.Refuse.RotationBlocked
 
 <span class="tk-k">namespace</span> Game
@@ -441,7 +444,7 @@ HISTORY = [
   | none =&gt; .silent
   | some (pr, pc, roots) =&gt; tryTurn w pr pc (w.bars.zip (downstream w.bars roots)) <span class="tk-n">1</span> <span class="tk-n">3</span>
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-all_tips_home_advances"><code class="rn">all_tips_home_advances</code><span>A level clears exactly when tips sit on all target centres, none elsewhere.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-all_tips_home_advances"><code class="rn">all_tips_home_advances</code><span class="rd">A level clears exactly when tips sit on all target centres, none elsewhere.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.shape <span class="tk-k">import</span> centers, tip_cell
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> predict_cached, unreadable_input
@@ -472,7 +475,7 @@ HISTORY = [
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
     out = predict_cached(w, action)
-    <span class="tk-k">return</span> goal(out.world) == (ctx[<span class="tk-s">&quot;mark&quot;</span>] == <span class="tk-s">&quot;levelup&quot;</span>)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> goal(out.world) == (ctx[<span class="tk-s">&quot;mark&quot;</span>] == <span class="tk-s">&quot;levelup&quot;</span>)</code></pre></details><details><summary>Lean · AllTipsHome.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -482,7 +485,7 @@ HISTORY = [
   (tips w).all (<span class="tk-k">fun</span> t =&gt; (w.board.centers).contains t) &amp;&amp;
   (w.board.centers).all (<span class="tk-k">fun</span> c =&gt; (tips w).contains c)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-landing_blocked_refuses"><code class="rn">landing_blocked_refuses</code><span>Two things on one cell void the whole step; extending never pushes an obstacle aside.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-landing_blocked_refuses"><code class="rn">landing_blocked_refuses</code><span class="rd">Two things on one cell void the whole step; extending never pushes an obstacle aside.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> collections <span class="tk-k">import</span> Counter
 
@@ -516,7 +519,7 @@ HISTORY = [
     <span class="tk-k">return</span> refusal_scope(w, action, ME, ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · LandingBlocked.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -527,7 +530,7 @@ HISTORY = [
 <span class="tk-k">def</span> landingBlocked (bd : Board) (bars : List Bar) (walls : List Wall) : Bool :=
   anyPairMeets (bars.map Bar.whole ++ walls.map (·.rect) ++ bd.hubs.map Hub.rect)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-fixed_blocks_refuses"><code class="rn">fixed_blocks_refuses</code><span>Bars or walls on a purple fixed wall, panel or legend frame void the step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-fixed_blocks_refuses"><code class="rn">fixed_blocks_refuses</code><span class="rd">Bars or walls on a purple fixed wall, panel or legend frame void the step.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.shape <span class="tk-k">import</span> bar_cells, box_cells, wall_cells
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> refusal_scope, unchanged
@@ -551,7 +554,7 @@ HISTORY = [
     <span class="tk-k">return</span> refusal_scope(w, action, ME, ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · FixedBlocks.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -559,7 +562,7 @@ HISTORY = [
   <span class="tk-k">let</span> bad := bd.fixed ++ bd.boxes
   bars.any (<span class="tk-k">fun</span> b =&gt; meetsAny b.whole bad) || walls.any (<span class="tk-k">fun</span> w =&gt; meetsAny w.rect bad)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-too_short_refuses"><code class="rn">too_short_refuses</code><span>If any bar of the colour would retract below 2 segments, no bar retracts.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-too_short_refuses"><code class="rn">too_short_refuses</code><span class="rd">If any bar of the colour would retract below 2 segments, no bar retracts.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> refusal_scope, unchanged
 
@@ -577,14 +580,14 @@ HISTORY = [
     <span class="tk-k">return</span> refusal_scope(w, action, ME, ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · TooShort.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> tooShort (bars : List Bar) (K : Nat) (grow : Bool) : Bool :=
   !grow &amp;&amp; bars.any (<span class="tk-k">fun</span> b =&gt; b.color == K &amp;&amp; Nat.blt b.len <span class="tk-n">5</span>)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-dragged_off_board_refuses"><code class="rn">dragged_off_board_refuses</code><span>If a dragged bar&#x27;s cap would leave the board, the step is voided.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-dragged_off_board_refuses"><code class="rn">dragged_off_board_refuses</code><span class="rd">If a dragged bar&#x27;s cap would leave the board, the step is voided.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.shape <span class="tk-k">import</span> cap_cells
 <span class="tk-k">from</span> objects.geometry.grid <span class="tk-k">import</span> inside
@@ -605,7 +608,7 @@ HISTORY = [
     <span class="tk-k">return</span> refusal_scope(w, action, ME, ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.Mark
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · DraggedOffBoard.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Rule.Stretch.Mark
 
 <span class="tk-k">namespace</span> Game
 
@@ -614,7 +617,7 @@ HISTORY = [
     | (b, .moved d) =&gt; !(b.shift d).cap.onBoard
     | _ =&gt; false)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-wall_onto_target_refuses"><code class="rn">wall_onto_target_refuses</code><span>Pushing a wall onto a target centre or its four dots voids the step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-wall_onto_target_refuses"><code class="rn">wall_onto_target_refuses</code><span class="rd">Pushing a wall onto a target centre or its four dots voids the step.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.shape <span class="tk-k">import</span> target_cells, wall_cells
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> refusal_scope, unchanged
@@ -636,7 +639,7 @@ HISTORY = [
     <span class="tk-k">return</span> refusal_scope(w, action, ME, ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · WallOntoTarget.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -645,7 +648,7 @@ HISTORY = [
     | (w, some d) =&gt; meetsAny (w.shift d).rect bd.targets &amp;&amp; !meetsAny w.rect bd.targets
     | _ =&gt; false)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-rotation_blocked_refuses"><code class="rn">rotation_blocked_refuses</code><span>Fixed walls, leaving the board, or all three angles blocked void the rotation.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-rotation_blocked_refuses"><code class="rn">rotation_blocked_refuses</code><span class="rd">Fixed walls, leaving the board, or all three angles blocked void the rotation.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> refusal_scope, unchanged
 
@@ -673,7 +676,7 @@ HISTORY = [
     <span class="tk-k">return</span> refusal_scope(w, action, ME, ctx)
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · RotationBlocked.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
@@ -688,7 +691,7 @@ HISTORY = [
   <span class="tk-k">else</span> <span class="tk-k">if</span> off &amp;&amp; Nat.blt <span class="tk-n">1</span> k <span class="tk-k">then</span> .refuse
   <span class="tk-k">else</span> .accept
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-click_elsewhere_does_nothing"><code class="rn">click_elsewhere_does_nothing</code><span>Clicking anywhere except icons and legend frames moves nothing.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-click_elsewhere_does_nothing"><code class="rn">click_elsewhere_does_nothing</code><span class="rd">Clicking anywhere except icons and legend frames moves nothing.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> decode
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> in_level, unchanged
@@ -705,13 +708,13 @@ HISTORY = [
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
+    <span class="tk-k">return</span> unchanged(w, nw)</code></pre></details><details><summary>Lean · ClickElsewhere.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obj.World
 
 <span class="tk-k">namespace</span> Game
 
 <span class="tk-k">def</span> clickElsewhere (w : World) : Res := .ok w
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-board_unchanged"><code class="rn">board_unchanged</code><span>Panels, legend frames, diamond targets, joints and fixed walls never change within a level.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-board_unchanged"><code class="rn">board_unchanged</code><span class="rd">Panels, legend frames, diamond targets, joints and fixed walls never change within a level.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 …
 HISTORY = [
@@ -725,7 +728,7 @@ HISTORY = [
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> nw.board == w.board</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> nw.board == w.board</code></pre></details><details><summary>Lean · BoardUnchanged.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 <span class="tk-k">namespace</span> Game
 
@@ -774,7 +777,7 @@ HISTORY = [
     · <span class="tk-k">exact</span> rotate_board w w&#x27; _ h
     · <span class="tk-k">simp</span> only [clickElsewhere] at h; <span class="tk-k">cases</span> h; <span class="tk-k">rfl</span>
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-rotation_keeps_length"><code class="rn">rotation_keeps_length</code><span>Rotation keeps every turned bar&#x27;s length, and the tip stays.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-rotation_keeps_length"><code class="rn">rotation_keeps_length</code><span class="rd">Rotation keeps every turned bar&#x27;s length, and the tip stays.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> decode
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> predict_cached, unreadable_input
@@ -808,7 +811,7 @@ HISTORY = [
             <span class="tk-k">continue</span>
         <span class="tk-k">if</span> o.length != w.bars[j].length <span class="tk-k">or</span> o.tip != w.bars[j].tip:
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · RotationKeepsLength.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 <span class="tk-k">namespace</span> Game
 
@@ -828,7 +831,7 @@ HISTORY = [
     (turnBar pr pc k b).len = b.len ∧ (turnBar pr pc k b).tip = b.tip ∧ (turnBar pr pc k b).color = b.color :=
   turnBar_keeps pr pc k b
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-tip_rides_free_end"><code class="rn">tip_rides_free_end</code><span>After extending or retracting, the tip stays one cell from the bar&#x27;s end.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-tip_rides_free_end"><code class="rn">tip_rides_free_end</code><span class="rd">After extending or retracting, the tip stays one cell from the bar&#x27;s end.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.click <span class="tk-k">import</span> decode
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> predict_cached, unreadable_input
@@ -861,7 +864,7 @@ HISTORY = [
         o = find_bar(nw, out.world.bars[i])
         <span class="tk-k">if</span> o <span class="tk-k">is</span> <span class="tk-k">None</span> <span class="tk-k">or</span> (<span class="tk-k">not</span> o.tip <span class="tk-k">and</span> <span class="tk-k">not</span> o.clipped):
             <span class="tk-k">return</span> <span class="tk-k">False</span>
-    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
+    <span class="tk-k">return</span> <span class="tk-k">True</span></code></pre></details><details><summary>Lean · TipRidesFreeEnd.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Step
 
 <span class="tk-k">namespace</span> Game
 
@@ -872,7 +875,7 @@ HISTORY = [
   <span class="tk-k">cases</span> hd : b.dir &lt;;&gt; <span class="tk-k">simp</span> only [stretchBar, Bar.tipCell, Dir.go, hd, if_true] &lt;;&gt;
     (apply Prod.ext &lt;;&gt; <span class="tk-k">simp</span> &lt;;&gt; omega)
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-levelup_step_is_effective"><code class="rn">levelup_step_is_effective</code><span>The step that clears a level is never a voided click.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-levelup_step_is_effective"><code class="rn">levelup_step_is_effective</code><span class="rd">The step that clears a level is never a voided click.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> derive.step <span class="tk-k">import</span> predict_cached
 
@@ -892,7 +895,7 @@ HISTORY = [
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> predict_cached(w, action).kind <span class="tk-k">in</span> (<span class="tk-s">&quot;moved&quot;</span>, <span class="tk-s">&quot;rotated&quot;</span>)</code></pre></details><details><summary>Lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obs.Check
+    <span class="tk-k">return</span> predict_cached(w, action).kind <span class="tk-k">in</span> (<span class="tk-s">&quot;moved&quot;</span>, <span class="tk-s">&quot;rotated&quot;</span>)</code></pre></details><details><summary>Lean · LevelupStepIsEffective.lean</summary><pre class="code"><code class="lang-lean"><span class="tk-k">import</span> Obs.Check
 
 <span class="tk-k">namespace</span> Game
 
@@ -905,7 +908,7 @@ HISTORY = [
   rw [h0] at hg
   <span class="tk-k">exact</span> Bool.noConfusion hg
 
-<span class="tk-k">end</span> Game</code></pre></details></li><li id="rule-counter_burns"><code class="rn">counter_burns</code><span>The counter row never decreases within a level, growing at most 2 cells per step.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+<span class="tk-k">end</span> Game</code></pre></details></span></li><li id="rule-counter_burns"><code class="rn">counter_burns</code><span class="rd">The counter row never decreases within a level, growing at most 2 cells per step.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 …
 …
@@ -920,7 +923,7 @@ HISTORY = [
     <span class="tk-k">return</span> <span class="tk-k">None</span>
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
-    <span class="tk-k">return</span> <span class="tk-n">0</span> &lt;= nw.spent - w.spent &lt;= <span class="tk-n">2</span></code></pre></details></li><li id="rule-reset_restores_level_start"><code class="rn">reset_restores_level_start</code><span>Reset returns bars, walls and board to the level&#x27;s first frame, with the counter cleared.</span><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
+    <span class="tk-k">return</span> <span class="tk-n">0</span> &lt;= nw.spent - w.spent &lt;= <span class="tk-n">2</span></code></pre></details><span class="pyonly">Python only</span></span></li><li id="rule-reset_restores_level_start"><code class="rn">reset_restores_level_start</code><span class="rd">Reset returns bars, walls and board to the level&#x27;s first frame, with the counter cleared.</span><span class="rc"><details><summary>Python</summary><pre class="code"><code class="lang-py"><span class="tk-k">from</span> __future__ <span class="tk-k">import</span> annotations
 
 <span class="tk-k">from</span> rule._common <span class="tk-k">import</span> pieces_equal
 
@@ -938,9 +941,11 @@ HISTORY = [
 
 <span class="tk-k">def</span> assert_(w, action, nw, ctx=<span class="tk-k">None</span>) -&gt; bool:
     st = ctx[<span class="tk-s">&quot;start&quot;</span>]
-    <span class="tk-k">return</span> pieces_equal(st, nw) <span class="tk-k">and</span> nw.board == st.board <span class="tk-k">and</span> nw.spent == <span class="tk-n">0</span></code></pre></details></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are in the archive under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="proof"><h2>Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame and that the last one wins. Each theorem is closed by the Lean kernel.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (L0_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (L1_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (L2_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (L3_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (L4_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (L5_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable (L6_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L7_winnable : Winnable (L7_start : World) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are in the archive, with the steps to re-run them, under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="files"><h2>Check it yourself</h2><p class="lede">Everything on this page comes from files you can download and check. The archive holds the files as written by the agent, unedited: the recorded run, the concept book, the concept sources, and the Lean project.</p><p><a class="btn primary" href="../../raw/s5i5.zip" download>Download s5i5.zip</a> <span class="note">1.0 MB · 108 files</span></p><h3>Re-run the proof</h3><ol class="ck-steps"><li>Download <a href="../../raw/s5i5.zip" download>s5i5.zip</a> and unpack it. The model and its theorems are in <code>archive/s5i5-20260910/formal/Game.lean</code>; its SHA-256 is<br><code class="sha">24d450734f2731684cf6e56ba60acaa6148fa05df9afecd0987f9ba4b69aaaa6</code></li><li>Install Lean <code>leanprover/lean4:v4.34.0</code> (the version is in <code>lean-toolchain</code>).</li><li>Append these two lines to the file and run <code>lean</code> on it:<pre class="code"><code class="lang-lean">#print axioms consistent
-#print axioms faithful</code></pre></li><li>Lean should finish without errors and print:<pre class="code"><code class="lang-text"><span class="tk-s">&#x27;consistent&#x27;</span> depends on axioms: [propext]
-<span class="tk-s">&#x27;faithful&#x27;</span> depends on axioms: [propext]</code></pre></li></ol><p class="note">Our run of this check (2026-10-24): 385 s, 8.4 GB peak memory. <code>consistent</code> checks the rules against every recorded transition; <code>faithful</code> recomputes the certified run step by step from the first screen, checks each step against the record, and checks that it ends in a win. Axioms used: <code>propext</code>, all among Lean's standard ones.</p></section></main>
+    <span class="tk-k">return</span> pieces_equal(st, nw) <span class="tk-k">and</span> nw.board == st.board <span class="tk-k">and</span> nw.spent == <span class="tk-n">0</span></code></pre></details><span class="pyonly">Python only</span></span></li></ul><p class="note">Code is shown with comments and the agent's notes removed; the files as written are in the archive under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="proof"><h2>Proof</h2><p class="lede">For every level, Lean starts from the level's first screen, applies the model's rules to the certified actions, and checks that every computed state agrees with the recorded frame on the components the model represents, and that the last one wins. Each theorem is closed by the Lean kernel and is a statement about the learned model.</p><h3>Every level can be won</h3><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L0_winnable : Winnable (L0_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L1_winnable : Winnable (L1_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L2_winnable : Winnable (L2_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L3_winnable : Winnable (L3_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L4_winnable : Winnable (L4_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L5_winnable : Winnable (L5_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L6_winnable : Winnable (L6_start : World) := …</code></pre><pre class="code"><code class="lang-lean"><span class="tk-k">theorem</span> L7_winnable : Winnable (L7_start : World) := …</code></pre><p class="note">Statements only; the proofs and the full Lean project are in the archive, with the steps to re-run them, under <a href="#files">Check it yourself</a>.</p></section><section class="sec" id="files"><h2>Check it yourself</h2><p class="lede">Everything on this page comes from files you can download and check. The archive holds the agent's files: the recorded run, the concept book, the concept sources, the Lean project and the sealed model file, plus the record of our kernel check.</p><p><a class="btn primary" href="../../raw/s5i5.zip" download>Download s5i5.zip</a> <span class="note">1.0 MB · 111 files</span></p><h3>Re-run the proof</h3><p class="note">Before you start: our run of this check took 385 s and 8.4 GB of memory at its peak (2026-10-24).</p><ol class="ck-steps"><li>Download <a href="../../raw/s5i5.zip" download>s5i5.zip</a> and unpack it. The model and its theorems are in <code>archive/s5i5-20260910/formal/Game.lean</code>. Before changing it, check that its SHA-256 is<br><code class="sha">24d450734f2731684cf6e56ba60acaa6148fa05df9afecd0987f9ba4b69aaaa6</code></li><li>Install Lean with <a href="https://github.com/leanprover/elan">elan</a>, then the version named in the archive's <code>lean-toolchain</code>:<pre class="code"><code class="lang-text">elan toolchain install leanprover/lean4:v4.34.0</code></pre></li><li>Copy the model file to <code>Check.lean</code> and append these two lines to the copy:<pre class="code"><code class="lang-lean">#print axioms consistent
+#print axioms faithful</code></pre></li><li>In the folder that holds <code>Check.lean</code>, run:<pre class="code"><code class="lang-text">lean +leanprover/lean4:v4.34.0 -M60000 Check.lean</code></pre></li><li>Lean should finish without errors and print:<pre class="code"><code class="lang-text">GUARD_HITS counter_burns_monotone=<span class="tk-n">1163</span>,move_counter_row63=<span class="tk-n">1163</span>,counter_step_rate=<span class="tk-n">1081</span>,diamond_dots_immutable=<span class="tk-n">1163</span>,panels_static=<span class="tk-n">1163</span>,fixed_color_never_moves=<span class="tk-n">1163</span>,walls_immutable=<span class="tk-n">1198</span>,wall_size_constant_in_level=<span class="tk-n">1163</span>,segments_never_on_walls=<span class="tk-n">1163</span>,bar_free_end_moves=<span class="tk-n">1026</span>,every_blob_moves_on_its_own_axis=<span class="tk-n">161</span>,per_bar_adjudication=<span class="tk-n">3</span>,chain_drags_downstream=<span class="tk-n">582</span>,button_owns_one_bar=<span class="tk-n">1026</span>,bar_tip_follows=<span class="tk-n">403</span>,tip_bar_carries_nothing=<span class="tk-n">293</span>,shrink_drags_cap_contact=<span class="tk-n">175</span>,blocking_seg_is_pushed=<span class="tk-n">407</span>,wall_sticks_to_free_end=<span class="tk-n">151</span>,chain_push_drags_touching_bar=<span class="tk-n">72</span>,shrink_to_nothing_refuses=<span class="tk-n">4</span>,shrink_at_min_length_refuses=<span class="tk-n">4</span>,blocked_push_refuses=<span class="tk-n">15</span>,wedge_refuses_click=<span class="tk-n">2</span>,drag_into_obstacle_refuses=<span class="tk-n">5</span>,click_refused_when_seg_lands_on_wall=<span class="tk-n">2</span>,seg_landing_collides=<span class="tk-n">26</span>,same_color_bars_collide_refuses=<span class="tk-n">3</span>,push_chain_blocked_refuses=<span class="tk-n">16</span>,refused_says_it_exactly=<span class="tk-n">1155</span>,legend_click_rotates_chain_ccw=<span class="tk-n">72</span>,legend_rotates_bar_about_joint=<span class="tk-n">72</span>,rotation_preserves_visible_length=<span class="tk-n">63</span>,fixed_obstacle_blocks_rotation=<span class="tk-n">3</span>,levelup_when_all_home=<span class="tk-n">20</span>,no_levelup_unless_home=<span class="tk-n">1163</span>,frame_determines_next_off_counter=<span class="tk-n">1158</span>
+<span class="tk-s">&#x27;consistent&#x27;</span> depends on axioms: [propext]
+<span class="tk-s">&#x27;faithful&#x27;</span> depends on axioms: [propext]</code></pre><span class="note">The first line is printed by the file itself: for each rule, how many recorded transitions meet its condition.</span></li></ol><h3>What a pass establishes</h3><p><code>consistent</code>: for every recorded transition, as read by the agent's parser and with duplicates removed, every rule whose condition holds also has its effect hold. <code>faithful</code>: the certified run, recomputed step by step from the first screen of each level, matches the record and ends in a win. Axioms used: <code>propext</code>, all among Lean's standard ones.</p><p class="note">What it does not establish: that the parser reads the screens correctly (that step runs in Python, outside Lean), or that a rule whose condition never occurs in the record is right. The Python file that produced the readings inside the model file is in the archive at <code>meta/repair-20260928/lib/s5i5-20260910/_lib.py</code>.</p></section></main>
+<footer class="site-foot"><div class="in"><span>Algebraic World Model · <a href="../../paper.pdf">Paper</a> · <a href="../../games/">Games</a> · <a href="../../#cite">Cite</a></span><span>Contact: <a href="mailto:yuanyang@tsinghua.edu.cn">yuanyang@tsinghua.edu.cn</a></span></div></footer>
 <script src="../../assets/site.js"></script>
 <script>window.AWM_GAME="s5i5";</script>
 <script src="../../assets/game.js"></script>

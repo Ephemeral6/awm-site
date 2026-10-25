@@ -40,6 +40,19 @@
     copy(pre.textContent, function (m) { inl.textContent = m === "Copied." ? "Copied" : "Copy BibTeX"; }, pre);
   });
 
+  // reduced motion: show the still first frame instead of each looping clip
+  var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (still) Array.prototype.forEach.call(document.querySelectorAll("img[data-still]"), function (im) {
+    im.src = im.getAttribute("data-still");
+  });
+  // games wall: a card's clip is downloaded when the card is hovered or focused, not with the page
+  Array.prototype.forEach.call(document.querySelectorAll(".card"), function (c) {
+    var im = c.querySelector("img[data-anim]");
+    if (!im || still) return;
+    function go() { if (!im.getAttribute("src")) im.src = im.getAttribute("data-anim"); }
+    c.addEventListener("mouseenter", go); c.addEventListener("focus", go);
+  });
+
   // v1 links: #<game>[.replay|.rules|.proof|.raw…] and #games on the home page
   if (document.body.querySelector("main.home") && location.hash) {
     var h = decodeURIComponent(location.hash.slice(1)).split(".");
