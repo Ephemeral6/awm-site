@@ -1,27 +1,38 @@
-// AWM site v2, one game page: tabs (the address hash names the open tab) and the replay of the certified run.
-// The replay data (data/replay-<game>.js, written by build.py) is loaded the first time the Replay tab opens.
+// AWM site v3, one game page: a single scrolling page (replay first), a sub-navigation that follows the scroll,
+// and the replay of the certified run (data/replay-<game>.js, written by build.py, loaded with the page).
+// Addresses of the v2 tabs (#how, #replay, #model, #proof, #files, #sealed, #model/<rule>) land on the same sections.
 (function () {
   "use strict";
   var G = window.AWM_GAME;
   document.documentElement.classList.add("js");
-  var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-tab]"));
-  var panels = Array.prototype.slice.call(document.querySelectorAll("[data-panel]"));
-  var names = tabs.map(function (t) { return t.getAttribute("data-tab"); });
 
-  function open(name, rule) {
-    if (names.indexOf(name) < 0) name = names[0];
-    tabs.forEach(function (t) { var on = t.getAttribute("data-tab") === name; t.classList.toggle("on", on); t.setAttribute("aria-selected", on); });
-    panels.forEach(function (p) { p.classList.toggle("on", p.getAttribute("data-panel") === name); });
-    if (name === "replay") startReplay();
-    else if (RP) RP.stop();
-    if (rule) {
-      var el = document.getElementById("rule-" + rule);
-      if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("hl"); setTimeout(function () { el.classList.remove("hl"); }, 1600); }
-    }
+  function toRule(rule) {
+    var el = document.getElementById("rule-" + rule);
+    if (!el) return;
+    el.scrollIntoView({ block: "center", behavior: "smooth" });
+    el.classList.add("hl"); setTimeout(function () { el.classList.remove("hl"); }, 1600);
   }
-  function fromHash() { var h = decodeURIComponent(location.hash.slice(1)).split("/"); open(h[0], h[1]); }
+  function fromHash() {
+    var h = decodeURIComponent(location.hash.slice(1)).split("/");
+    if (h[0] === "model" && h[1]) toRule(h[1]);
+  }
   window.addEventListener("hashchange", fromHash);
   fromHash();
+
+  // sub-navigation: mark the section being read
+  var links = Array.prototype.slice.call(document.querySelectorAll("[data-sec]"));
+  // the current section is the last one whose top has passed below the sticky bars; at the bottom of the page, the last one
+  var secs = links.map(function (a) { return document.getElementById(a.getAttribute("data-sec")); });
+  var queued = false;
+  function mark() {
+    queued = false;
+    var cur = 0;
+    secs.forEach(function (s, i) { if (s && s.getBoundingClientRect().top <= 130) cur = i; });
+    if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) cur = secs.length - 1;
+    links.forEach(function (a, i) { a.classList.toggle("on", i === cur); });
+  }
+  window.addEventListener("scroll", function () { if (!queued) { queued = true; requestAnimationFrame(mark); } }, { passive: true });
+  mark();
 
   // ------------------------------------------------------------ replay
   var RP = null, loading = false;
@@ -94,6 +105,9 @@
       document.getElementById("rp-lv").textContent = s.L > s.l ? "Level " + (s.l + 1) + " cleared" : "Level " + (Math.min(s.l, s.L) + 1);
       document.getElementById("rp-act").textContent = actName(s.a);
       var rr = (s.r || []).map(function (k) { return D.rules[k]; }), box = document.getElementById("rp-rules");
+      // mark the same rules in the rule list further down
+      Array.prototype.forEach.call(document.querySelectorAll(".rules li.now"), function (li) { li.classList.remove("now"); });
+      rr.forEach(function (r) { var li = document.getElementById("rule-" + r); if (li) li.classList.add("now"); });
       if (box) box.innerHTML = rr.length
         ? rr.map(function (r) { return '<a href="#model/' + encodeURIComponent(r) + '" title="' + esc(desc[r]) + '">' + esc(r) + "</a>"; }).join("") +
           '<div class="rp-desc">' + rr.map(function (r) { return esc(desc[r]); }).filter(Boolean).join("<br>") + "</div>"
@@ -114,8 +128,16 @@
     document.getElementById("rp-last").onclick = function () { stop(); show(N - 1); };
     document.getElementById("rp-speed").onchange = function () { if (timer) { stop(); play(); } };
     sl.oninput = function () { stop(); show(parseInt(sl.value, 10)); };
+    document.getElementById("rp-rules") && document.getElementById("rp-rules").addEventListener("click", function (e) {
+      var a = e.target.closest("a");
+      if (!a) return;
+      e.preventDefault(); stop();
+      history.replaceState(null, "", a.getAttribute("href"));
+      toRule(decodeURIComponent(a.getAttribute("href").split("/")[1]));
+    });
+    function onScreen() { var r = cv.getBoundingClientRect(); return r.bottom > 60 && r.top < window.innerHeight - 60; }
     document.addEventListener("keydown", function (e) {
-      if (!document.querySelector('[data-panel="replay"].on') || /INPUT|SELECT|TEXTAREA/.test(e.target.tagName)) return;
+      if (!onScreen() || /INPUT|SELECT|TEXTAREA|BUTTON/.test(e.target.tagName)) return;
       if (e.key === "ArrowRight") { stop(); show(cur + 1); e.preventDefault(); }
       else if (e.key === "ArrowLeft") { stop(); show(cur - 1); e.preventDefault(); }
       else if (e.key === " ") { play(); e.preventDefault(); }
@@ -123,4 +145,5 @@
     show(0);
     return { stop: stop };
   }
+  startReplay();
 })();
