@@ -18,8 +18,10 @@
     var dark = theme() === "dark";
     var base = "assets/video/hero" + (dark ? "-dark" : "");
     v.poster = base + "-poster.webp";
+    // mp4/h264 first: webm/vp9 can fail at decode time (not just load time, where <source> fallback
+    // actually works), silently leaving the video stuck on "playing" with no frames advancing.
     v.innerHTML =
-      '<source src="' + base + '.webm" type="video/webm">' + '<source src="' + base + '.mp4" type="video/mp4">';
+      '<source src="' + base + '.mp4" type="video/mp4">' + '<source src="' + base + '.webm" type="video/webm">';
     v.load();
     v.addEventListener("loadedmetadata", function play() {
       v.removeEventListener("loadedmetadata", play);
