@@ -1,0 +1,23 @@
+"""完成匹配钥匙色 6 时：盘面 6 色框与 13 色格消失 ⇔ 块朝上且块最左列 = 6 框正下方竖井的最左列。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION6 完成匹配且钥匙色 6；换关 NA；钥匙面板内的 6 不算"
+NOTE = ("第三版思路（取代撤册的 grid_match_6 v1/v2）。依据：L3 成功(块 c=29, 竖井 29-30)、"
+        "attempt2 L4 成功(2x2 块 c=31, 竖井 31-32)；失败：L4 4x4 块 c=29/33。")
+EVIDENCE = ["39fb35d00fe80a8b", "4edd3417580c227b"]
+from _lib import piece, facing, matched_key, keys
+from geo import cells_of, bbox
+
+def assert_(prev, action, nxt, ctx=None):
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    if matched_key(prev, action) != 6: return "NA"
+    a = piece(prev)
+    panels = [(t, l) for _, _, (t, l) in keys(prev)]
+    inp = lambda r, c: any(t <= r <= t + 9 and l <= c <= l + 9 for t, l in panels)
+    six = [(r, c) for (r, c) in cells_of(prev, 6) if r < 46 and not inp(r, c)]
+    if a is None or not six: return "NA"
+    t, b, l, r = bbox(six)
+    shaft = [c for c in range(l, r + 1) if prev[b + 1][c] == 2]
+    if not shaft: return "NA"
+    pred = facing(prev, a) == 'U' and a[2] == min(shaft)
+    gone = not any(nxt[y][x] in (6, 13) for y in range(46) for x in range(62) if not inp(y, x))
+    return "TRUE" if pred == gone else "FALSE"

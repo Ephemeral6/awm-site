@@ -1,0 +1,46 @@
+# Min-cost search over L4 with explicit facing; variants of trigger and grow anchor.
+# cost: move 1, shrink/grow macro 5, 6-match macro 4; refill (2x2 slide touching marker, once): k := max(k+1-10,0)
+import heapq, itertools
+def box(y0,y1,x0,x1): return lambda y,x: y0<=y<=y1 and x0<=x<=x1
+room=box(21,36,21,44); shaft=box(9,20,31,32); bar_=box(29,32,45,47); corr=box(29,32,48,56); slot=box(29,32,57,60); bx=box(5,8,30,33)
+marker={(34,23),(34,24),(35,23),(35,24)}
+def floor(op,y,x): return room(y,x) or shaft(y,x) or corr(y,x) or (op and (bar_(y,x) or bx(y,x)))
+D={'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+def fp(r,c,n): return [(r+i,c+j) for i in range(n) for j in range(n)]
+ANCH={'BR':(2,2),'TL':(0,0),'BL':(2,0),'TR':(0,2)}
+TRIG={
+ 'c31':      lambda r,c,n,f: c==31,
+ 'c31U':     lambda r,c,n,f: c==31 and f=='U',
+ 'c31U_shaft': lambda r,c,n,f: c==31 and f=='U' and r<=21,
+}
+def search(trig, anch, B=18, start=(25,37,4,'D',False,False), k0=0):
+    pq=[(k0,start,())]; best={}
+    while pq:
+        k,s,path=heapq.heappop(pq)
+        if best.get(s,99)<=k: continue
+        best[s]=k
+        r,c,n,f,op,rf=s
+        for d in 'UDLR':
+            dy,dx=D[d]
+            if any(slot(y,x) for y,x in fp(r+dy*n,c+dx*n,n)):
+                if k+1<=B+1: return k+1, path+('mv'+d,)
+                continue
+            m=0; touched=False
+            while m<n and all(floor(op,y,x) for y,x in fp(r+dy*(m+1),c+dx*(m+1),n)):
+                m+=1
+                if set(fp(r+dy*m,c+dx*m,n))&marker: touched=True
+            k2=k+1; rf2=rf
+            if n==2 and not rf and touched: rf2=True; k2=max(k+1-10,0)
+            if k+1<=B: heapq.heappush(pq,(k2,(r+dy*m,c+dx*m,n,d,op,rf2),path+('mv'+d,)))
+        if k+5<=B:
+            if n==4: heapq.heappush(pq,(k+5,(r,c,2,f,op,rf),path+('F',)))
+            else:
+                ay,ax=ANCH[anch]
+                if all(floor(op,y,x) for y,x in fp(r-ay,c-ax,4)):
+                    heapq.heappush(pq,(k+5,(r-ay,c-ax,4,f,op,rf),path+('F',)))
+        if k+4<=B and not op and TRIG[trig](r,c,n,f):
+            heapq.heappush(pq,(k+4,(r,c,n,f,True,rf),path+('M6',)))
+    return None
+for t in TRIG:
+    for a in ANCH:
+        print(t,a,search(t,a))

@@ -1,0 +1,20 @@
+"""ACTION6 点在底部 3x3 某格上：若格子集合没被整体重置（9 格不全为 2），则恰好被点那一格变色（2/0 <-> 14），其余 8 格不变。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION6 且点落在某格采样点 ±2 之内；换关 NA；点后 9 格全为 2（判为重置）NA"
+NOTE = ""
+EVIDENCE = ["f52764a79f126606", "c7f147a767a832ba", "675e5d3fa34c126e"]
+from _lib import GRID_PTS
+
+def assert_(prev, action, nxt, ctx=None):
+    if not action.startswith("ACTION6:"): return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    x, y = map(int, action.split(":")[1].split(","))
+    hit = [i for i, (py, px) in enumerate(GRID_PTS) if abs(py - y) <= 2 and abs(px - x) <= 2]
+    if not hit: return "NA"
+    if all(nxt[py][px] == 2 for py, px in GRID_PTS): return "NA"
+    for i, (py, px) in enumerate(GRID_PTS):
+        ch = prev[py][px] != nxt[py][px]
+        if i == hit[0]:
+            if not ch or 14 not in (prev[py][px], nxt[py][px]): return "FALSE"
+        elif ch: return "FALSE"
+    return "TRUE"

@@ -1,0 +1,17 @@
+# Folds the attempt-3 amendment (L4.V3) into lean/L4Model.lean so the formal system is one
+# self-contained file with no imports (the split files needed prebuilt .olean files).
+p = 'lean/L4Model.lean'
+s = open(p, encoding='utf-8').read()
+assert 'namespace L4.V3' not in s
+tab = open('lean/L4ModelV3Tab.lean', encoding='utf-8').read()
+prf = open('lean/L4ModelV3.lean', encoding='utf-8').read()
+tab = tab[tab.index('\n') + 1:]                       # drop `import L4Model`
+i = prf.index('namespace L4.V3')
+j = prf.index('end L4.V3') + len('end L4.V3\n')
+body = prf[i:j]
+prints = prf[j:]
+anchor = '#print axioms L4.route_wins\n'
+k = s.index(anchor)
+s = s[:k] + tab + '\n' + body + '\n' + s[k:].rstrip('\n') + '\n' + prints.strip('\n') + '\n'
+open(p, 'w', encoding='utf-8').write(s)
+print('merged')

@@ -1,0 +1,1144 @@
+/-!
+# Level 4 model (attempt 1)
+
+Objects (see work/MODEL.md for the object/rule tables and the drop audit):
+* piece      : top-left (r, c), side 4 (fixed: shrink effect NOT IN MODEL), facing
+* grid       : 9-bit lit mask
+* key panels : two fixed patterns (6-key = cells 1,4,7 = 146; f-key = cells 1,3,5,7 = 170),
+               plus `sel` = the panel last clicked (0 = none)  -- slot of HYPOTHESIS H6
+* barrier    : `op` (true = 6-box and colour-13 barrier gone)
+* slot       : static (rows 29-32, cols 57-60)
+* walls      : static floor map measured from the L4 frame
+* budget     : `used` = number of budget-consuming actions; LIMIT = 15 (measured: 15 actions
+               were executed in L4 without GAME_OVER, the 16th gave GAME_OVER)
+
+Rules (each a definition below):
+* MOVE   (concept piece_step + piece_facing): slide up to 4 cells, stop at non-floor; facing := dir
+         even when blocked (observed L4).
+* GOAL   (concept goal_enter): if the footprint shifted by 4 hits a slot cell, the level is won.
+* CLICK  (concept grid_click): toggle bit i.
+* MATCH6 : lit = 146 ⇒ lit := 0 and op := op || trig s.  `trig` is a PARAMETER: the condition
+           under which the 6-match opens the barrier was NOT established (fired once in L3, failed
+           3 times in L4). It is never fixed inside a definition; theorems take it as a hypothesis.
+* MATCHF : lit = 170 ⇒ lit := 0; the shrink effect is NOT IN MODEL.
+* KEY    : clicking a key panel sets `sel`; costs no budget (L3: key-panel clicks did not move the bar).
+-/
+
+namespace L4
+
+def box (y0 y1 x0 x1 y x : Nat) : Bool :=
+  Nat.ble y0 y && Nat.ble y y1 && Nat.ble x0 x && Nat.ble x x1
+
+def inRoom    : Nat → Nat → Bool := box 21 36 21 44
+def inShaft   : Nat → Nat → Bool := box 9 20 31 32
+def inBarrier : Nat → Nat → Bool := box 29 32 45 47
+def inCorr    : Nat → Nat → Bool := box 29 32 48 56
+def inSlot    : Nat → Nat → Bool := box 29 32 57 60
+
+def floorC (op : Bool) (y x : Nat) : Bool :=
+  inRoom y x || inShaft y x || inCorr y x || (op && inBarrier y x)
+
+def fpAll (P : Nat → Nat → Bool) (r c : Nat) : Bool :=
+  (List.range 4).all (fun i => (List.range 4).all (fun j => P (r + i) (c + j)))
+
+def fpAny (P : Nat → Nat → Bool) (r c : Nat) : Bool :=
+  (List.range 4).any (fun i => (List.range 4).any (fun j => P (r + i) (c + j)))
+
+inductive Dir | U | D | L | R
+  deriving DecidableEq, Repr
+
+def shift : Dir → Nat → Nat × Nat → Nat × Nat
+  | .U, k, (r, c) => (r - k, c)
+  | .D, k, (r, c) => (r + k, c)
+  | .L, k, (r, c) => (r, c - k)
+  | .R, k, (r, c) => (r, c + k)
+
+def slideAux (op : Bool) (d : Dir) (p : Nat × Nat) : Nat → Nat → Nat
+  | 0, k => k
+  | n + 1, k =>
+    let q := shift d (k + 1) p
+    if fpAll (floorC op) q.1 q.2 then slideAux op d p n (k + 1) else k
+
+def slide (op : Bool) (d : Dir) (p : Nat × Nat) : Nat := slideAux op d p 4 0
+
+/-- MOVE + GOAL: (won?, new top-left). -/
+def move (op : Bool) (d : Dir) (p : Nat × Nat) : Bool × (Nat × Nat) :=
+  let q := shift d 4 p
+  if fpAny inSlot q.1 q.2 then (true, p) else (false, shift d (slide op d p) p)
+
+structure St where
+  r : Nat
+  c : Nat
+  face : Dir
+  lit : Nat
+  sel : Nat
+  op : Bool
+  won : Bool
+  used : Nat
+  deriving DecidableEq, Repr
+
+inductive Act
+  | mv (d : Dir)
+  | cell (i : Nat)
+  | key (k : Nat)
+
+def LIMIT : Nat := 15
+def key6 : Nat := 146
+def keyF : Nat := 170
+
+def live (s : St) : Bool := !s.won && !(Nat.ble LIMIT s.used)
+
+def act (trig : St → Bool) (s : St) : Act → St
+  | .mv d =>
+    let m := move s.op d (s.r, s.c)
+    { s with r := m.2.1, c := m.2.2, face := d, won := m.1, used := s.used + 1 }
+  | .cell i =>
+    if Nat.ble 9 i then s else
+    let l := Nat.xor s.lit (2 ^ i)
+    if l == key6 then { s with lit := 0, op := s.op || trig s, used := s.used + 1 }
+    else if l == keyF then { s with lit := 0, used := s.used + 1 }
+    else { s with lit := l, used := s.used + 1 }
+  | .key k => { s with sel := k }
+
+def step (trig : St → Bool) (s : St) (a : Act) : St :=
+  if live s then act trig s a else s
+
+def run (trig : St → Bool) (s : St) (as : List Act) : St := as.foldl (step trig) s
+
+def start : St := ⟨25, 37, .D, 0, 0, false, false, 0⟩
+
+def pre : List Act := [.mv .L, .mv .L, .mv .U, .key 6, .cell 1, .cell 4]
+def rest : List Act :=
+  [.cell 7, .mv .D, .mv .D, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R]
+def route : List Act := pre ++ rest
+
+/-- The state right before the matching click. -/
+def sPre : St := ⟨21, 29, .U, 18, 6, false, false, 5⟩
+
+def never : St → Bool := fun _ => false
+
+/-- an action whose outcome cannot depend on `trig` (it is not a matching 6-click) -/
+def safe (s : St) : Act → Bool
+  | .cell i => !(Nat.xor s.lit (2 ^ i) == key6)
+  | _ => true
+
+def safeRun : St → List Act → Bool
+  | _, [] => true
+  | s, a :: as => safe s a && safeRun (step never s a) as
+
+theorem step_eq (trig : St → Bool) (s : St) (a : Act) (h : safe s a = true) :
+    step trig s a = step never s a := by
+  cases a with
+  | mv d => rfl
+  | key k => rfl
+  | cell i =>
+    simp only [safe, Bool.not_eq_true', beq_eq_false_iff_ne, ne_eq] at h
+    have h' : ¬ (s.lit ^^^ 2 ^ i = key6) := h
+    simp [step, act, h']
+
+theorem run_eq (trig : St → Bool) (as : List Act) :
+    ∀ s, safeRun s as = true → run trig s as = run never s as := by
+  induction as with
+  | nil => intro s _; rfl
+  | cons a as ih =>
+    intro s h
+    simp only [safeRun, Bool.and_eq_true] at h
+    simp only [run, List.foldl_cons] at *
+    rw [step_eq trig s a h.1]
+    exact ih _ h.2
+
+theorem pre_run (trig : St → Bool) : run trig start pre = sPre := by
+  rw [run_eq trig pre start (by decide)]; decide
+
+def afterMatch (b : Bool) : St := ⟨21, 29, .U, 0, 6, b, false, 6⟩
+
+theorem match_step (trig : St → Bool) : step trig sPre (.cell 7) = afterMatch (trig sPre) := by
+  rfl
+
+def rest' : List Act := rest.tail
+
+theorem rest_open (trig : St → Bool) : (run trig (afterMatch true) rest').won = true := by
+  rw [run_eq trig rest' _ (by decide)]; decide
+theorem rest_closed (trig : St → Bool) : (run trig (afterMatch false) rest').won = false := by
+  rw [run_eq trig rest' _ (by decide)]; decide
+
+theorem run_append (trig : St → Bool) (s : St) (a b : List Act) :
+    run trig s (a ++ b) = run trig (run trig s a) b := by
+  simp [run, List.foldl_append]
+
+/-- MAIN: if the 6-match fires at `sPre`, the 16-action route (15 budget-consuming) wins. -/
+theorem route_wins (trig : St → Bool) (h : trig sPre = true) :
+    (run trig start route).won = true := by
+  have e : route = pre ++ ([.cell 7] ++ rest') := rfl
+  rw [e, run_append, run_append, pre_run]
+  have : run trig sPre [.cell 7] = afterMatch (trig sPre) := by
+    simp [run, match_step]
+  rw [this, h]
+  exact rest_open trig
+
+/-- Direction check: the hypothesis is used — without it the same route does not win. -/
+theorem route_needs_trig (trig : St → Bool) (h : trig sPre = false) :
+    (run trig start route).won = false := by
+  have e : route = pre ++ ([.cell 7] ++ rest') := rfl
+  rw [e, run_append, run_append, pre_run]
+  have : run trig sPre [.cell 7] = afterMatch (trig sPre) := by
+    simp [run, match_step]
+  rw [this, h]
+  exact rest_closed trig
+
+/-! ## The premise is a real constraint: if the barrier never opens, NO action string wins. -/
+
+def okB (d : Dir) (r c : Nat) : Bool :=
+  let m := move false d (r, c)
+  !m.1 && Nat.ble 21 m.2.1 && Nat.ble m.2.1 33 && Nat.ble 21 m.2.2 && Nat.ble m.2.2 41
+
+def checkB : Bool :=
+  [Dir.U, Dir.D, Dir.L, Dir.R].all fun d =>
+    (List.range 13).all fun i => (List.range 21).all fun j => okB d (21 + i) (21 + j)
+
+theorem checkB_true : checkB = true := by decide
+
+theorem okB_all (d : Dir) (r c : Nat) (h1 : 21 ≤ r) (h2 : r ≤ 33) (h3 : 21 ≤ c) (h4 : c ≤ 41) :
+    okB d r c = true := by
+  have hc := checkB_true
+  simp only [checkB, List.all_eq_true, List.mem_range] at hc
+  have hd : d ∈ [Dir.U, Dir.D, Dir.L, Dir.R] := by cases d <;> simp
+  have := hc d hd (r - 21) (by omega) (c - 21) (by omega)
+  have e1 : 21 + (r - 21) = r := by omega
+  have e2 : 21 + (c - 21) = c := by omega
+  rw [e1, e2] at this
+  exact this
+
+def Inv (s : St) : Prop :=
+  s.op = false ∧ s.won = false ∧ 21 ≤ s.r ∧ s.r ≤ 33 ∧ 21 ≤ s.c ∧ s.c ≤ 41
+
+theorem step_inv (s : St) (a : Act) (h : Inv s) : Inv (step never s a) := by
+  obtain ⟨hop, hw, h1, h2, h3, h4⟩ := h
+  unfold step
+  split
+  · cases a with
+    | mv d =>
+      have hk := okB_all d s.r s.c h1 h2 h3 h4
+      simp only [okB, Bool.and_eq_true, Bool.not_eq_true', Nat.ble_eq] at hk
+      obtain ⟨⟨⟨⟨k0, k1⟩, k2⟩, k3⟩, k4⟩ := hk
+      simp only [act, Inv, hop]
+      exact ⟨trivial, k0, k1, k2, k3, k4⟩
+    | cell i =>
+      simp only [act]
+      split
+      · exact ⟨hop, hw, h1, h2, h3, h4⟩
+      · split
+        · simp only [Inv, hop, never, Bool.or_false]; exact ⟨trivial, hw, h1, h2, h3, h4⟩
+        · split
+          · exact ⟨hop, hw, h1, h2, h3, h4⟩
+          · exact ⟨hop, hw, h1, h2, h3, h4⟩
+    | key k => exact ⟨hop, hw, h1, h2, h3, h4⟩
+  · exact ⟨hop, hw, h1, h2, h3, h4⟩
+
+theorem run_inv (as : List Act) : ∀ s, Inv s → Inv (run never s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (step_inv s a h)
+
+theorem closed_never_wins (as : List Act) : (run never start as).won = false :=
+  (run_inv as start ⟨rfl, rfl, by decide, by decide, by decide, by decide⟩).2.1
+
+/-! ## Candidate H6 for `trig`, checked against the observed L4 failures. -/
+
+/-- H6 (UNVERIFIED): the 6-match opens the barrier iff the 6-key panel was selected and the piece
+    faces up at (21,29), the cell under the shaft. -/
+def trigH6 (s : St) : Bool := s.sel == 6 && s.face == .U && s.r == 21 && s.c == 29
+
+-- the three observed L4 6-matches that did NOT open the barrier (no panel had been clicked)
+theorem obs1 : trigH6 ⟨21, 33, .U, 18, 0, false, false, 4⟩ = false := by decide
+theorem obs2 : trigH6 ⟨21, 29, .U, 18, 0, false, false, 9⟩ = false := by decide
+theorem obs3 : trigH6 ⟨21, 29, .U, 18, 0, false, false, 13⟩ = false := by decide
+theorem h6_fires : trigH6 sPre = true := by decide
+
+theorem route_wins_H6 : (run trigH6 start route).won = true := route_wins trigH6 h6_fires
+
+/-! **Attempt 2 refuted H6**: the real game was driven to exactly `sPre` (panel 6 clicked, piece
+    (21,29) facing U, lit {1,4}) and the matching click did NOT open the barrier. So
+    `trigH6 sPre = true` is false of the game, and `route_wins_H6` is a theorem about a rejected
+    rule. `route_wins` stays true but its hypothesis is now known false for this `sPre`.
+    The model is amended in `L4.V2` below. -/
+
+end L4
+
+/-! # Amendment (attempt 2) — `L4.V2`
+
+Changes against `L4` (reused unchanged: `box`, room/shaft/barrier/corridor/slot maps, `shift`,
+`Dir`, `key6`, `keyF`):
+* object piece gains slot `size` (4 or 2).                     [attempt 2: the f-match halved it]
+* rule MATCHF now has its effect: size 4 ⇒ 2, top-left kept.   [attempt 2; L1]
+* rules MOVE / GOAL generalised to side `size` (step = side).  [L1: the 2x2 moved by 2]
+* floor: when the barrier opens, the 6-box also becomes floor. [attempt 2 frame]
+* slot `sel` DROPPED: H6 refuted (attempt 2) and no rule reads it; key-panel click = free no-op.
+* rule MATCH6: `trig` stays a parameter. The measured rule H5 ("the block's left column = the
+  shaft's left column 31, facing up") is used only through the LOOSER hypothesis
+  `trig s = true → s.c = 31` (facing and row are not required).
+* budget: `LIM` is a parameter; measured value 15 (both attempts: 15 actions ran, the 16th gave
+  GAME_OVER).
+* NOT IN MODEL: size-2 → size-1 halving (unobserved), any re-grow, the e-marker at (34,23),
+  the first-move no-op, ACTION5/7.
+-/
+namespace L4.V2
+open L4 (box inRoom inShaft inBarrier inCorr inSlot Dir shift key6 keyF)
+
+def inBox : Nat → Nat → Bool := box 5 8 30 33
+
+def floorC (op : Bool) (y x : Nat) : Bool :=
+  inRoom y x || inShaft y x || inCorr y x || (op && (inBarrier y x || inBox y x))
+
+def fpAll (P : Nat → Nat → Bool) (n r c : Nat) : Bool :=
+  (List.range n).all (fun i => (List.range n).all (fun j => P (r + i) (c + j)))
+def fpAny (P : Nat → Nat → Bool) (n r c : Nat) : Bool :=
+  (List.range n).any (fun i => (List.range n).any (fun j => P (r + i) (c + j)))
+
+def slideAux (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) : Nat → Nat → Nat
+  | 0, k => k
+  | m + 1, k =>
+    let q := shift d (k + 1) p
+    if fpAll (floorC op) n q.1 q.2 then slideAux op n d p m (k + 1) else k
+
+/-- MOVE + GOAL for a block of side `n`. -/
+def move (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) : Bool × (Nat × Nat) :=
+  let q := shift d n p
+  if fpAny inSlot n q.1 q.2 then (true, p) else (false, shift d (slideAux op n d p n 0) p)
+
+structure St where
+  r : Nat
+  c : Nat
+  face : Dir
+  lit : Nat
+  op : Bool
+  won : Bool
+  used : Nat
+  size : Nat
+  deriving DecidableEq, Repr
+
+inductive Act
+  | mv (d : Dir)
+  | cell (i : Nat)
+  | key
+
+def act (trig : St → Bool) (s : St) : Act → St
+  | .mv d =>
+    let m := move s.op s.size d (s.r, s.c)
+    { s with r := m.2.1, c := m.2.2, face := d, won := m.1, used := s.used + 1 }
+  | .cell i =>
+    if 9 ≤ i then s else
+    if s.lit ^^^ 2 ^ i = key6 then { s with lit := 0, op := s.op || trig s, used := s.used + 1 }
+    else if s.lit ^^^ 2 ^ i = keyF then
+      { s with lit := 0, size := (if s.size = 4 then 2 else s.size), used := s.used + 1 }
+    else { s with lit := s.lit ^^^ 2 ^ i, used := s.used + 1 }
+  | .key => s
+
+def step (LIM : Nat) (trig : St → Bool) (s : St) (a : Act) : St :=
+  if s.won = false ∧ s.used < LIM then act trig s a else s
+
+def run (LIM : Nat) (trig : St → Bool) (s : St) (as : List Act) : St :=
+  as.foldl (step LIM trig) s
+
+def start : St := ⟨25, 37, .D, 0, false, false, 0, 4⟩
+
+/-- H5 as measured (L3 success; attempt-2 L4 success; L4 failures at c = 29, 33). -/
+def trigH5 (s : St) : Bool := s.face == .U && s.c == 31
+
+/-! ## Lower bound: potential Φ; no action lowers Φ + used. -/
+
+def popc (n : Nat) : Nat := (List.range 9).foldl (fun a i => a + n / 2 ^ i % 2) 0
+def dF (l : Nat) : Nat := popc (l ^^^ keyF)
+def d6 (l : Nat) : Nat := popc (l ^^^ key6)
+def Rc (c : Nat) : Nat := (55 - c) / 2 + 1
+
+def Φ (s : St) : Nat :=
+  if s.won then 0 else if s.op then Rc s.c
+  else if s.size = 4 then dF s.lit + 16 else d6 s.lit + 13
+
+def rows4 : List Nat := [21, 25, 29, 33]
+def cols4 : List Nat := [21, 25, 29, 33, 37, 41]
+def dirs : List Dir := [.U, .D, .L, .R]
+
+def S2 (r c : Nat) : Bool :=
+  Nat.ble 9 r && Nat.ble r 35 && Nat.ble 21 c && Nat.ble c 43 && fpAll (floorC false) 2 r c
+
+def Ph (s : St) : Prop :=
+  (s.size = 4 ∧ s.op = false ∧ s.r ∈ rows4 ∧ s.c ∈ cols4) ∨
+  (s.size = 2 ∧ s.op = false ∧ S2 s.r s.c = true) ∨
+  (s.size = 2 ∧ s.op = true)
+
+def J (LIM : Nat) (s : St) : Prop :=
+  s.won = false ∧ s.lit < 512 ∧ s.used ≤ LIM ∧ 20 ≤ Φ s + s.used ∧ Ph s
+
+theorem lA : ∀ r ∈ rows4, ∀ c ∈ cols4, ∀ d ∈ dirs,
+    (move false 4 d (r, c)).1 = false ∧ (move false 4 d (r, c)).2.1 ∈ rows4 ∧
+    (move false 4 d (r, c)).2.2 ∈ cols4 := by decide
+
+theorem lAB : ∀ r ∈ rows4, ∀ c ∈ cols4, S2 r c = true := by decide
+
+theorem lB : ∀ r, r < 36 → ∀ c, c < 44 → S2 r c = true → ∀ d ∈ dirs,
+    (move false 2 d (r, c)).1 = false ∧
+    S2 (move false 2 d (r, c)).2.1 (move false 2 d (r, c)).2.2 = true := by
+  decide
+
+def chk (l i : Nat) : Bool :=
+  decide (l ^^^ 2 ^ i < 512) && decide (dF l ≤ dF (l ^^^ 2 ^ i) + 1) &&
+  decide (d6 l ≤ d6 (l ^^^ 2 ^ i) + 1) &&
+  (!(l ^^^ 2 ^ i == keyF) || (dF l == 1 && decide (d6 l ≤ 4))) &&
+  (!(l ^^^ 2 ^ i == key6) || d6 l == 1)
+
+theorem chkAll : ((List.range 512).all fun l => (List.range 9).all fun i => chk l i) = true := by
+  decide +kernel
+
+theorem lclk : ∀ l, l < 512 → ∀ i, i < 9 →
+    l ^^^ 2 ^ i < 512 ∧ dF l ≤ dF (l ^^^ 2 ^ i) + 1 ∧ d6 l ≤ d6 (l ^^^ 2 ^ i) + 1 ∧
+    (l ^^^ 2 ^ i = keyF → dF l = 1 ∧ d6 l ≤ 4) ∧ (l ^^^ 2 ^ i = key6 → d6 l = 1) := by
+  intro l hl i hi
+  have h := chkAll
+  simp only [List.all_eq_true, List.mem_range] at h
+  have h := h l hl i hi
+  simp only [chk, Bool.and_eq_true, Bool.or_eq_true, Bool.not_eq_true', beq_eq_false_iff_ne,
+    beq_iff_eq, decide_eq_true_eq] at h
+  obtain ⟨⟨⟨⟨a1, a2⟩, a3⟩, a4⟩, a5⟩ := h
+  refine ⟨a1, a2, a3, ?_, ?_⟩
+  · intro e; rcases a4 with a4 | a4
+    · exact absurd e a4
+    · exact a4
+  · intro e; rcases a5 with a5 | a5
+    · exact absurd e a5
+    · exact a5
+
+theorem dF0 : dF 0 = 4 := by decide
+theorem d60 : d6 0 = 3 := by decide
+theorem c31 : ¬ (31 ∈ cols4) := by decide
+
+theorem mem_dirs (d : Dir) : d ∈ dirs := by cases d <;> decide
+
+theorem S2_bounds (r c : Nat) (h : S2 r c = true) : r < 36 ∧ c < 44 := by
+  simp only [S2, Bool.and_eq_true, Nat.ble_eq] at h
+  omega
+
+theorem slideAux_le (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) :
+    ∀ m k, slideAux op n d p m k ≤ k + m := by
+  intro m
+  induction m with
+  | zero => intro k; simp [slideAux]
+  | succ m ih =>
+    intro k
+    simp only [slideAux]
+    split
+    · have := ih (k + 1); omega
+    · omega
+
+theorem shift_c_le (d : Dir) (k r c : Nat) : (shift d k (r, c)).2 ≤ c + k := by
+  cases d <;> simp [shift] <;> omega
+
+theorem fpAny_slot2 (r c : Nat) (h : fpAny inSlot 2 r c = true) : 57 ≤ c + 1 := by
+  simp only [fpAny, List.any_eq_true, List.mem_range] at h
+  obtain ⟨i, _, j, hj, h⟩ := h
+  simp only [inSlot, box, Bool.and_eq_true, Nat.ble_eq] at h
+  omega
+
+theorem move2_c_le (op : Bool) (d : Dir) (r c : Nat) : (move op 2 d (r, c)).2.2 ≤ c + 2 := by
+  simp only [move]
+  split
+  · simp
+  · have h1 := slideAux_le op 2 d (r, c) 2 0
+    have h2 := shift_c_le d (slideAux op 2 d (r, c) 2 0) r c
+    simp only at h2 ⊢
+    omega
+
+theorem move2_win (op : Bool) (d : Dir) (r c : Nat) (h : (move op 2 d (r, c)).1 = true) :
+    54 ≤ c := by
+  simp only [move] at h
+  split at h
+  · rename_i hs
+    have h1 := fpAny_slot2 _ _ hs
+    have h2 := shift_c_le d 2 r c
+    omega
+  · simp at h
+
+theorem lA' (s : St) (d : Dir) (ho : s.op = false) (hs : s.size = 4) (hr : s.r ∈ rows4)
+    (hc : s.c ∈ cols4) :
+    (move s.op s.size d (s.r, s.c)).1 = false ∧ (move s.op s.size d (s.r, s.c)).2.1 ∈ rows4 ∧
+    (move s.op s.size d (s.r, s.c)).2.2 ∈ cols4 := by
+  rw [ho, hs]; exact lA s.r hr s.c hc d (mem_dirs d)
+
+theorem lB' (s : St) (d : Dir) (ho : s.op = false) (hs : s.size = 2) (h2 : S2 s.r s.c = true) :
+    (move s.op s.size d (s.r, s.c)).1 = false ∧
+    S2 (move s.op s.size d (s.r, s.c)).2.1 (move s.op s.size d (s.r, s.c)).2.2 = true := by
+  obtain ⟨b1, b2⟩ := S2_bounds _ _ h2
+  rw [ho, hs]; exact lB s.r b1 s.c b2 h2 d (mem_dirs d)
+
+theorem lC' (s : St) (d : Dir) (ho : s.op = true) (hs : s.size = 2) :
+    (move s.op s.size d (s.r, s.c)).2.2 ≤ s.c + 2 ∧
+    ((move s.op s.size d (s.r, s.c)).1 = true → 54 ≤ s.c) := by
+  rw [ho, hs]; exact ⟨move2_c_le true d s.r s.c, move2_win true d s.r s.c⟩
+
+theorem pres (LIM : Nat) (hL : LIM ≤ 19) (trig : St → Bool)
+    (ht : ∀ s, trig s = true → s.c = 31)
+    (s : St) (a : Act) (h : J LIM s) : J LIM (step LIM trig s a) := by
+  obtain ⟨hw, hlit, hu, hΦ, hph⟩ := h
+  unfold step
+  by_cases hl : s.won = false ∧ s.used < LIM
+  · rw [if_pos hl]
+    have hΦ' : 20 ≤ (if s.op then Rc s.c
+        else if s.size = 4 then dF s.lit + 16 else d6 s.lit + 13) + s.used := by
+      simpa [Φ, hw] using hΦ
+    cases a with
+    | key => exact ⟨hw, hlit, hu, hΦ, hph⟩
+    | mv d =>
+      simp only [act]
+      rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+      · obtain ⟨m1, m2, m3⟩ := lA' s d ho hs hr hc
+        simp [ho, hs] at hΦ'
+        generalize move s.op s.size d (s.r, s.c) = mv at *
+        exact ⟨m1, hlit, by simp; omega, by simp [Φ, m1, ho, hs]; omega,
+          Or.inl ⟨hs, ho, m2, m3⟩⟩
+      · obtain ⟨m1, m2⟩ := lB' s d ho hs h2
+        simp [ho, hs] at hΦ'
+        generalize move s.op s.size d (s.r, s.c) = mv at *
+        exact ⟨m1, hlit, by simp; omega, by simp [Φ, m1, ho, hs]; omega,
+          Or.inr (Or.inl ⟨hs, ho, m2⟩)⟩
+      · obtain ⟨m1, m2⟩ := lC' s d ho hs
+        simp [ho, Rc] at hΦ'
+        generalize move s.op s.size d (s.r, s.c) = mv at *
+        cases hm : mv.1
+        · exact ⟨by simp [hm], hlit, by simp; omega, by simp [Φ, hm, ho, Rc]; omega,
+            Or.inr (Or.inr ⟨hs, ho⟩)⟩
+        · exfalso
+          have := m2 hm
+          omega
+    | cell i =>
+      simp only [act]
+      by_cases hi : 9 ≤ i
+      · rw [if_pos hi]; exact ⟨hw, hlit, hu, hΦ, hph⟩
+      · rw [if_neg hi]
+        obtain ⟨k1, k2, k3, k4, k5⟩ := lclk s.lit hlit i (by omega)
+        by_cases h6 : s.lit ^^^ 2 ^ i = key6
+        · rw [if_pos h6]
+          have e6 := k5 h6
+          rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+          · have htf : trig s = false := by
+              cases htt : trig s
+              · rfl
+              · exact absurd (ht s htt ▸ hc) c31
+            exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, htf, hs, dF0],
+              Or.inl ⟨hs, by simp [ho, htf], hr, hc⟩⟩
+          · simp [ho, hs, e6] at hΦ'
+            cases htt : trig s
+            · exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, htt, hs, d60]; omega,
+                Or.inr (Or.inl ⟨hs, by simp [ho, htt], h2⟩)⟩
+            · have hc31 := ht s htt
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, htt, hc31, Rc]; omega,
+                Or.inr (Or.inr ⟨hs, by simp [ho, htt]⟩)⟩
+          · simp [ho] at hΦ'
+            exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho]; omega,
+              Or.inr (Or.inr ⟨hs, by simp [ho]⟩)⟩
+        · rw [if_neg h6]
+          by_cases hF : s.lit ^^^ 2 ^ i = keyF
+          · rw [if_pos hF]
+            obtain ⟨eF1, eF2⟩ := k4 hF
+            rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+            · simp [ho, hs, eF1] at hΦ'
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, hs, d60]; omega,
+                Or.inr (Or.inl ⟨by simp [hs], ho, lAB s.r hr s.c hc⟩)⟩
+            · simp [ho, hs] at hΦ'
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho, hs, d60]; omega,
+                Or.inr (Or.inl ⟨by simp [hs], ho, h2⟩)⟩
+            · simp [ho] at hΦ'
+              exact ⟨hw, by simp, by simp; omega, by simp [Φ, hw, ho]; omega,
+                Or.inr (Or.inr ⟨by simp [hs], ho⟩)⟩
+          · rw [if_neg hF]
+            rcases hph with ⟨hs, ho, hr, hc⟩ | ⟨hs, ho, h2⟩ | ⟨hs, ho⟩
+            · simp [ho, hs] at hΦ'
+              exact ⟨hw, k1, by simp; omega, by simp [Φ, hw, ho, hs]; omega,
+                Or.inl ⟨hs, ho, hr, hc⟩⟩
+            · simp [ho, hs] at hΦ'
+              exact ⟨hw, k1, by simp; omega, by simp [Φ, hw, ho, hs]; omega,
+                Or.inr (Or.inl ⟨hs, ho, h2⟩)⟩
+            · simp [ho] at hΦ'
+              exact ⟨hw, k1, by simp; omega, by simp [Φ, hw, ho]; omega,
+                Or.inr (Or.inr ⟨hs, ho⟩)⟩
+  · rw [if_neg hl]; exact ⟨hw, hlit, hu, hΦ, hph⟩
+
+theorem run_J (LIM : Nat) (hL : LIM ≤ 19) (trig : St → Bool)
+    (ht : ∀ s, trig s = true → s.c = 31)
+    (as : List Act) : ∀ s, J LIM s → J LIM (run LIM trig s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (pres LIM hL trig ht s a h)
+
+theorem J_start (LIM : Nat) : J LIM start :=
+  ⟨rfl, by decide, Nat.zero_le _, by decide, Or.inl ⟨rfl, rfl, by decide, by decide⟩⟩
+
+/-- MAIN (attempt 2): for every budget `LIM ≤ 19` and every trigger rule that can only fire
+    with the block's left column at 31, NO action sequence wins level 4. -/
+theorem never_wins (LIM : Nat) (hL : LIM ≤ 19) (trig : St → Bool)
+    (ht : ∀ s, trig s = true → s.c = 31) (as : List Act) :
+    (run LIM trig start as).won = false :=
+  (run_J LIM hL trig ht as start (J_start LIM)).1
+
+theorem trigH5_ok : ∀ s, trigH5 s = true → s.c = 31 := by
+  intro s h
+  simp only [trigH5, Bool.and_eq_true, beq_iff_eq] at h
+  exact h.2
+
+/-- Measured budget 15, measured trigger H5. -/
+theorem never_wins_measured (as : List Act) : (run 15 trigH5 start as).won = false :=
+  never_wins 15 (by decide) trigH5 trigH5_ok as
+
+/-- Non-vacuity: relax the budget to 26 actions and the same model (with H5) is winnable. -/
+def route26 : List Act :=
+  [.mv .L, .mv .L, .mv .D, .cell 1, .cell 3, .cell 5, .cell 7, .mv .R, .mv .U,
+   .cell 1, .cell 4, .cell 7, .mv .D] ++ List.replicate 13 (.mv .R)
+
+theorem route26_len : route26.length = 26 := by decide
+theorem route26_wins : (run 26 trigH5 start route26).won = true := by decide
+theorem route26_short : (run 25 trigH5 start route26).won = false := by decide
+
+end L4.V2
+
+
+
+
+
+
+/-! Attempt-3 amendment of the formal system in `L4Model.lean` (namespaces `L4`, `L4.V2` there).
+    Kept in a second file only for compile time; it imports and reuses those definitions. -/
+
+/-! # Amendment (attempt 3) — `L4.V3`
+
+What attempt 3 changed (reused from `L4` / `L4.V2`: the floor maps, `floorC`, `fpAll`, `fpAny`):
+* rule MATCHF: on a size-2 block it GROWS back to 4 (observed: (33,23) 2x2 → (31,21) 4x4).
+  In the model the grow anchor is NONDETERMINISTIC among 5 offsets (observed: (-2,-2)) — looser.
+* new object: e-marker (rows 34-35, cols 23-24) with slot `rf`. New rule REFILL: a size-2 move
+  whose slide touches the marker sets rf and lowers spent budget k to min(k+1-10, 5)
+  (one sample, 15 → 5; both readings allowed — looser). 4x4 covering it: no refill (observed).
+* budget in units, not actions: move = 1; a completed match = 2 for the final click plus 1 per
+  other click. Measured B = 18 (all three attempts fit). A match is ONE macro action
+  (F = 5, M6 = 4). Every match resets the grid and clicks never move the block, so any real click
+  sequence that completes a match costs at least that much. This is the one abstraction.
+* rule MATCH6 trigger: c = 31, any size, any facing (looser than the measured H5).
+* the facing slot is dropped (no rule reads it once the trigger ignores facing).
+* blocked grow: a costed no-op (unobserved).
+* NOT IN MODEL: anything else unobserved (other markers, ACTION5/7, size 1).
+-/
+namespace L4.V3
+open L4 (Dir shift inSlot box)
+
+def marker (y x : Nat) : Bool := box 34 35 23 24 y x
+
+structure P where
+  r : Nat
+  c : Nat
+  n : Nat
+  op : Bool
+  rf : Bool
+  deriving DecidableEq, Repr
+
+def slideT (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) : Nat → Nat → Bool → Nat × Bool
+  | 0, k, t => (k, t)
+  | m + 1, k, t =>
+    let q := shift d (k + 1) p
+    if L4.V2.fpAll (L4.V2.floorC op) n q.1 q.2 then
+      slideT op n d p m (k + 1) (t || L4.V2.fpAny marker n q.1 q.2)
+    else (k, t)
+
+inductive Kind | norm | refill
+
+inductive Res | win | to (t : P) (kd : Kind)
+
+/-- grow anchors (offsets subtracted from the top-left); index ≥ 4 all mean (0,2). -/
+def anch : Nat → Nat × Nat
+  | 0 => (2, 2) | 1 => (0, 0) | 2 => (1, 1) | 3 => (2, 0) | _ => (0, 2)
+
+inductive Act | mv (d : Dir) | F (i : Nat) | M6
+
+def cost : Act → Nat
+  | .mv _ => 1
+  | .F _ => 5
+  | .M6 => 4
+
+def absStep (p : P) : Act → Res
+  | .mv d =>
+    let q := shift d p.n (p.r, p.c)
+    if L4.V2.fpAny inSlot p.n q.1 q.2 then .win else
+    let st := slideT p.op p.n d (p.r, p.c) p.n 0 false
+    let t := shift d st.1 (p.r, p.c)
+    if p.n == 2 && !p.rf && st.2 then .to ⟨t.1, t.2, p.n, p.op, true⟩ .refill
+    else .to ⟨t.1, t.2, p.n, p.op, p.rf⟩ .norm
+  | .F i =>
+    if p.n == 4 then .to ⟨p.r, p.c, 2, p.op, p.rf⟩ .norm else
+    let a := anch i
+    if Nat.ble a.1 p.r && Nat.ble a.2 p.c && L4.V2.fpAll (L4.V2.floorC p.op) 4 (p.r - a.1) (p.c - a.2)
+    then .to ⟨p.r - a.1, p.c - a.2, 4, p.op, p.rf⟩ .norm else .to p .norm
+  | .M6 => .to ⟨p.r, p.c, p.n, p.op || p.c == 31, p.rf⟩ .norm
+
+structure St where
+  p : P
+  k : Nat
+  won : Bool
+
+def step (B : Nat) (s : St) (a : Act) : St :=
+  if s.won = false ∧ s.k + cost a ≤ B then
+    match absStep s.p a with
+    | .win => ⟨s.p, s.k, true⟩
+    | .to t .norm => ⟨t, s.k + cost a, false⟩
+    | .to t .refill => ⟨t, min (s.k + 1 - 10) 5, false⟩
+  else s
+
+def run (B : Nat) (s : St) (as : List Act) : St := as.foldl (step B) s
+
+def startP : P := ⟨25, 37, 4, false, false⟩
+def start : St := ⟨startP, 0, false⟩
+
+def key (p : P) : Nat :=
+  p.r * 2048 + p.c * 32 + p.n * 4 + (if p.op then 2 else 0) + (if p.rf then 1 else 0)
+def decode (k : Nat) : P := ⟨k / 2048, k / 32 % 64, k / 4 % 8, k / 2 % 2 == 1, k % 2 == 1⟩
+
+/-- binary search tree of (key, least spent budget); generated by work/table4.py + work/gen_tab.py -/
+inductive T | leaf | node (l : T) (k v : Nat) (r : T)
+
+def T.find : T → Nat → Option Nat
+  | .leaf, _ => none
+  | .node l k v r, x => if x < k then l.find x else if x = k then some v else r.find x
+
+def T.toList : T → List (Nat × Nat)
+  | .leaf => []
+  | .node l k v r => l.toList ++ (k, v) :: r.toList
+
+theorem T.find_mem : ∀ (t : T) (x v : Nat), t.find x = some v → (x, v) ∈ t.toList
+  | .leaf, x, v, h => by simp [T.find] at h
+  | .node l k w r, x, v, h => by
+    simp only [T.find] at h
+    simp only [T.toList, List.mem_append, List.mem_cons]
+    split at h
+    · exact Or.inl (T.find_mem l x v h)
+    · split at h
+      · rename_i hx
+        simp only [Option.some.injEq] at h
+        subst hx; subst h
+        exact Or.inr (Or.inl rfl)
+      · exact Or.inr (Or.inr (T.find_mem r x v h))
+
+def tree : T :=
+  (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 19432 14 .leaf) 19433 17 .leaf) 19434 18 (.node (.node .leaf 23528 13 .leaf) 23529 16 .leaf)) 23530 17 (.node (.node (.node .leaf 27624 12 .leaf) 27625 15 .leaf) 27626 16 (.node (.node .leaf 31720 11 .leaf) 31721 14 .leaf))) 31722 15 (.node (.node (.node (.node .leaf 31723 18 .leaf) 35816 10 .leaf) 35817 13 (.node (.node .leaf 35818 14 .leaf) 35819 17 .leaf)) 39912 9 (.node (.node (.node .leaf 39913 12 .leaf) 39914 13 .leaf) 39915 16 (.node (.node .leaf 43688 10 .leaf) 43689 8 .leaf)))) 43690 17 (.node (.node (.node (.node (.node .leaf 43691 12 .leaf) 43696 5 .leaf) 43697 9 (.node (.node .leaf 43699 13 .leaf) 43721 14 .leaf)) 43723 18 (.node (.node (.node .leaf 43728 15 .leaf) 43729 9 .leaf) 43731 13 (.node (.node .leaf 43752 10 .leaf) 43753 7 .leaf))) 43754 16 (.node (.node (.node (.node .leaf 43755 11 .leaf) 43760 14 .leaf) 43761 9 (.node (.node .leaf 43762 18 .leaf) 43763 13 .leaf)) 43785 15 (.node (.node (.node .leaf 43792 14 .leaf) 43793 10 .leaf) 43795 14 (.node .leaf 43816 9 .leaf))))) 43817 8 (.node (.node (.node (.node (.node (.node .leaf 43818 15 .leaf) 43819 12 .leaf) 43824 4 (.node (.node .leaf 43825 10 .leaf) 43826 18 .leaf)) 43827 14 (.node (.node (.node .leaf 43849 15 .leaf) 43856 14 .leaf) 43857 10 (.node (.node .leaf 43858 18 .leaf) 43859 14 .leaf))) 43880 9 (.node (.node (.node (.node .leaf 43881 9 .leaf) 43882 14 .leaf) 43883 13 (.node (.node .leaf 43888 13 .leaf) 43889 10 .leaf)) 43890 17 (.node (.node (.node .leaf 43891 14 .leaf) 43912 18 .leaf) 43913 16 (.node (.node .leaf 43920 13 .leaf) 43921 11 .leaf)))) 43922 18 (.node (.node (.node (.node (.node .leaf 43923 15 .leaf) 43944 8 .leaf) 43945 10 (.node (.node .leaf 43946 13 .leaf) 43947 14 .leaf)) 43952 3 (.node (.node (.node .leaf 43953 11 .leaf) 43954 17 .leaf) 43955 15 (.node (.node .leaf 43976 18 .leaf) 43977 16 .leaf))) 43984 13 (.node (.node (.node (.node .leaf 43985 11 .leaf) 43986 17 .leaf) 43987 15 (.node (.node .leaf 44008 8 .leaf) 44009 11 .leaf)) 44010 12 (.node (.node (.node .leaf 44011 15 .leaf) 44016 12 .leaf) 44017 11 (.node .leaf 44018 16 .leaf)))))) 44019 15 (.node (.node (.node (.node (.node (.node (.node .leaf 44040 17 .leaf) 44041 17 .leaf) 44048 12 (.node (.node .leaf 44049 12 .leaf) 44050 18 .leaf)) 44051 16 (.node (.node (.node .leaf 44072 7 .leaf) 44073 12 .leaf) 44074 13 (.node (.node .leaf 44075 16 .leaf) 44080 2 .leaf))) 44081 12 (.node (.node (.node (.node .leaf 44082 18 .leaf) 44083 16 .leaf) 44104 17 (.node (.node .leaf 44105 17 .leaf) 44112 12 .leaf)) 44113 12 (.node (.node (.node .leaf 44114 18 .leaf) 44115 16 .leaf) 44136 7 (.node (.node .leaf 44137 13 .leaf) 44138 14 .leaf)))) 44139 17 (.node (.node (.node (.node (.node .leaf 44144 11 .leaf) 44145 12 .leaf) 44146 17 (.node (.node .leaf 44147 16 .leaf) 44168 16 .leaf)) 44169 18 (.node (.node (.node .leaf 44176 11 .leaf) 44177 13 .leaf) 44179 17 (.node (.node .leaf 44200 6 .leaf) 44201 14 .leaf))) 44202 15 (.node (.node (.node (.node .leaf 44203 18 .leaf) 44208 1 .leaf) 44209 13 (.node (.node .leaf 44211 17 .leaf) 44232 17 .leaf)) 44233 18 (.node (.node (.node .leaf 44240 12 .leaf) 44241 13 .leaf) 44243 17 (.node .leaf 44264 7 .leaf))))) 44265 15 (.node (.node (.node (.node (.node (.node .leaf 44266 16 .leaf) 44272 12 .leaf) 44273 13 (.node (.node .leaf 44274 18 .leaf) 44275 17 .leaf)) 44296 17 (.node (.node (.node .leaf 44304 12 .leaf) 44305 14 .leaf) 44307 18 (.node (.node .leaf 44328 7 .leaf) 44329 16 .leaf))) 44330 17 (.node (.node (.node (.node .leaf 44336 2 .leaf) 44337 14 .leaf) 44339 18 (.node (.node .leaf 44360 18 .leaf) 44392 8 .leaf)) 44393 17 (.node (.node (.node .leaf 44394 18 .leaf) 45737 15 .leaf) 45744 15 (.node .leaf 45745 10 .leaf)))) 45747 14 (.node (.node (.node (.node (.node .leaf 45769 14 .leaf) 45771 18 .leaf) 45776 15 (.node (.node .leaf 45777 9 .leaf) 45779 13 .leaf)) 45801 16 (.node (.node (.node .leaf 45833 15 .leaf) 45840 14 .leaf) 45841 10 (.node (.node .leaf 45843 14 .leaf) 45865 16 .leaf))) 45872 16 (.node (.node (.node (.node .leaf 45873 11 .leaf) 45875 15 .leaf) 45897 15 (.node (.node .leaf 45904 14 .leaf) 45905 10 .leaf)) 45906 18 (.node (.node (.node .leaf 45907 14 .leaf) 45929 17 .leaf) 45960 18 (.node .leaf 45961 16 .leaf))))))) 45968 13 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 45969 11 .leaf) 45970 18 .leaf) 45971 15 (.node (.node .leaf 45993 17 .leaf) 46000 16 .leaf)) 46001 12 (.node (.node (.node .leaf 46003 16 .leaf) 46024 18 .leaf) 46025 16 (.node (.node .leaf 46032 13 .leaf) 46033 11 .leaf))) 46034 17 (.node (.node (.node (.node .leaf 46035 15 .leaf) 46057 18 .leaf) 46088 17 (.node (.node .leaf 46089 17 .leaf) 46096 12 .leaf)) 46097 12 (.node (.node (.node .leaf 46098 18 .leaf) 46099 16 .leaf) 46121 18 (.node (.node .leaf 46128 15 .leaf) 46129 13 .leaf)))) 46131 17 (.node (.node (.node (.node (.node .leaf 46152 17 .leaf) 46153 17 .leaf) 46160 12 (.node (.node .leaf 46161 12 .leaf) 46162 18 .leaf)) 46163 16 (.node (.node (.node .leaf 46216 16 .leaf) 46217 18 .leaf) 46224 11 (.node (.node .leaf 46225 13 .leaf) 46227 17 .leaf))) 46256 14 (.node (.node (.node (.node .leaf 46257 14 .leaf) 46259 18 .leaf) 46280 17 (.node (.node .leaf 46281 18 .leaf) 46288 12 .leaf)) 46289 13 (.node (.node (.node .leaf 46291 17 .leaf) 46344 17 .leaf) 46352 12 (.node .leaf 46353 14 .leaf))))) 46355 18 (.node (.node (.node (.node (.node (.node .leaf 46376 18 .leaf) 46384 13 .leaf) 46385 14 (.node (.node .leaf 46387 18 .leaf) 46408 18 .leaf)) 47784 10 (.node (.node (.node .leaf 47785 7 .leaf) 47786 17 .leaf) 47787 11 (.node (.node .leaf 47792 14 .leaf) 47793 8 .leaf))) 47794 18 (.node (.node (.node (.node .leaf 47795 12 .leaf) 47817 15 .leaf) 47848 10 (.node (.node .leaf 47849 6 .leaf) 47850 16 .leaf)) 47851 10 (.node (.node (.node .leaf 47856 13 .leaf) 47857 8 .leaf) 47858 17 (.node .leaf 47859 12 .leaf)))) 47881 16 (.node (.node (.node (.node (.node .leaf 47912 9 .leaf) 47913 7 .leaf) 47914 15 (.node (.node .leaf 47915 11 .leaf) 47920 13 .leaf)) 47921 9 (.node (.node (.node .leaf 47922 17 .leaf) 47923 13 .leaf) 47945 16 (.node (.node .leaf 47976 9 .leaf) 47977 8 .leaf))) 47978 14 (.node (.node (.node (.node .leaf 47979 12 .leaf) 47984 12 .leaf) 47985 9 (.node (.node .leaf 47986 16 .leaf) 47987 13 .leaf)) 48009 17 (.node (.node (.node .leaf 48040 8 .leaf) 48041 9 .leaf) 48042 13 (.node .leaf 48043 13 .leaf)))))) 48048 12 (.node (.node (.node (.node (.node (.node (.node .leaf 48049 10 .leaf) 48050 16 .leaf) 48051 14 (.node (.node .leaf 48073 17 .leaf) 48104 8 .leaf)) 48105 10 (.node (.node (.node .leaf 48106 12 .leaf) 48107 14 .leaf) 48112 11 (.node (.node .leaf 48113 10 .leaf) 48114 15 .leaf))) 48115 14 (.node (.node (.node (.node .leaf 48136 18 .leaf) 48137 18 .leaf) 48168 7 (.node (.node .leaf 48169 11 .leaf) 48170 13 .leaf)) 48171 15 (.node (.node (.node .leaf 48176 11 .leaf) 48177 11 .leaf) 48178 17 (.node (.node .leaf 48179 15 .leaf) 48200 18 .leaf)))) 48201 18 (.node (.node (.node (.node (.node .leaf 48232 7 .leaf) 48233 12 .leaf) 48234 14 (.node (.node .leaf 48235 16 .leaf) 48240 10 .leaf)) 48241 11 (.node (.node (.node .leaf 48242 16 .leaf) 48243 15 .leaf) 48264 17 (.node (.node .leaf 48296 6 .leaf) 48297 13 .leaf))) 48298 15 (.node (.node (.node (.node .leaf 48299 17 .leaf) 48304 10 .leaf) 48305 12 (.node (.node .leaf 48306 18 .leaf) 48307 16 .leaf)) 48328 18 (.node (.node (.node .leaf 48360 7 .leaf) 48361 14 .leaf) 48362 16 (.node .leaf 48363 18 .leaf))))) 48368 11 (.node (.node (.node (.node (.node (.node .leaf 48369 12 .leaf) 48370 17 .leaf) 48371 16 (.node (.node .leaf 48392 18 .leaf) 48424 7 .leaf)) 48425 15 (.node (.node (.node .leaf 48426 17 .leaf) 48432 11 .leaf) 48433 13 (.node (.node .leaf 48434 18 .leaf) 48435 17 .leaf))) 48488 8 (.node (.node (.node (.node .leaf 48489 16 .leaf) 48490 18 .leaf) 49833 14 (.node (.node .leaf 49835 18 .leaf) 49840 14 .leaf)) 49841 9 (.node (.node (.node .leaf 49843 13 .leaf) 49865 13 .leaf) 49867 17 (.node .leaf 49872 14 .leaf)))) 49873 8 (.node (.node (.node (.node (.node .leaf 49874 18 .leaf) 49875 12 .leaf) 49897 15 (.node (.node .leaf 49928 18 .leaf) 49929 14 .leaf)) 49931 18 (.node (.node (.node .leaf 49936 13 .leaf) 49937 9 .leaf) 49938 18 (.node (.node .leaf 49939 13 .leaf) 49961 15 .leaf))) 49968 15 (.node (.node (.node (.node .leaf 49969 10 .leaf) 49971 14 .leaf) 49992 18 (.node (.node .leaf 49993 14 .leaf) 49995 18 .leaf)) 50000 13 (.node (.node (.node .leaf 50001 9 .leaf) 50002 17 .leaf) 50003 13 (.node .leaf 50025 16 .leaf)))))))) 50056 17 (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 50057 15 .leaf) 50064 12 .leaf) 50065 10 (.node (.node .leaf 50066 17 .leaf) 50067 14 .leaf)) 50089 16 (.node (.node (.node .leaf 50096 15 .leaf) 50097 11 .leaf) 50099 15 (.node (.node .leaf 50120 17 .leaf) 50121 15 .leaf))) 50128 12 (.node (.node (.node (.node .leaf 50129 10 .leaf) 50130 16 .leaf) 50131 14 (.node (.node .leaf 50153 17 .leaf) 50184 16 .leaf)) 50185 16 (.node (.node (.node .leaf 50192 11 .leaf) 50193 11 .leaf) 50194 17 (.node (.node .leaf 50195 15 .leaf) 50217 17 .leaf)))) 50224 14 (.node (.node (.node (.node (.node .leaf 50225 12 .leaf) 50227 16 .leaf) 50248 16 (.node (.node .leaf 50249 16 .leaf) 50256 11 .leaf)) 50257 11 (.node (.node (.node .leaf 50258 17 .leaf) 50259 15 .leaf) 50281 18 (.node (.node .leaf 50312 15 .leaf) 50313 17 .leaf))) 50320 10 (.node (.node (.node (.node .leaf 50321 12 .leaf) 50322 18 .leaf) 50323 16 (.node (.node .leaf 50344 18 .leaf) 50345 18 .leaf)) 50352 13 (.node (.node (.node .leaf 50353 13 .leaf) 50355 17 .leaf) 50376 16 (.node .leaf 50377 17 .leaf))))) 50384 11 (.node (.node (.node (.node (.node (.node .leaf 50385 12 .leaf) 50386 18 .leaf) 50387 16 (.node (.node .leaf 50408 18 .leaf) 50440 16 .leaf)) 50441 18 (.node (.node (.node .leaf 50448 11 .leaf) 50449 13 .leaf) 50451 17 (.node (.node .leaf 50472 17 .leaf) 50473 18 .leaf))) 50480 12 (.node (.node (.node (.node .leaf 50481 13 .leaf) 50483 17 .leaf) 50504 17 (.node (.node .leaf 50536 18 .leaf) 51880 9 .leaf)) 51881 6 (.node (.node (.node .leaf 51882 16 .leaf) 51883 10 .leaf) 51888 4 (.node .leaf 51889 8 .leaf)))) 51890 18 (.node (.node (.node (.node (.node .leaf 51891 12 .leaf) 51913 14 .leaf) 51915 18 (.node (.node .leaf 51920 16 .leaf) 51921 9 .leaf)) 51923 13 (.node (.node (.node .leaf 51944 9 .leaf) 51945 5 .leaf) 51946 15 (.node (.node .leaf 51947 9 .leaf) 51952 13 .leaf))) 51953 8 (.node (.node (.node (.node .leaf 51954 17 .leaf) 51955 12 .leaf) 51977 15 (.node (.node .leaf 51984 15 .leaf) 51985 10 .leaf)) 51987 14 (.node (.node (.node .leaf 52008 8 .leaf) 52009 6 .leaf) 52010 14 (.node .leaf 52011 10 .leaf)))))) 52016 3 (.node (.node (.node (.node (.node (.node (.node .leaf 52017 9 .leaf) 52018 17 .leaf) 52019 13 (.node (.node .leaf 52041 15 .leaf) 52048 15 .leaf)) 52049 10 (.node (.node (.node .leaf 52051 14 .leaf) 52072 8 .leaf) 52073 7 (.node (.node .leaf 52074 13 .leaf) 52075 11 .leaf))) 52080 12 (.node (.node (.node (.node .leaf 52081 9 .leaf) 52082 16 .leaf) 52083 13 (.node (.node .leaf 52105 16 .leaf) 52112 14 .leaf)) 52113 11 (.node (.node (.node .leaf 52115 15 .leaf) 52136 7 .leaf) 52137 8 (.node (.node .leaf 52138 12 .leaf) 52139 12 .leaf)))) 52144 2 (.node (.node (.node (.node (.node .leaf 52145 10 .leaf) 52146 16 .leaf) 52147 14 (.node (.node .leaf 52169 16 .leaf) 52176 14 .leaf)) 52177 11 (.node (.node (.node .leaf 52178 18 .leaf) 52179 15 .leaf) 52200 7 (.node (.node .leaf 52201 9 .leaf) 52202 11 .leaf))) 52203 13 (.node (.node (.node (.node .leaf 52208 11 .leaf) 52209 10 .leaf) 52210 15 (.node (.node .leaf 52211 14 .leaf) 52232 18 .leaf)) 52233 17 (.node (.node (.node .leaf 52240 13 .leaf) 52241 12 .leaf) 52243 16 (.node .leaf 52264 6 .leaf))))) 52265 10 (.node (.node (.node (.node (.node (.node .leaf 52266 12 .leaf) 52267 14 .leaf) 52272 1 (.node (.node .leaf 52273 11 .leaf) 52274 17 .leaf)) 52275 15 (.node (.node (.node .leaf 52296 18 .leaf) 52297 17 .leaf) 52304 13 (.node (.node .leaf 52305 12 .leaf) 52307 16 .leaf))) 52328 6 (.node (.node (.node (.node .leaf 52329 11 .leaf) 52330 13 .leaf) 52331 15 (.node (.node .leaf 52336 10 .leaf) 52337 11 .leaf)) 52338 16 (.node (.node (.node .leaf 52339 15 .leaf) 52360 17 .leaf) 52361 18 (.node .leaf 52368 12 .leaf)))) 52369 13 (.node (.node (.node (.node (.node .leaf 52371 17 .leaf) 52392 5 .leaf) 52393 12 (.node (.node .leaf 52394 14 .leaf) 52395 16 .leaf)) 52400 0 (.node (.node (.node .leaf 52401 12 .leaf) 52402 18 .leaf) 52403 16 (.node (.node .leaf 52424 18 .leaf) 52425 18 .leaf))) 52432 13 (.node (.node (.node (.node .leaf 52433 13 .leaf) 52435 17 .leaf) 52456 6 (.node (.node .leaf 52457 13 .leaf) 52458 15 .leaf)) 52459 17 (.node (.node (.node .leaf 52464 11 .leaf) 52465 12 .leaf) 52466 17 (.node .leaf 52467 16 .leaf))))))) 52488 18 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 52496 13 .leaf) 52497 14 .leaf) 52499 18 (.node (.node .leaf 52520 6 .leaf) 52521 14 .leaf)) 52522 16 (.node (.node (.node .leaf 52523 18 .leaf) 52528 1 .leaf) 52529 13 (.node (.node .leaf 52530 18 .leaf) 52531 17 .leaf))) 52584 7 (.node (.node (.node (.node .leaf 52585 15 .leaf) 52586 17 .leaf) 53929 14 (.node (.node .leaf 53931 18 .leaf) 53936 15 .leaf)) 53937 9 (.node (.node (.node .leaf 53939 13 .leaf) 53961 13 .leaf) 53963 17 (.node (.node .leaf 53968 15 .leaf) 53969 8 .leaf)))) 53971 12 (.node (.node (.node (.node (.node .leaf 53993 15 .leaf) 54025 14 .leaf) 54027 18 (.node (.node .leaf 54032 14 .leaf) 54033 9 .leaf)) 54035 13 (.node (.node (.node .leaf 54057 15 .leaf) 54064 16 .leaf) 54065 10 (.node (.node .leaf 54067 14 .leaf) 54089 14 .leaf))) 54091 18 (.node (.node (.node (.node .leaf 54096 14 .leaf) 54097 9 .leaf) 54098 18 (.node (.node .leaf 54099 13 .leaf) 54121 16 .leaf)) 54152 18 (.node (.node (.node .leaf 54153 15 .leaf) 54160 13 .leaf) 54161 10 (.node .leaf 54162 18 .leaf))))) 54163 14 (.node (.node (.node (.node (.node (.node .leaf 54185 16 .leaf) 54192 16 .leaf) 54193 11 (.node (.node .leaf 54195 15 .leaf) 54216 18 .leaf)) 54217 15 (.node (.node (.node .leaf 54224 13 .leaf) 54225 10 .leaf) 54226 17 (.node (.node .leaf 54227 14 .leaf) 54249 17 .leaf))) 54280 17 (.node (.node (.node (.node .leaf 54281 16 .leaf) 54288 12 .leaf) 54289 11 (.node (.node .leaf 54290 18 .leaf) 54291 15 .leaf)) 54313 17 (.node (.node (.node .leaf 54320 15 .leaf) 54321 12 .leaf) 54323 16 (.node .leaf 54344 17 .leaf)))) 54345 16 (.node (.node (.node (.node (.node .leaf 54352 12 .leaf) 54353 11 .leaf) 54354 18 (.node (.node .leaf 54355 15 .leaf) 54377 18 .leaf)) 54408 16 (.node (.node (.node .leaf 54409 17 .leaf) 54416 11 .leaf) 54417 12 (.node (.node .leaf 54419 16 .leaf) 54441 18 .leaf))) 54448 14 (.node (.node (.node (.node .leaf 54449 13 .leaf) 54451 17 .leaf) 54472 17 (.node (.node .leaf 54473 17 .leaf) 54480 12 .leaf)) 54481 12 (.node (.node (.node .leaf 54483 16 .leaf) 54536 17 .leaf) 54537 18 (.node .leaf 54544 12 .leaf)))))) 54545 13 (.node (.node (.node (.node (.node (.node (.node .leaf 54547 17 .leaf) 54568 18 .leaf) 54569 18 (.node (.node .leaf 54576 13 .leaf) 54577 13 .leaf)) 54579 17 (.node (.node (.node .leaf 54600 18 .leaf) 55976 10 .leaf) 55977 5 (.node (.node .leaf 55978 17 .leaf) 55979 9 .leaf))) 55984 15 (.node (.node (.node (.node .leaf 55985 7 .leaf) 55987 11 .leaf) 56009 14 (.node (.node .leaf 56011 18 .leaf) 56017 18 .leaf)) 56040 10 (.node (.node (.node .leaf 56041 4 .leaf) 56042 16 .leaf) 56043 8 (.node (.node .leaf 56048 14 .leaf) 56049 7 .leaf)))) 56050 18 (.node (.node (.node (.node (.node .leaf 56051 11 .leaf) 56073 15 .leaf) 56104 9 (.node (.node .leaf 56105 5 .leaf) 56106 15 .leaf)) 56107 9 (.node (.node (.node .leaf 56112 14 .leaf) 56113 8 .leaf) 56114 18 (.node (.node .leaf 56115 12 .leaf) 56137 15 .leaf))) 56168 9 (.node (.node (.node (.node .leaf 56169 6 .leaf) 56170 14 .leaf) 56171 10 (.node (.node .leaf 56176 13 .leaf) 56177 8 .leaf)) 56178 17 (.node (.node (.node .leaf 56179 12 .leaf) 56201 16 .leaf) 56232 8 (.node .leaf 56233 7 .leaf))))) 56234 13 (.node (.node (.node (.node (.node (.node .leaf 56235 11 .leaf) 56240 13 .leaf) 56241 9 (.node (.node .leaf 56242 17 .leaf) 56243 13 .leaf)) 56265 16 (.node (.node (.node .leaf 56296 8 .leaf) 56297 8 .leaf) 56298 12 (.node (.node .leaf 56299 12 .leaf) 56304 12 .leaf))) 56305 9 (.node (.node (.node (.node .leaf 56306 16 .leaf) 56307 13 .leaf) 56329 17 (.node (.node .leaf 56360 7 .leaf) 56361 9 .leaf)) 56362 13 (.node (.node (.node .leaf 56363 13 .leaf) 56368 12 .leaf) 56369 10 (.node .leaf 56370 18 .leaf)))) 56371 14 (.node (.node (.node (.node (.node .leaf 56393 17 .leaf) 56424 7 .leaf) 56425 10 (.node (.node .leaf 56426 14 .leaf) 56427 14 .leaf)) 56432 11 (.node (.node (.node .leaf 56433 10 .leaf) 56434 17 .leaf) 56435 14 (.node (.node .leaf 56456 18 .leaf) 56457 18 .leaf))) 56488 6 (.node (.node (.node (.node .leaf 56489 11 .leaf) 56490 15 .leaf) 56491 15 (.node (.node .leaf 56496 11 .leaf) 56497 11 .leaf)) 56499 15 (.node (.node (.node .leaf 56521 18 .leaf) 56552 7 .leaf) 56553 12 (.node .leaf 56554 16 .leaf))))))))) 56555 16 (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 56560 12 .leaf) 56561 11 .leaf) 56562 18 (.node (.node .leaf 56563 15 .leaf) 56616 7 .leaf)) 56617 13 (.node (.node (.node .leaf 56618 17 .leaf) 56619 17 .leaf) 56624 12 (.node (.node .leaf 56625 12 .leaf) 56627 16 .leaf))) 56680 8 (.node (.node (.node (.node .leaf 56681 14 .leaf) 56682 18 .leaf) 56683 18 (.node (.node .leaf 58025 13 .leaf) 58027 17 .leaf)) 58032 15 (.node (.node (.node .leaf 58033 8 .leaf) 58035 12 .leaf) 58057 12 (.node (.node .leaf 58059 16 .leaf) 58064 15 .leaf)))) 58065 7 (.node (.node (.node (.node (.node .leaf 58067 11 .leaf) 58089 14 .leaf) 58091 18 (.node (.node .leaf 58121 13 .leaf) 58123 17 .leaf)) 58128 14 (.node (.node (.node .leaf 58129 8 .leaf) 58131 12 .leaf) 58153 14 (.node (.node .leaf 58155 18 .leaf) 58160 16 .leaf))) 58161 9 (.node (.node (.node (.node .leaf 58163 13 .leaf) 58185 13 .leaf) 58187 17 (.node (.node .leaf 58192 14 .leaf) 58193 8 .leaf)) 58194 18 (.node (.node (.node .leaf 58195 12 .leaf) 58217 15 .leaf) 58248 18 (.node .leaf 58249 14 .leaf))))) 58251 18 (.node (.node (.node (.node (.node (.node .leaf 58256 13 .leaf) 58257 9 .leaf) 58258 18 (.node (.node .leaf 58259 13 .leaf) 58281 15 .leaf)) 58288 16 (.node (.node (.node .leaf 58289 10 .leaf) 58291 14 .leaf) 58312 18 (.node (.node .leaf 58313 14 .leaf) 58315 18 .leaf))) 58320 13 (.node (.node (.node (.node .leaf 58321 9 .leaf) 58322 17 .leaf) 58323 13 (.node (.node .leaf 58345 16 .leaf) 58376 17 .leaf)) 58377 15 (.node (.node (.node .leaf 58384 12 .leaf) 58385 10 .leaf) 58386 18 (.node (.node .leaf 58387 14 .leaf) 58409 16 .leaf)))) 58416 15 (.node (.node (.node (.node (.node .leaf 58417 11 .leaf) 58419 15 .leaf) 58440 17 (.node (.node .leaf 58441 15 .leaf) 58448 12 .leaf)) 58449 10 (.node (.node (.node .leaf 58450 18 .leaf) 58451 14 .leaf) 58473 17 (.node (.node .leaf 58504 16 .leaf) 58505 16 .leaf))) 58512 11 (.node (.node (.node (.node .leaf 58513 11 .leaf) 58515 15 .leaf) 58537 17 (.node (.node .leaf 58544 14 .leaf) 58545 12 .leaf)) 58547 16 (.node (.node (.node .leaf 58568 17 .leaf) 58569 16 .leaf) 58576 12 (.node .leaf 58577 11 .leaf)))))) 58579 15 (.node (.node (.node (.node (.node (.node (.node .leaf 58601 18 .leaf) 58632 17 .leaf) 58633 17 (.node (.node .leaf 58640 12 .leaf) 58641 12 .leaf)) 58643 16 (.node (.node (.node .leaf 58664 18 .leaf) 58665 17 .leaf) 58672 13 (.node (.node .leaf 58673 12 .leaf) 58675 16 .leaf))) 58696 18 (.node (.node (.node (.node .leaf 58697 18 .leaf) 58729 18 .leaf) 60072 10 (.node (.node .leaf 60073 4 .leaf) 60074 17 .leaf)) 60075 8 (.node (.node (.node .leaf 60080 5 .leaf) 60081 7 .leaf) 60083 11 (.node (.node .leaf 60105 13 .leaf) 60107 17 .leaf)))) 60112 17 (.node (.node (.node (.node (.node .leaf 60113 8 .leaf) 60115 12 .leaf) 60136 10 (.node (.node .leaf 60137 3 .leaf) 60138 16 .leaf)) 60139 7 (.node (.node (.node .leaf 60144 14 .leaf) 60145 7 .leaf) 60146 18 (.node (.node .leaf 60147 11 .leaf) 60169 14 .leaf))) 60171 18 (.node (.node (.node (.node .leaf 60176 16 .leaf) 60177 9 .leaf) 60179 13 (.node (.node .leaf 60200 9 .leaf) 60201 4 .leaf)) 60202 15 (.node (.node (.node .leaf 60203 8 .leaf) 60208 4 .leaf) 60209 8 (.node .leaf 60210 18 .leaf))))) 60211 12 (.node (.node (.node (.node (.node (.node .leaf 60233 14 .leaf) 60235 18 .leaf) 60240 16 (.node (.node .leaf 60241 9 .leaf) 60243 13 .leaf)) 60264 9 (.node (.node (.node .leaf 60265 5 .leaf) 60266 14 .leaf) 60267 9 (.node (.node .leaf 60272 13 .leaf) 60273 8 .leaf))) 60274 17 (.node (.node (.node (.node .leaf 60275 12 .leaf) 60297 15 .leaf) 60304 15 (.node (.node .leaf 60305 10 .leaf) 60307 14 .leaf)) 60328 8 (.node (.node (.node .leaf 60329 6 .leaf) 60330 13 .leaf) 60331 10 (.node .leaf 60336 3 .leaf)))) 60337 9 (.node (.node (.node (.node (.node .leaf 60338 17 .leaf) 60339 13 .leaf) 60361 15 (.node (.node .leaf 60368 15 .leaf) 60369 10 .leaf)) 60371 14 (.node (.node (.node .leaf 60392 8 .leaf) 60393 7 .leaf) 60394 12 (.node (.node .leaf 60395 11 .leaf) 60400 12 .leaf))) 60401 9 (.node (.node (.node (.node .leaf 60402 16 .leaf) 60403 13 .leaf) 60425 16 (.node (.node .leaf 60432 14 .leaf) 60433 11 .leaf)) 60435 15 (.node (.node (.node .leaf 60456 7 .leaf) 60457 8 .leaf) 60458 13 (.node .leaf 60459 12 .leaf))))))) 60464 2 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 60465 10 .leaf) 60466 18 .leaf) 60467 14 (.node (.node .leaf 60489 16 .leaf) 60496 14 .leaf)) 60497 11 (.node (.node (.node .leaf 60499 15 .leaf) 60520 7 .leaf) 60521 9 (.node (.node .leaf 60522 14 .leaf) 60523 13 .leaf))) 60528 11 (.node (.node (.node (.node .leaf 60529 10 .leaf) 60530 17 .leaf) 60531 14 (.node (.node .leaf 60552 18 .leaf) 60553 17 .leaf)) 60560 13 (.node (.node (.node .leaf 60561 12 .leaf) 60563 16 .leaf) 60584 6 (.node (.node .leaf 60585 10 .leaf) 60586 15 .leaf)))) 60587 14 (.node (.node (.node (.node (.node .leaf 60592 1 .leaf) 60593 11 .leaf) 60595 15 (.node (.node .leaf 60617 17 .leaf) 60624 14 .leaf)) 60625 12 (.node (.node (.node .leaf 60627 16 .leaf) 60648 7 .leaf) 60649 11 (.node (.node .leaf 60650 16 .leaf) 60651 15 .leaf))) 60656 12 (.node (.node (.node (.node .leaf 60657 11 .leaf) 60658 18 .leaf) 60659 15 (.node (.node .leaf 60681 18 .leaf) 60688 14 .leaf)) 60689 13 (.node (.node (.node .leaf 60691 17 .leaf) 60712 7 .leaf) 60713 12 (.node .leaf 60714 17 .leaf))))) 60715 16 (.node (.node (.node (.node (.node (.node .leaf 60720 2 .leaf) 60721 12 .leaf) 60723 16 (.node (.node .leaf 60755 17 .leaf) 60776 8 .leaf)) 60777 13 (.node (.node (.node .leaf 60778 18 .leaf) 60779 17 .leaf) 60787 16 (.node (.node .leaf 60819 18 .leaf) 60843 18 .leaf))) 60851 17 (.node (.node (.node (.node .leaf 60883 18 .leaf) 60915 17 .leaf) 60979 18 (.node (.node .leaf 61043 18 .leaf) 62121 13 .leaf)) 62123 17 (.node (.node (.node .leaf 62128 16 .leaf) 62129 8 .leaf) 62131 12 (.node .leaf 62153 12 .leaf)))) 62155 16 (.node (.node (.node (.node (.node .leaf 62160 16 .leaf) 62161 7 .leaf) 62163 11 (.node (.node .leaf 62185 14 .leaf) 62187 18 .leaf)) 62193 18 (.node (.node (.node .leaf 62217 13 .leaf) 62219 17 .leaf) 62224 15 (.node (.node .leaf 62225 8 .leaf) 62227 12 .leaf))) 62249 14 (.node (.node (.node (.node .leaf 62251 18 .leaf) 62256 17 .leaf) 62257 9 (.node (.node .leaf 62259 13 .leaf) 62281 13 .leaf)) 62283 17 (.node (.node (.node .leaf 62288 15 .leaf) 62289 8 .leaf) 62291 12 (.node .leaf 62313 15 .leaf)))))) 62345 14 (.node (.node (.node (.node (.node (.node (.node .leaf 62347 18 .leaf) 62352 14 .leaf) 62353 9 (.node (.node .leaf 62355 13 .leaf) 62377 15 .leaf)) 62384 17 (.node (.node (.node .leaf 62385 10 .leaf) 62387 14 .leaf) 62409 14 (.node (.node .leaf 62411 18 .leaf) 62416 14 .leaf))) 62417 9 (.node (.node (.node (.node .leaf 62418 18 .leaf) 62419 13 .leaf) 62441 16 (.node (.node .leaf 62472 18 .leaf) 62473 15 .leaf)) 62480 13 (.node (.node (.node .leaf 62481 10 .leaf) 62483 14 .leaf) 62505 16 (.node (.node .leaf 62512 16 .leaf) 62513 11 .leaf)))) 62515 15 (.node (.node (.node (.node (.node .leaf 62536 18 .leaf) 62537 15 .leaf) 62544 13 (.node (.node .leaf 62545 10 .leaf) 62547 14 .leaf)) 62569 17 (.node (.node (.node .leaf 62600 17 .leaf) 62601 16 .leaf) 62608 12 (.node (.node .leaf 62609 11 .leaf) 62611 15 .leaf))) 62633 17 (.node (.node (.node (.node .leaf 62640 15 .leaf) 62641 12 .leaf) 62643 16 (.node (.node .leaf 62664 18 .leaf) 62665 16 .leaf)) 62672 13 (.node (.node (.node .leaf 62673 11 .leaf) 62675 15 .leaf) 62697 18 (.node .leaf 62728 18 .leaf))))) 62729 17 (.node (.node (.node (.node (.node (.node .leaf 62736 13 .leaf) 62737 12 .leaf) 62739 16 (.node (.node .leaf 62761 17 .leaf) 62768 14 .leaf)) 62769 12 (.node (.node (.node .leaf 62771 16 .leaf) 62793 18 .leaf) 62825 18 (.node (.node .leaf 64168 11 .leaf) 64169 3 .leaf))) 64170 18 (.node (.node (.node (.node .leaf 64171 7 .leaf) 64176 16 .leaf) 64177 6 (.node (.node .leaf 64179 10 .leaf) 64201 13 .leaf)) 64203 17 (.node (.node (.node .leaf 64209 17 .leaf) 64232 11 .leaf) 64233 2 (.node .leaf 64234 17 .leaf)))) 64235 6 (.node (.node (.node (.node (.node .leaf 64240 15 .leaf) 64241 6 .leaf) 64243 10 (.node (.node .leaf 64265 14 .leaf) 64267 18 .leaf)) 64273 18 (.node (.node (.node .leaf 64296 10 .leaf) 64297 3 .leaf) 64298 16 (.node (.node .leaf 64299 7 .leaf) 64304 15 .leaf))) 64305 7 (.node (.node (.node (.node .leaf 64307 11 .leaf) 64329 14 .leaf) 64331 18 (.node (.node .leaf 64337 18 .leaf) 64360 10 .leaf)) 64361 4 (.node (.node (.node .leaf 64362 15 .leaf) 64363 8 .leaf) 64368 14 (.node .leaf 64369 7 .leaf)))))))) 64370 18 (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 64371 11 .leaf) 64393 15 .leaf) 64424 9 (.node (.node .leaf 64425 5 .leaf) 64426 14 .leaf)) 64427 9 (.node (.node (.node .leaf 64432 14 .leaf) 64433 8 .leaf) 64434 18 (.node (.node .leaf 64435 12 .leaf) 64457 15 .leaf))) 64488 9 (.node (.node (.node (.node .leaf 64489 6 .leaf) 64490 13 .leaf) 64491 10 (.node (.node .leaf 64496 13 .leaf) 64497 8 .leaf)) 64498 17 (.node (.node (.node .leaf 64499 12 .leaf) 64521 16 .leaf) 64552 8 (.node (.node .leaf 64553 7 .leaf) 64554 14 .leaf)))) 64555 11 (.node (.node (.node (.node (.node .leaf 64560 13 .leaf) 64561 9 .leaf) 64563 13 (.node (.node .leaf 64585 16 .leaf) 64616 8 .leaf)) 64617 8 (.node (.node (.node .leaf 64618 15 .leaf) 64619 12 .leaf) 64624 12 (.node (.node .leaf 64625 9 .leaf) 64626 18 .leaf))) 64627 13 (.node (.node (.node (.node .leaf 64649 17 .leaf) 64680 7 .leaf) 64681 9 (.node (.node .leaf 64682 16 .leaf) 64683 13 .leaf)) 64688 12 (.node (.node (.node .leaf 64689 10 .leaf) 64691 14 .leaf) 64713 17 (.node .leaf 64744 8 .leaf))))) 64745 10 (.node (.node (.node (.node (.node (.node .leaf 64746 17 .leaf) 64747 14 .leaf) 64752 13 (.node (.node .leaf 64753 10 .leaf) 64755 14 .leaf)) 64777 18 (.node (.node (.node .leaf 64808 8 .leaf) 64809 11 .leaf) 64810 18 (.node (.node .leaf 64811 15 .leaf) 64816 13 .leaf))) 64817 11 (.node (.node (.node (.node .leaf 64819 15 .leaf) 64872 9 .leaf) 64873 12 (.node (.node .leaf 64875 16 .leaf) 64939 17 .leaf)) 65003 18 (.node (.node (.node .leaf 66217 12 .leaf) 66219 16 .leaf) 66224 16 (.node .leaf 66225 7 .leaf)))) 66227 11 (.node (.node (.node (.node (.node .leaf 66249 11 .leaf) 66251 15 .leaf) 66256 16 (.node (.node .leaf 66257 6 .leaf) 66259 10 .leaf)) 66281 13 (.node (.node (.node .leaf 66283 17 .leaf) 66289 18 .leaf) 66313 12 (.node (.node .leaf 66315 16 .leaf) 66320 15 .leaf))) 66321 7 (.node (.node (.node (.node .leaf 66323 11 .leaf) 66345 13 .leaf) 66347 17 (.node (.node .leaf 66352 17 .leaf) 66353 8 .leaf)) 66355 12 (.node (.node (.node .leaf 66377 12 .leaf) 66379 16 .leaf) 66384 15 (.node .leaf 66385 7 .leaf)))))) 66387 11 (.node (.node (.node (.node (.node (.node (.node .leaf 66409 14 .leaf) 66411 18 .leaf) 66441 13 (.node (.node .leaf 66443 17 .leaf) 66448 14 .leaf)) 66449 8 (.node (.node (.node .leaf 66451 12 .leaf) 66473 14 .leaf) 66475 18 (.node (.node .leaf 66480 17 .leaf) 66481 9 .leaf))) 66483 13 (.node (.node (.node (.node .leaf 66505 13 .leaf) 66507 17 .leaf) 66512 14 (.node (.node .leaf 66513 8 .leaf) 66514 18 .leaf)) 66515 12 (.node (.node (.node .leaf 66537 15 .leaf) 66568 18 .leaf) 66569 14 (.node (.node .leaf 66571 18 .leaf) 66576 13 .leaf)))) 66577 9 (.node (.node (.node (.node (.node .leaf 66579 13 .leaf) 66601 15 .leaf) 66608 16 (.node (.node .leaf 66609 10 .leaf) 66611 14 .leaf)) 66632 18 (.node (.node (.node .leaf 66633 14 .leaf) 66635 18 .leaf) 66640 13 (.node (.node .leaf 66641 9 .leaf) 66643 13 .leaf))) 66665 16 (.node (.node (.node (.node .leaf 66696 17 .leaf) 66697 15 .leaf) 66704 12 (.node (.node .leaf 66705 10 .leaf) 66707 14 .leaf)) 66729 16 (.node (.node (.node .leaf 66736 15 .leaf) 66737 11 .leaf) 66739 15 (.node .leaf 66760 18 .leaf))))) 66761 15 (.node (.node (.node (.node (.node (.node .leaf 66768 13 .leaf) 66769 10 .leaf) 66771 14 (.node (.node .leaf 66793 17 .leaf) 66824 18 .leaf)) 66825 16 (.node (.node (.node .leaf 66832 13 .leaf) 66833 11 .leaf) 66835 15 (.node (.node .leaf 66857 16 .leaf) 66864 14 .leaf))) 66865 11 (.node (.node (.node (.node .leaf 66867 15 .leaf) 66889 17 .leaf) 66921 17 (.node (.node .leaf 68264 11 .leaf) 68265 2 .leaf)) 68267 6 (.node (.node (.node .leaf 68272 6 .leaf) 68273 6 .leaf) 68275 10 (.node .leaf 68297 12 .leaf)))) 68299 16 (.node (.node (.node (.node (.node .leaf 68304 17 .leaf) 68305 7 .leaf) 68307 11 (.node (.node .leaf 68329 1 .leaf) 68331 5 .leaf)) 68336 15 (.node (.node (.node .leaf 68337 6 .leaf) 68339 10 .leaf) 68361 13 (.node (.node .leaf 68363 17 .leaf) 68368 16 .leaf))) 68369 8 (.node (.node (.node (.node .leaf 68371 12 .leaf) 68392 10 .leaf) 68393 2 (.node (.node .leaf 68394 16 .leaf) 68395 6 .leaf)) 68400 5 (.node (.node (.node .leaf 68401 7 .leaf) 68403 11 .leaf) 68425 13 (.node .leaf 68427 17 .leaf))))))) 68432 16 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 68433 8 .leaf) 68435 12 .leaf) 68456 10 (.node (.node .leaf 68457 3 .leaf) 68458 15 .leaf)) 68459 7 (.node (.node (.node .leaf 68464 14 .leaf) 68465 7 .leaf) 68466 18 (.node (.node .leaf 68467 11 .leaf) 68489 14 .leaf))) 68491 18 (.node (.node (.node (.node .leaf 68496 15 .leaf) 68497 9 .leaf) 68499 13 (.node (.node .leaf 68520 9 .leaf) 68521 4 .leaf)) 68522 14 (.node (.node (.node .leaf 68523 8 .leaf) 68528 4 .leaf) 68529 8 (.node (.node .leaf 68530 18 .leaf) 68531 12 .leaf)))) 68553 14 (.node (.node (.node (.node (.node .leaf 68555 18 .leaf) 68560 15 .leaf) 68561 9 (.node (.node .leaf 68563 13 .leaf) 68584 9 .leaf)) 68585 5 (.node (.node (.node .leaf 68586 13 .leaf) 68587 9 .leaf) 68592 13 (.node (.node .leaf 68593 8 .leaf) 68594 17 .leaf))) 68595 12 (.node (.node (.node (.node .leaf 68617 15 .leaf) 68624 14 .leaf) 68625 10 (.node (.node .leaf 68627 14 .leaf) 68648 8 .leaf)) 68649 6 (.node (.node (.node .leaf 68650 14 .leaf) 68651 10 .leaf) 68656 3 (.node .leaf 68657 9 .leaf))))) 68659 13 (.node (.node (.node (.node (.node (.node .leaf 68681 15 .leaf) 68688 14 .leaf) 68689 10 (.node (.node .leaf 68691 14 .leaf) 68712 8 .leaf)) 68713 7 (.node (.node (.node .leaf 68714 15 .leaf) 68715 11 .leaf) 68720 12 (.node (.node .leaf 68721 9 .leaf) 68722 18 .leaf))) 68723 13 (.node (.node (.node (.node .leaf 68744 18 .leaf) 68745 16 .leaf) 68752 13 (.node (.node .leaf 68753 11 .leaf) 68755 15 .leaf)) 68776 7 (.node (.node (.node .leaf 68777 8 .leaf) 68778 16 .leaf) 68779 12 (.node .leaf 68784 2 .leaf)))) 68785 10 (.node (.node (.node (.node (.node .leaf 68787 14 .leaf) 68809 16 .leaf) 68816 14 (.node (.node .leaf 68817 11 .leaf) 68819 15 .leaf)) 68840 8 (.node (.node (.node .leaf 68841 9 .leaf) 68842 17 .leaf) 68843 13 (.node (.node .leaf 68848 13 .leaf) 68849 10 .leaf))) 68851 14 (.node (.node (.node (.node .leaf 68873 17 .leaf) 68880 14 .leaf) 68881 12 (.node (.node .leaf 68883 16 .leaf) 68904 8 .leaf)) 68905 10 (.node (.node (.node .leaf 68906 18 .leaf) 68907 14 .leaf) 68912 3 (.node .leaf 68913 11 .leaf)))))) 68915 15 (.node (.node (.node (.node (.node (.node (.node .leaf 68937 18 .leaf) 68968 9 .leaf) 68969 11 (.node (.node .leaf 68971 15 .leaf) 70313 13 .leaf)) 70315 17 (.node (.node (.node .leaf 70345 12 .leaf) 70347 16 .leaf) 70377 14 (.node (.node .leaf 70379 18 .leaf) 70409 13 .leaf))) 70411 17 (.node (.node (.node (.node .leaf 70441 14 .leaf) 70443 18 .leaf) 70473 13 (.node (.node .leaf 70475 17 .leaf) 70505 15 .leaf)) 70537 14 (.node (.node (.node .leaf 70539 18 .leaf) 70569 15 .leaf) 70601 14 (.node (.node .leaf 70603 18 .leaf) 70633 16 .leaf)))) 70665 15 (.node (.node (.node (.node (.node .leaf 70697 16 .leaf) 70729 15 .leaf) 70761 17 (.node (.node .leaf 70792 18 .leaf) 70793 16 .leaf)) 70825 17 (.node (.node (.node .leaf 70857 16 .leaf) 70889 18 .leaf) 70921 17 (.node (.node .leaf 70953 17 .leaf) 70985 18 .leaf))) 71017 18 (.node (.node (.node (.node .leaf 72360 12 .leaf) 72361 3 .leaf) 72363 6 (.node (.node .leaf 72393 13 .leaf) 72395 17 .leaf)) 72425 2 (.node (.node (.node .leaf 72427 5 .leaf) 72457 14 .leaf) 72459 18 (.node .leaf 72488 11 .leaf))))) 72489 3 (.node (.node (.node (.node (.node (.node .leaf 72490 17 .leaf) 72491 6 .leaf) 72521 14 (.node (.node .leaf 72523 18 .leaf) 72552 11 .leaf)) 72553 4 (.node (.node (.node .leaf 72554 16 .leaf) 72555 7 .leaf) 72585 15 (.node (.node .leaf 72616 10 .leaf) 72617 5 .leaf))) 72618 15 (.node (.node (.node (.node .leaf 72619 8 .leaf) 72649 15 .leaf) 72680 10 (.node (.node .leaf 72681 6 .leaf) 72682 14 .leaf)) 72683 9 (.node (.node (.node .leaf 72713 16 .leaf) 72744 9 .leaf) 72745 7 (.node .leaf 72746 15 .leaf)))) 72747 10 (.node (.node (.node (.node (.node .leaf 72777 16 .leaf) 72808 9 .leaf) 72809 8 (.node (.node .leaf 72810 16 .leaf) 72811 11 .leaf)) 72841 17 (.node (.node (.node .leaf 72872 8 .leaf) 72873 9 .leaf) 72874 17 (.node (.node .leaf 72875 12 .leaf) 72905 17 .leaf))) 72936 9 (.node (.node (.node (.node .leaf 72937 10 .leaf) 72938 18 .leaf) 72939 13 (.node (.node .leaf 72969 18 .leaf) 73000 9 .leaf)) 73001 11 (.node (.node (.node .leaf 73003 14 .leaf) 73064 10 .leaf) 73065 12 (.node .leaf 73067 15 .leaf))))))))))
+
+def gk (k : Nat) : Option Nat := tree.find k
+
+def inB (t : P) : Bool := decide (t.r < 64) && decide (t.c < 64) && decide (t.n < 8)
+
+def ok (p : P) (g : Nat) (a : Act) : Bool :=
+  match absStep p a with
+  | .win => decide (18 < g + 1)
+  | .to t .norm => decide (18 < g + cost a) ||
+      (inB t && match gk (key t) with
+                | some v => decide (v ≤ g + cost a)
+                | none => false)
+  | .to t .refill => decide (18 < g + 1) ||
+      (inB t && match gk (key t) with
+                | some v => decide (v ≤ min (g + 1 - 10) 5)
+                | none => false)
+
+def allActs : List Act :=
+  [.mv .U, .mv .D, .mv .L, .mv .R, .F 0, .F 1, .F 2, .F 3, .F 4, .M6]
+
+def checkAll : Bool := tree.toList.all fun e => allActs.all (ok (decode e.1) e.2)
+
+theorem checkAll_true : checkAll = true := by decide +kernel
+
+/-- every state in the table passes the transition check. -/
+theorem gk_ok (k v : Nat) (h : gk k = some v) : allActs.all (ok (decode k) v) = true := by
+  have hc := checkAll_true
+  simp only [checkAll, List.all_eq_true] at hc
+  rw [List.all_eq_true]
+  exact hc (k, v) (T.find_mem tree k v h)
+
+end L4.V3
+
+namespace L4.V3
+open L4 (Dir shift inSlot box)
+
+theorem ok_all (p : P) (g : Nat) (h : allActs.all (ok p g) = true) (a : Act) : ok p g a = true := by
+  rw [List.all_eq_true] at h
+  cases a with
+  | mv d => cases d <;> exact h _ (by simp [allActs])
+  | M6 => exact h _ (by simp [allActs])
+  | F i =>
+    rcases i with _ | _ | _ | _ | i
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · have h4 := h (.F 4) (by simp [allActs])
+      have e : ok p g (.F (i + 4)) = ok p g (.F 4) := rfl
+      rw [e]; exact h4
+
+theorem decode_key (p : P) (h1 : p.r < 64) (h2 : p.c < 64) (h3 : p.n < 8) :
+    decode (key p) = p := by
+  obtain ⟨r, c, n, op, rf⟩ := p
+  simp only at h1 h2 h3
+  cases op <;> cases rf <;> simp [key, decode] <;> omega
+
+def J (B : Nat) (s : St) : Prop :=
+  s.won = false ∧ s.k ≤ B ∧ s.p.r < 64 ∧ s.p.c < 64 ∧ s.p.n < 8 ∧
+  ∃ v, gk (key s.p) = some v ∧ v ≤ s.k
+
+theorem cost_pos (a : Act) : 1 ≤ cost a := by cases a <;> simp [cost]
+
+theorem pres (B : Nat) (hB : B ≤ 18) (s : St) (a : Act) (h : J B s) : J B (step B s a) := by
+  obtain ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩ := h
+  unfold step
+  by_cases hg : s.won = false ∧ s.k + cost a ≤ B
+  · rw [if_pos hg]
+    have hc := gk_ok (key s.p) v hv
+    rw [decode_key s.p h1 h2 h3] at hc
+    have hok := ok_all _ _ hc a
+    have cp := cost_pos a
+    unfold ok at hok
+    split at hok
+    · rename_i hres
+      simp at hok; omega
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+  · rw [if_neg hg]; exact ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩
+
+theorem run_J (B : Nat) (hB : B ≤ 18) (as : List Act) : ∀ s, J B s → J B (run B s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (pres B hB s a h)
+
+theorem start_in : gk (key startP) = some 0 := by decide +kernel
+
+theorem J_start (B : Nat) : J B start :=
+  ⟨rfl, Nat.zero_le _, by decide, by decide, by decide, 0, start_in, Nat.le_refl _⟩
+
+/-- MAIN (attempt 3): with any budget B ≤ 18 units, no action sequence wins level 4 in the V3
+    model (refill, grow with any of 5 anchors, trigger at c = 31 regardless of facing). -/
+theorem never_wins (B : Nat) (hB : B ≤ 18) (as : List Act) : (run B start as).won = false :=
+  (run_J B hB as start (J_start B)).1
+
+/-- Non-vacuity: one more unit (B = 19) and the same model has a winning route. -/
+def route19 : List Act :=
+  [.mv .D, .mv .D, .mv .L, .mv .L, .mv .L, .F 0, .mv .L, .mv .U, .F 3, .mv .R, .mv .R, .M6,
+   .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R]
+
+theorem route19_wins : (run 19 start route19).won = true := by decide +kernel
+theorem route19_at18 : (run 18 start route19).won = false := by decide +kernel
+
+end L4.V3
+
+/-! # Amendment (attempt 4) — `L4.V4`
+
+What attempt 4 changed against `L4.V3` (everything else is reused: floor maps, `L4.V2.floorC`,
+`fpAll`, `fpAny`, the macro costs, the anchor list `L4.V3.anch`):
+* rule REFILL revised. V3 said "only a 2x2 refills"; attempt 4 refuted it (a 4x4 at (33,23)
+  facing D refilled). New measured rule: the refill fires when the marker lies under BOTH the
+  9 half and the 10 half of the block. In the model it fires if that holds at ANY position
+  of the slide, the start cell re-faced included (looser than end-position only).
+* refill amount measured: k := k + 1 - 10 (bar 12 → 44, i.e. k 15 → 16 → 6). The V3 reading
+  "k := 5" is refuted and dropped.
+* the facing slot `face` comes back: the refill rule reads it.
+* rule MATCHF (grow): when the bottom-right-kept 4x4 fits, the grow keeps the bottom-right corner
+  (observed both times it was tried). Only when that is blocked may it use any of the 5 anchors
+  (unobserved, so left loose).
+* rule MATCH6: trigger c = 31, any size, any facing (attempt 4: a 4x4 at (29,31) facing U in the room
+  opened it, so the shaft is not needed; facing is still left loose).
+* rule BUDGET: attempt 4 showed a winning push made at k = 18 gives GAME_OVER, not a win. So the
+  model's `step` (act only if k + cost ≤ 18) is exact on this point.
+* NOT IN MODEL: anything unobserved — a second marker, size 1, ACTION5/7.
+-/
+namespace L4.V4
+open L4 (Dir shift inSlot box)
+
+structure P where
+  r : Nat
+  c : Nat
+  n : Nat
+  face : Dir
+  op : Bool
+  rf : Bool
+  deriving DecidableEq, Repr
+
+def inFp (r c n y x : Nat) : Bool := Nat.ble r y && Nat.blt y (r + n) && Nat.ble c x && Nat.blt x (c + n)
+
+/-- (y,x) lies in the 9 half (the half on the facing side). -/
+def inNine (r c n : Nat) (d : Dir) (y x : Nat) : Bool :=
+  inFp r c n y x &&
+  match d with
+  | .U => Nat.blt y (r + n / 2)
+  | .D => Nat.ble (r + n - n / 2) y
+  | .L => Nat.blt x (c + n / 2)
+  | .R => Nat.ble (c + n - n / 2) x
+
+def markerCells : List (Nat × Nat) := [(34, 23), (34, 24), (35, 23), (35, 24)]
+
+def straddle (r c n : Nat) (d : Dir) : Bool :=
+  markerCells.any (fun q => inNine r c n d q.1 q.2) &&
+  markerCells.any (fun q => inFp r c n q.1 q.2 && !inNine r c n d q.1 q.2)
+
+def slideT (op : Bool) (n : Nat) (d : Dir) (p : Nat × Nat) : Nat → Nat → Bool → Nat × Bool
+  | 0, k, t => (k, t)
+  | m + 1, k, t =>
+    let q := shift d (k + 1) p
+    if L4.V2.fpAll (L4.V2.floorC op) n q.1 q.2 then
+      slideT op n d p m (k + 1) (t || straddle q.1 q.2 n d)
+    else (k, t)
+
+inductive Kind | norm | refill
+
+inductive Res | win | to (t : P) (kd : Kind)
+
+inductive Act | mv (d : Dir) | F (i : Nat) | M6
+
+def cost : Act → Nat
+  | .mv _ => 1
+  | .F _ => 5
+  | .M6 => 4
+
+def fits (op : Bool) (r c ay ax : Nat) : Bool :=
+  Nat.ble ay r && Nat.ble ax c && L4.V2.fpAll (L4.V2.floorC op) 4 (r - ay) (c - ax)
+
+def absStep (p : P) : Act → Res
+  | .mv d =>
+    let q := shift d p.n (p.r, p.c)
+    if L4.V2.fpAny inSlot p.n q.1 q.2 then .win else
+    let st := slideT p.op p.n d (p.r, p.c) p.n 0 (straddle p.r p.c p.n d)
+    let t := shift d st.1 (p.r, p.c)
+    if !p.rf && st.2 then .to ⟨t.1, t.2, p.n, d, p.op, true⟩ .refill
+    else .to ⟨t.1, t.2, p.n, d, p.op, p.rf⟩ .norm
+  | .F i =>
+    if p.n == 4 then .to { p with n := 2 } .norm else
+    if fits p.op p.r p.c 2 2 then .to { p with r := p.r - 2, c := p.c - 2, n := 4 } .norm else
+    let a := L4.V3.anch i
+    if fits p.op p.r p.c a.1 a.2
+    then .to { p with r := p.r - a.1, c := p.c - a.2, n := 4 } .norm else .to p .norm
+  | .M6 => .to { p with op := p.op || p.c == 31 } .norm
+
+structure St where
+  p : P
+  k : Nat
+  won : Bool
+
+def step (B : Nat) (s : St) (a : Act) : St :=
+  if s.won = false ∧ s.k + cost a ≤ B then
+    match absStep s.p a with
+    | .win => ⟨s.p, s.k, true⟩
+    | .to t .norm => ⟨t, s.k + cost a, false⟩
+    | .to t .refill => ⟨t, s.k + 1 - 10, false⟩
+  else s
+
+def run (B : Nat) (s : St) (as : List Act) : St := as.foldl (step B) s
+
+def startP : P := ⟨25, 37, 4, .D, false, false⟩
+def start : St := ⟨startP, 0, false⟩
+
+def fi : Dir → Nat
+  | .U => 0 | .D => 1 | .L => 2 | .R => 3
+
+def toDir (i : Nat) : Dir := if i = 0 then .U else if i = 1 then .D else if i = 2 then .L else .R
+
+def key (p : P) : Nat :=
+  ((p.r * 64 + p.c) * 8 + p.n) * 16 + fi p.face * 4 + (if p.op then 2 else 0) + (if p.rf then 1 else 0)
+
+def decode (k : Nat) : P :=
+  ⟨k / 8192, k / 128 % 64, k / 16 % 8, toDir (k / 4 % 4), k / 2 % 2 == 1, k % 2 == 1⟩
+
+/-- binary search tree of (key, least spent budget); generated by work/table6.py + work/gen_v4.py -/
+inductive T | leaf | node (l : T) (k v : Nat) (r : T)
+
+def T.find : T → Nat → Option Nat
+  | .leaf, _ => none
+  | .node l k v r, x => if x < k then l.find x else if x = k then some v else r.find x
+
+def T.toList : T → List (Nat × Nat)
+  | .leaf => []
+  | .node l k v r => l.toList ++ (k, v) :: r.toList
+
+theorem T.find_mem : ∀ (t : T) (x v : Nat), t.find x = some v → (x, v) ∈ t.toList
+  | .leaf, x, v, h => by simp [T.find] at h
+  | .node l k w r, x, v, h => by
+    simp only [T.find] at h
+    simp only [T.toList, List.mem_append, List.mem_cons]
+    split at h
+    · exact Or.inl (T.find_mem l x v h)
+    · split at h
+      · rename_i hx
+        simp only [Option.some.injEq] at h
+        subst hx; subst h
+        exact Or.inr (Or.inl rfl)
+      · exact Or.inr (Or.inr (T.find_mem r x v h))
+
+set_option maxRecDepth 100000 in
+def tree : T :=
+  (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 77728 14 .leaf) 77729 17 .leaf) 77730 18 (.node .leaf 77736 15 .leaf)) 77737 18 (.node (.node (.node .leaf 77740 15 .leaf) 77741 18 .leaf) 94112 13 (.node .leaf 94113 16 .leaf))) 94114 17 (.node (.node (.node (.node .leaf 94116 15 .leaf) 94117 18 .leaf) 94120 14 (.node .leaf 94121 17 .leaf)) 94122 18 (.node (.node .leaf 94124 14 .leaf) 94125 17 (.node .leaf 94126 18 .leaf)))) 110496 12 (.node (.node (.node (.node (.node .leaf 110497 15 .leaf) 110498 16 .leaf) 110500 14 (.node .leaf 110501 17 .leaf)) 110502 18 (.node (.node .leaf 110504 13 .leaf) 110505 16 (.node .leaf 110506 17 .leaf))) 110508 13 (.node (.node (.node (.node .leaf 110509 16 .leaf) 110510 17 .leaf) 126880 11 (.node .leaf 126881 14 .leaf)) 126882 15 (.node (.node .leaf 126883 18 .leaf) 126884 13 (.node .leaf 126885 16 .leaf))))) 126886 17 (.node (.node (.node (.node (.node (.node .leaf 126888 12 .leaf) 126889 15 .leaf) 126890 16 (.node .leaf 126892 12 .leaf)) 126893 15 (.node (.node .leaf 126894 16 .leaf) 143264 10 (.node .leaf 143265 13 .leaf))) 143266 14 (.node (.node (.node (.node .leaf 143267 17 .leaf) 143268 12 .leaf) 143269 15 (.node .leaf 143270 16 .leaf)) 143272 11 (.node (.node .leaf 143273 14 .leaf) 143274 15 (.node .leaf 143275 18 .leaf)))) 143276 11 (.node (.node (.node (.node (.node .leaf 143277 14 .leaf) 143278 15 .leaf) 143279 18 (.node .leaf 159648 9 .leaf)) 159649 12 (.node (.node .leaf 159650 13 .leaf) 159651 16 (.node .leaf 159652 11 .leaf))) 159653 14 (.node (.node (.node (.node .leaf 159654 15 .leaf) 159655 18 .leaf) 159656 10 (.node .leaf 159657 13 .leaf)) 159658 14 (.node (.node .leaf 159659 17 .leaf) 159660 10 (.node .leaf 159661 13 .leaf)))))) 159662 14 (.node (.node (.node (.node (.node (.node (.node .leaf 159663 17 .leaf) 174752 10 .leaf) 174753 8 (.node .leaf 174754 18 .leaf)) 174755 14 (.node (.node .leaf 174757 18 .leaf) 174760 10 (.node .leaf 174761 8 .leaf))) 174762 17 (.node (.node (.node (.node .leaf 174763 14 .leaf) 174765 18 .leaf) 174784 5 (.node .leaf 174785 3 .leaf)) 174787 15 (.node (.node .leaf 174788 16 .leaf) 174789 13 (.node .leaf 174792 5 .leaf)))) 174793 4 (.node (.node (.node (.node (.node .leaf 174795 16 .leaf) 174796 16 .leaf) 174797 13 (.node .leaf 175008 11 .leaf)) 175009 7 (.node (.node .leaf 175010 17 .leaf) 175011 13 (.node .leaf 175016 10 .leaf))) 175017 9 (.node (.node (.node (.node .leaf 175018 16 .leaf) 175019 15 .leaf) 175020 11 (.node .leaf 175021 9 .leaf)) 175022 18 (.node (.node .leaf 175023 15 .leaf) 175040 14 (.node .leaf 175041 9 .leaf))))) 175042 18 (.node (.node (.node (.node (.node (.node .leaf 175043 16 .leaf) 175044 15 .leaf) 175045 14 (.node .leaf 175048 14 .leaf)) 175049 11 (.node (.node .leaf 175050 18 .leaf) 175051 17 (.node .leaf 175052 16 .leaf))) 175053 12 (.node (.node (.node (.node .leaf 175055 18 .leaf) 175264 9 .leaf) 175265 8 (.node .leaf 175266 16 .leaf)) 175267 14 (.node (.node .leaf 175272 9 .leaf) 175273 10 (.node .leaf 175274 15 .leaf)))) 175275 16 (.node (.node (.node (.node (.node .leaf 175276 11 .leaf) 175277 8 .leaf) 175278 17 (.node .leaf 175279 14 .leaf)) 175296 4 (.node (.node .leaf 175297 4 .leaf) 175298 18 (.node .leaf 175299 16 .leaf))) 175300 15 (.node (.node (.node (.node .leaf 175301 15 .leaf) 175304 4 .leaf) 175305 6 (.node .leaf 175306 18 .leaf)) 175307 18 (.node (.node .leaf 175308 6 .leaf) 175309 4 (.node .leaf 175311 16 .leaf))))))) 175520 10 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 175521 9 .leaf) 175522 15 .leaf) 175523 15 (.node .leaf 175528 9 .leaf)) 175529 11 (.node (.node .leaf 175530 14 .leaf) 175531 17 (.node .leaf 175532 10 .leaf))) 175533 9 (.node (.node (.node (.node .leaf 175534 16 .leaf) 175535 15 .leaf) 175552 13 (.node .leaf 175553 10 .leaf)) 175554 17 (.node (.node .leaf 175555 16 .leaf) 175556 14 (.node .leaf 175557 16 .leaf)))) 175560 13 (.node (.node (.node (.node (.node .leaf 175561 12 .leaf) 175562 17 .leaf) 175563 16 (.node .leaf 175564 15 .leaf)) 175565 10 (.node (.node .leaf 175567 17 .leaf) 175776 8 (.node .leaf 175777 10 .leaf))) 175778 14 (.node (.node (.node (.node .leaf 175779 16 .leaf) 175784 8 .leaf) 175785 12 (.node .leaf 175786 13 .leaf)) 175787 16 (.node (.node .leaf 175788 10 .leaf) 175789 10 (.node .leaf 175790 15 .leaf))))) 175791 16 (.node (.node (.node (.node (.node (.node .leaf 175808 3 .leaf) 175809 5 .leaf) 175810 17 (.node .leaf 175811 17 .leaf)) 175812 14 (.node (.node .leaf 175813 17 .leaf) 175814 18 (.node .leaf 175816 3 .leaf))) 175817 7 (.node (.node (.node (.node .leaf 175818 17 .leaf) 175820 5 .leaf) 175821 5 (.node .leaf 175822 18 .leaf)) 175823 17 (.node (.node .leaf 176032 9 .leaf) 176033 11 (.node .leaf 176034 13 .leaf)))) 176035 15 (.node (.node (.node (.node (.node .leaf 176036 10 .leaf) 176037 13 .leaf) 176038 14 (.node .leaf 176039 17 .leaf)) 176040 8 (.node (.node .leaf 176041 12 .leaf) 176042 12 (.node .leaf 176043 16 .leaf))) 176044 9 (.node (.node (.node (.node .leaf 176045 11 .leaf) 176046 13 .leaf) 176047 15 (.node .leaf 176064 12 .leaf)) 176065 11 (.node (.node .leaf 176066 16 .leaf) 176067 15 (.node .leaf 176068 13 .leaf)))))) 176069 17 (.node (.node (.node (.node (.node (.node (.node .leaf 176070 17 .leaf) 176072 12 .leaf) 176073 13 (.node .leaf 176074 16 .leaf)) 176075 17 (.node (.node .leaf 176076 14 .leaf) 176077 11 (.node .leaf 176078 18 .leaf))) 176079 15 (.node (.node (.node (.node .leaf 176288 7 .leaf) 176289 11 .leaf) 176290 14 (.node .leaf 176291 16 .leaf)) 176292 18 (.node (.node .leaf 176296 7 .leaf) 176297 13 (.node .leaf 176298 15 .leaf)))) 176299 18 (.node (.node (.node (.node (.node .leaf 176300 9 .leaf) 176301 11 .leaf) 176302 13 (.node .leaf 176303 16 .leaf)) 176320 2 (.node (.node .leaf 176321 6 .leaf) 176322 18 (.node .leaf 176323 18 .leaf))) 176324 13 (.node (.node (.node (.node .leaf 176325 18 .leaf) 176328 2 .leaf) 176329 8 (.node .leaf 176332 4 .leaf)) 176333 6 (.node (.node .leaf 176334 18 .leaf) 176335 18 (.node .leaf 176544 8 .leaf))))) 176545 13 (.node (.node (.node (.node (.node (.node .leaf 176546 15 .leaf) 176547 17 .leaf) 176548 17 (.node .leaf 176552 7 .leaf)) 176553 13 (.node (.node .leaf 176554 16 .leaf) 176556 8 (.node .leaf 176557 12 .leaf))) 176558 14 (.node (.node (.node (.node .leaf 176559 17 .leaf) 176576 11 .leaf) 176577 12 (.node .leaf 176578 17 .leaf)) 176579 16 (.node (.node .leaf 176580 12 .leaf) 176581 18 (.node .leaf 176584 12 .leaf)))) 176585 14 (.node (.node (.node (.node (.node .leaf 176587 18 .leaf) 176588 13 .leaf) 176589 12 (.node .leaf 176590 17 .leaf)) 176591 16 (.node (.node .leaf 176800 6 .leaf) 176801 12 (.node .leaf 176802 16 .leaf))) 176803 18 (.node (.node (.node (.node .leaf 176804 18 .leaf) 176808 8 .leaf) 176809 14 (.node .leaf 176810 17 .leaf)) 176812 8 (.node (.node .leaf 176813 12 .leaf) 176814 15 (.node .leaf 176815 18 .leaf)))))))) 176832 1 (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 176833 7 .leaf) 176836 13 .leaf) 176840 3 (.node .leaf 176841 9 .leaf)) 176844 3 (.node (.node .leaf 176845 7 .leaf) 177056 8 (.node .leaf 177057 14 .leaf))) 177058 17 (.node (.node (.node (.node .leaf 177060 18 .leaf) 177064 8 .leaf) 177065 14 (.node .leaf 177066 18 .leaf)) 177068 7 (.node (.node .leaf 177069 13 .leaf) 177070 16 (.node .leaf 177088 12 .leaf)))) 177089 13 (.node (.node (.node (.node (.node .leaf 177090 18 .leaf) 177091 17 .leaf) 177092 13 (.node .leaf 177096 13 .leaf)) 177100 12 (.node (.node .leaf 177101 13 .leaf) 177102 18 (.node .leaf 177103 17 .leaf))) 177312 7 (.node (.node (.node (.node .leaf 177313 13 .leaf) 177314 18 .leaf) 177320 9 (.node .leaf 177321 15 .leaf)) 177324 7 (.node (.node .leaf 177325 13 .leaf) 177326 17 (.node .leaf 177344 2 .leaf))))) 177345 8 (.node (.node (.node (.node (.node (.node .leaf 177347 18 .leaf) 177348 14 .leaf) 177352 14 (.node .leaf 177356 2 .leaf)) 177357 8 (.node (.node .leaf 177359 18 .leaf) 177568 9 (.node .leaf 177569 15 .leaf))) 177580 8 (.node (.node (.node (.node .leaf 177581 14 .leaf) 177582 18 .leaf) 191136 10 (.node .leaf 191137 7 .leaf)) 191138 17 (.node (.node .leaf 191139 13 .leaf) 191140 11 (.node .leaf 191141 9 .leaf)))) 191142 18 (.node (.node (.node (.node (.node .leaf 191143 15 .leaf) 191144 11 .leaf) 191145 7 (.node .leaf 191146 17 .leaf)) 191147 13 (.node (.node .leaf 191149 17 .leaf) 191168 15 (.node .leaf 191169 8 .leaf))) 191171 14 (.node (.node (.node (.node .leaf 191172 16 .leaf) 191173 12 .leaf) 191175 18 (.node .leaf 191176 14 .leaf)) 191177 9 (.node (.node .leaf 191178 18 .leaf) 191179 15 (.node .leaf 191180 15 .leaf)))))) 191181 12 (.node (.node (.node (.node (.node (.node (.node .leaf 191183 18 .leaf) 191392 10 .leaf) 191393 6 (.node .leaf 191394 16 .leaf)) 191395 12 (.node (.node .leaf 191396 11 .leaf) 191397 8 (.node .leaf 191398 17 .leaf))) 191399 14 (.node (.node (.node (.node .leaf 191400 10 .leaf) 191401 8 .leaf) 191402 16 (.node .leaf 191403 14 .leaf)) 191404 11 (.node (.node .leaf 191405 8 .leaf) 191406 18 (.node .leaf 191407 14 .leaf)))) 191424 15 (.node (.node (.node (.node (.node .leaf 191425 9 .leaf) 191427 15 .leaf) 191428 15 (.node .leaf 191429 13 .leaf)) 191432 13 (.node (.node .leaf 191433 11 .leaf) 191434 17 (.node .leaf 191435 17 .leaf))) 191436 15 (.node (.node (.node (.node .leaf 191437 11 .leaf) 191439 17 .leaf) 191648 9 (.node .leaf 191649 7 .leaf)) 191650 15 (.node (.node .leaf 191651 13 .leaf) 191652 10 (.node .leaf 191653 9 .leaf))))) 191654 16 (.node (.node (.node (.node (.node (.node .leaf 191655 15 .leaf) 191656 10 .leaf) 191657 9 (.node .leaf 191658 15 .leaf)) 191659 15 (.node (.node .leaf 191660 11 .leaf) 191661 7 (.node .leaf 191662 17 .leaf))) 191663 13 (.node (.node (.node (.node .leaf 191680 15 .leaf) 191681 9 .leaf) 191683 15 (.node .leaf 191684 15 .leaf)) 191685 14 (.node (.node .leaf 191688 13 .leaf) 191689 11 (.node .leaf 191690 17 .leaf)))) 191691 17 (.node (.node (.node (.node (.node .leaf 191692 14 .leaf) 191693 9 .leaf) 191695 15 (.node .leaf 191904 9 .leaf)) 191905 8 (.node (.node .leaf 191906 14 .leaf) 191907 14 (.node .leaf 191908 10 .leaf))) 191909 10 (.node (.node (.node (.node .leaf 191910 15 .leaf) 191911 16 .leaf) 191912 9 (.node .leaf 191913 10 .leaf)) 191914 14 (.node (.node .leaf 191915 16 .leaf) 191916 10 (.node .leaf 191917 8 .leaf))))))) 191918 16 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 191919 14 .leaf) 191936 14 .leaf) 191937 10 (.node .leaf 191938 18 .leaf)) 191939 16 (.node (.node .leaf 191940 14 .leaf) 191941 15 (.node .leaf 191944 12 .leaf))) 191945 12 (.node (.node (.node (.node .leaf 191946 16 .leaf) 191947 16 .leaf) 191948 14 (.node .leaf 191949 10 .leaf)) 191950 18 (.node (.node .leaf 191951 16 .leaf) 192160 8 (.node .leaf 192161 9 .leaf)))) 192162 13 (.node (.node (.node (.node (.node .leaf 192163 15 .leaf) 192164 9 .leaf) 192165 11 (.node .leaf 192166 14 .leaf)) 192167 17 (.node (.node .leaf 192168 9 .leaf) 192169 11 (.node .leaf 192170 13 .leaf))) 192171 15 (.node (.node (.node (.node .leaf 192172 10 .leaf) 192173 9 .leaf) 192174 15 (.node .leaf 192175 15 .leaf)) 192192 14 (.node (.node .leaf 192193 10 .leaf) 192194 18 (.node .leaf 192195 16 .leaf))))) 192196 14 (.node (.node (.node (.node (.node (.node .leaf 192197 16 .leaf) 192198 18 .leaf) 192200 12 (.node .leaf 192201 12 .leaf)) 192202 16 (.node (.node .leaf 192203 18 .leaf) 192204 13 (.node .leaf 192205 10 .leaf))) 192206 17 (.node (.node (.node (.node .leaf 192207 16 .leaf) 192416 8 .leaf) 192417 10 (.node .leaf 192418 12 .leaf)) 192419 14 (.node (.node .leaf 192420 9 .leaf) 192421 12 (.node .leaf 192422 13 .leaf)))) 192423 16 (.node (.node (.node (.node (.node .leaf 192424 8 .leaf) 192425 12 .leaf) 192426 12 (.node .leaf 192427 16 .leaf)) 192428 9 (.node (.node .leaf 192429 10 .leaf) 192430 13 (.node .leaf 192431 14 .leaf))) 192448 13 (.node (.node (.node (.node .leaf 192449 11 .leaf) 192450 17 .leaf) 192451 15 (.node .leaf 192452 13 .leaf)) 192453 17 (.node (.node .leaf 192454 17 .leaf) 192456 11 (.node .leaf 192457 13 .leaf)))))) 192458 15 (.node (.node (.node (.node (.node (.node (.node .leaf 192459 17 .leaf) 192460 13 .leaf) 192461 11 (.node .leaf 192462 17 .leaf)) 192463 15 (.node (.node .leaf 192672 7 .leaf) 192673 11 (.node .leaf 192674 13 .leaf))) 192675 15 (.node (.node (.node (.node .leaf 192676 8 .leaf) 192677 12 .leaf) 192678 14 (.node .leaf 192679 17 .leaf)) 192680 8 (.node (.node .leaf 192681 13 .leaf) 192682 15 (.node .leaf 192683 17 .leaf)))) 192684 9 (.node (.node (.node (.node (.node .leaf 192685 11 .leaf) 192686 13 .leaf) 192687 15 (.node .leaf 192704 13 .leaf)) 192705 11 (.node (.node .leaf 192707 17 .leaf) 192708 13 (.node .leaf 192709 18 .leaf))) 192712 11 (.node (.node (.node (.node .leaf 192713 13 .leaf) 192716 12 .leaf) 192717 11 (.node .leaf 192718 17 .leaf)) 192719 17 (.node (.node .leaf 192928 7 .leaf) 192929 12 (.node .leaf 192930 14 .leaf))))) 192931 16 (.node (.node (.node (.node (.node (.node .leaf 192932 8 .leaf) 192933 13 .leaf) 192934 15 (.node .leaf 192935 18 .leaf)) 192936 7 (.node (.node .leaf 192937 13 .leaf) 192938 16 (.node .leaf 192939 18 .leaf))) 192940 8 (.node (.node (.node (.node .leaf 192941 12 .leaf) 192942 14 .leaf) 192943 16 (.node .leaf 192960 12 .leaf)) 192961 12 (.node (.node .leaf 192962 18 .leaf) 192963 16 (.node .leaf 192964 10 .leaf)))) 192965 18 (.node (.node (.node (.node (.node .leaf 192968 12 .leaf) 192969 14 .leaf) 192970 18 (.node .leaf 192971 18 .leaf)) 192972 12 (.node (.node .leaf 192973 12 .leaf) 192974 16 (.node .leaf 192975 16 .leaf))) 193184 6 (.node (.node (.node (.node .leaf 193185 12 .leaf) 193186 15 .leaf) 193187 17 (.node .leaf 193188 7 .leaf)) 193189 13 (.node (.node .leaf 193190 16 .leaf) 193192 8 (.node .leaf 193193 14 .leaf))))))))) 193194 17 (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 193196 8 .leaf) 193197 13 .leaf) 193198 15 (.node .leaf 193199 17 .leaf)) 193216 13 (.node (.node .leaf 193217 12 .leaf) 193219 18 (.node .leaf 193220 13 .leaf))) 193224 12 (.node (.node (.node (.node .leaf 193225 14 .leaf) 193228 11 .leaf) 193229 12 (.node .leaf 193230 18 .leaf)) 193231 18 (.node (.node .leaf 193440 7 .leaf) 193441 13 (.node .leaf 193442 16 .leaf)))) 193443 18 (.node (.node (.node (.node (.node .leaf 193444 8 .leaf) 193445 14 .leaf) 193446 17 (.node .leaf 193448 8 .leaf)) 193449 14 (.node (.node .leaf 193450 18 .leaf) 193452 7 (.node .leaf 193453 13 .leaf))) 193454 16 (.node (.node (.node (.node .leaf 193455 18 .leaf) 193472 13 .leaf) 193473 13 (.node .leaf 193475 17 .leaf)) 193476 13 (.node (.node .leaf 193480 13 .leaf) 193484 11 (.node .leaf 193485 13 .leaf))))) 193486 17 (.node (.node (.node (.node (.node (.node .leaf 193487 17 .leaf) 193696 7 .leaf) 193697 13 (.node .leaf 193698 17 .leaf)) 193700 8 (.node (.node .leaf 193701 14 .leaf) 193702 18 (.node .leaf 193704 9 .leaf))) 193705 15 (.node (.node (.node (.node .leaf 193708 8 .leaf) 193709 14 .leaf) 193710 17 (.node .leaf 193728 14 .leaf)) 193729 13 (.node (.node .leaf 193731 18 .leaf) 193732 14 (.node .leaf 193740 12 .leaf)))) 193741 13 (.node (.node (.node (.node (.node .leaf 193742 18 .leaf) 193743 18 .leaf) 193952 8 (.node .leaf 193953 14 .leaf)) 193954 18 (.node (.node .leaf 193956 9 .leaf) 193957 15 (.node .leaf 193964 8 .leaf))) 193965 14 (.node (.node (.node (.node .leaf 193966 18 .leaf) 207520 11 .leaf) 207521 6 (.node .leaf 207522 18 .leaf)) 207523 12 (.node (.node .leaf 207524 11 .leaf) 207525 8 (.node .leaf 207526 18 .leaf)))))) 207527 14 (.node (.node (.node (.node (.node (.node (.node .leaf 207528 9 .leaf) 207529 6 .leaf) 207530 16 (.node .leaf 207531 12 .leaf)) 207533 16 (.node (.node .leaf 207552 6 .leaf) 207553 2 (.node .leaf 207555 14 .leaf))) 207556 6 (.node (.node (.node (.node .leaf 207557 4 .leaf) 207559 16 .leaf) 207560 4 (.node .leaf 207561 3 .leaf)) 207563 15 (.node (.node .leaf 207564 16 .leaf) 207565 11 (.node .leaf 207567 17 .leaf)))) 207776 11 (.node (.node (.node (.node (.node .leaf 207777 5 .leaf) 207778 17 .leaf) 207779 11 (.node .leaf 207780 11 .leaf)) 207781 7 (.node (.node .leaf 207782 17 .leaf) 207783 13 (.node .leaf 207784 9 .leaf))) 207785 7 (.node (.node (.node (.node .leaf 207786 15 .leaf) 207787 13 .leaf) 207788 10 (.node .leaf 207789 7 .leaf)) 207790 17 (.node (.node .leaf 207791 13 .leaf) 207808 15 (.node .leaf 207809 8 .leaf))))) 207811 15 (.node (.node (.node (.node (.node (.node .leaf 207812 14 .leaf) 207813 10 .leaf) 207815 17 (.node .leaf 207816 14 .leaf)) 207817 10 (.node (.node .leaf 207818 18 .leaf) 207819 16 (.node .leaf 207820 16 .leaf))) 207821 10 (.node (.node (.node (.node .leaf 207823 16 .leaf) 208032 10 .leaf) 208033 6 (.node .leaf 208034 16 .leaf)) 208035 12 (.node (.node .leaf 208036 10 .leaf) 208037 8 (.node .leaf 208038 16 .leaf)))) 208039 14 (.node (.node (.node (.node (.node .leaf 208040 8 .leaf) 208041 8 .leaf) 208042 14 (.node .leaf 208043 14 .leaf)) 208044 10 (.node (.node .leaf 208045 6 .leaf) 208046 16 (.node .leaf 208047 12 .leaf))) 208064 5 (.node (.node (.node (.node .leaf 208065 3 .leaf) 208067 15 .leaf) 208068 5 (.node .leaf 208069 5 .leaf)) 208071 17 (.node (.node .leaf 208072 3 .leaf) 208073 5 (.node .leaf 208074 18 .leaf))))))) 208075 17 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 208076 5 .leaf) 208077 3 .leaf) 208079 15 (.node .leaf 208288 10 .leaf)) 208289 7 (.node (.node .leaf 208290 15 .leaf) 208291 13 (.node .leaf 208292 10 .leaf))) 208293 9 (.node (.node (.node (.node .leaf 208294 15 .leaf) 208295 15 .leaf) 208296 8 (.node .leaf 208297 9 .leaf)) 208298 13 (.node (.node .leaf 208299 15 .leaf) 208300 9 (.node .leaf 208301 7 .leaf)))) 208302 15 (.node (.node (.node (.node (.node .leaf 208303 13 .leaf) 208320 14 .leaf) 208321 9 (.node .leaf 208323 15 .leaf)) 208324 13 (.node (.node .leaf 208325 11 .leaf) 208326 18 (.node .leaf 208327 17 .leaf))) 208328 13 (.node (.node (.node (.node .leaf 208329 11 .leaf) 208330 17 .leaf) 208331 15 (.node .leaf 208332 15 .leaf)) 208333 9 (.node (.node .leaf 208335 16 .leaf) 208544 9 (.node .leaf 208545 8 .leaf))))) 208546 14 (.node (.node (.node (.node (.node (.node .leaf 208547 14 .leaf) 208548 9 .leaf) 208549 10 (.node .leaf 208550 14 .leaf)) 208551 16 (.node (.node .leaf 208552 7 .leaf) 208553 10 (.node .leaf 208554 12 .leaf))) 208555 14 (.node (.node (.node (.node .leaf 208556 9 .leaf) 208557 8 .leaf) 208558 14 (.node .leaf 208559 14 .leaf)) 208576 4 (.node (.node .leaf 208577 4 .leaf) 208578 18 (.node .leaf 208579 16 .leaf)))) 208580 4 (.node (.node (.node (.node (.node .leaf 208581 6 .leaf) 208582 17 .leaf) 208583 18 (.node .leaf 208584 2 .leaf)) 208585 6 (.node (.node .leaf 208586 17 .leaf) 208587 18 (.node .leaf 208588 4 .leaf))) 208589 4 (.node (.node (.node (.node .leaf 208590 18 .leaf) 208591 16 .leaf) 208800 9 (.node .leaf 208801 9 .leaf)) 208802 13 (.node (.node .leaf 208803 13 .leaf) 208804 9 (.node .leaf 208805 11 .leaf)))))) 208806 13 (.node (.node (.node (.node (.node (.node (.node .leaf 208807 15 .leaf) 208808 7 .leaf) 208809 11 (.node .leaf 208810 11 .leaf)) 208811 15 (.node (.node .leaf 208812 8 .leaf) 208813 9 (.node .leaf 208814 12 .leaf))) 208815 13 (.node (.node (.node (.node .leaf 208832 13 .leaf) 208833 10 .leaf) 208834 17 (.node .leaf 208835 14 .leaf)) 208836 12 (.node (.node .leaf 208837 12 .leaf) 208838 16 (.node .leaf 208839 16 .leaf)))) 208840 12 (.node (.node (.node (.node (.node .leaf 208841 12 .leaf) 208842 16 .leaf) 208843 16 (.node .leaf 208844 14 .leaf)) 208845 10 (.node (.node .leaf 208846 18 .leaf) 208847 14 (.node .leaf 209056 8 .leaf))) 209057 10 (.node (.node (.node (.node .leaf 209058 14 .leaf) 209059 14 .leaf) 209060 8 (.node .leaf 209061 12 .leaf)) 209062 14 (.node (.node .leaf 209063 16 .leaf) 209064 6 (.node .leaf 209065 12 .leaf))))) 209066 14 (.node (.node (.node (.node (.node (.node .leaf 209067 16 .leaf) 209068 8 .leaf) 209069 10 (.node .leaf 209070 12 .leaf)) 209071 14 (.node (.node .leaf 209088 3 .leaf) 209089 5 (.node .leaf 209091 17 .leaf))) 209092 3 (.node (.node (.node (.node .leaf 209093 7 .leaf) 209096 1 .leaf) 209097 7 (.node .leaf 209100 3 .leaf)) 209101 5 (.node (.node .leaf 209102 18 .leaf) 209103 17 (.node .leaf 209312 8 .leaf)))) 209313 11 (.node (.node (.node (.node (.node .leaf 209314 15 .leaf) 209315 15 .leaf) 209316 8 (.node .leaf 209317 13 .leaf)) 209318 15 (.node (.node .leaf 209319 17 .leaf) 209320 6 (.node .leaf 209321 12 .leaf))) 209322 15 (.node (.node (.node (.node .leaf 209323 17 .leaf) 209324 7 .leaf) 209325 11 (.node .leaf 209326 13 .leaf)) 209327 15 (.node (.node .leaf 209344 12 .leaf) 209345 11 (.node .leaf 209347 15 .leaf)))))))) 209348 11 (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 209349 13 .leaf) 209350 18 .leaf) 209351 17 (.node .leaf 209352 13 .leaf)) 209353 13 (.node (.node .leaf 209355 17 .leaf) 209356 13 (.node .leaf 209357 11 .leaf))) 209358 17 (.node (.node (.node (.node .leaf 209359 15 .leaf) 209568 7 .leaf) 209569 11 (.node .leaf 209570 16 .leaf)) 209571 16 (.node (.node .leaf 209572 5 .leaf) 209573 13 (.node .leaf 209574 16 .leaf)))) 209575 18 (.node (.node (.node (.node (.node .leaf 209576 7 .leaf) 209577 13 .leaf) 209578 16 (.node .leaf 209579 18 .leaf)) 209580 7 (.node (.node .leaf 209581 11 .leaf) 209582 14 (.node .leaf 209583 16 .leaf))) 209600 2 (.node (.node (.node (.node .leaf 209601 6 .leaf) 209603 18 .leaf) 209604 0 (.node .leaf 209605 8 .leaf)) 209608 2 (.node (.node .leaf 209609 8 .leaf) 209611 18 (.node .leaf 209612 2 .leaf))))) 209613 6 (.node (.node (.node (.node (.node (.node .leaf 209615 18 .leaf) 209824 8 .leaf) 209825 13 (.node .leaf 209826 17 .leaf)) 209827 17 (.node (.node .leaf 209828 8 .leaf) 209829 14 (.node .leaf 209830 17 .leaf))) 209832 7 (.node (.node (.node (.node .leaf 209833 13 .leaf) 209834 17 .leaf) 209836 6 (.node .leaf 209837 12 .leaf)) 209838 15 (.node (.node .leaf 209839 17 .leaf) 209856 13 (.node .leaf 209857 12 .leaf)))) 209859 16 (.node (.node (.node (.node (.node .leaf 209860 12 .leaf) 209861 14 .leaf) 209863 18 (.node .leaf 209864 14 .leaf)) 209868 12 (.node (.node .leaf 209869 12 .leaf) 209870 18 (.node .leaf 209871 16 .leaf))) 210080 8 (.node (.node (.node (.node .leaf 210081 12 .leaf) 210082 18 .leaf) 210083 18 (.node .leaf 210084 8 .leaf)) 210085 14 (.node (.node .leaf 210086 18 .leaf) 210088 8 (.node .leaf 210089 14 .leaf)))))) 210090 18 (.node (.node (.node (.node (.node (.node (.node .leaf 210092 6 .leaf) 210093 12 .leaf) 210094 16 (.node .leaf 210095 18 .leaf)) 210112 3 (.node (.node .leaf 210113 7 .leaf) 210115 17 (.node .leaf 210116 3 .leaf))) 210117 9 (.node (.node (.node (.node .leaf 210124 1 .leaf) 210125 7 .leaf) 210127 17 (.node .leaf 210336 9 .leaf)) 210337 14 (.node (.node .leaf 210340 9 .leaf) 210341 15 (.node .leaf 210348 7 .leaf)))) 210349 13 (.node (.node (.node (.node (.node .leaf 210350 17 .leaf) 223904 11 .leaf) 223905 5 (.node .leaf 223906 18 .leaf)) 223907 11 (.node (.node .leaf 223908 10 .leaf) 223909 7 (.node .leaf 223910 17 .leaf))) 223911 13 (.node (.node (.node (.node .leaf 223912 11 .leaf) 223913 5 .leaf) 223914 17 (.node .leaf 223915 11 .leaf)) 223917 15 (.node (.node .leaf 223936 16 .leaf) 223937 7 (.node .leaf 223939 13 .leaf))))) 223940 15 (.node (.node (.node (.node (.node (.node .leaf 223941 9 .leaf) 223943 15 .leaf) 223944 15 (.node .leaf 223945 8 .leaf)) 223947 14 (.node (.node .leaf 223948 16 .leaf) 223949 10 (.node .leaf 223951 16 .leaf))) 224160 11 (.node (.node (.node (.node .leaf 224161 4 .leaf) 224162 17 .leaf) 224163 10 (.node .leaf 224164 10 .leaf)) 224165 6 (.node (.node .leaf 224166 16 .leaf) 224167 12 (.node .leaf 224168 10 .leaf)))) 224169 6 (.node (.node (.node (.node (.node .leaf 224170 16 .leaf) 224171 12 .leaf) 224172 11 (.node .leaf 224173 6 .leaf)) 224174 18 (.node (.node .leaf 224175 12 .leaf) 224192 16 (.node .leaf 224193 8 .leaf))) 224195 14 (.node (.node (.node (.node .leaf 224196 14 .leaf) 224197 10 .leaf) 224198 18 (.node .leaf 224199 16 .leaf)) 224200 14 (.node (.node .leaf 224201 10 .leaf) 224202 18 (.node .leaf 224203 16 .leaf))))))) 224204 16 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 224205 9 .leaf) 224207 15 .leaf) 224416 10 (.node .leaf 224417 5 .leaf)) 224418 16 (.node (.node .leaf 224419 11 .leaf) 224420 9 (.node .leaf 224421 7 .leaf))) 224422 15 (.node (.node (.node (.node .leaf 224423 13 .leaf) 224424 10 .leaf) 224425 7 (.node .leaf 224426 15 .leaf)) 224427 13 (.node (.node .leaf 224428 11 .leaf) 224429 5 (.node .leaf 224430 17 .leaf)))) 224431 11 (.node (.node (.node (.node (.node .leaf 224448 16 .leaf) 224449 8 .leaf) 224451 14 (.node .leaf 224452 14 .leaf)) 224453 10 (.node (.node .leaf 224454 18 .leaf) 224455 16 (.node .leaf 224456 14 .leaf))) 224457 10 (.node (.node (.node (.node .leaf 224458 18 .leaf) 224459 16 .leaf) 224460 15 (.node .leaf 224461 8 .leaf)) 224463 14 (.node (.node .leaf 224672 10 .leaf) 224673 6 (.node .leaf 224674 15 .leaf))))) 224675 12 (.node (.node (.node (.node (.node (.node .leaf 224676 9 .leaf) 224677 8 .leaf) 224678 14 (.node .leaf 224679 14 .leaf)) 224680 9 (.node (.node .leaf 224681 8 .leaf) 224682 14 (.node .leaf 224683 14 .leaf))) 224684 10 (.node (.node (.node (.node .leaf 224685 6 .leaf) 224686 16 .leaf) 224687 12 (.node .leaf 224704 15 .leaf)) 224705 9 (.node (.node .leaf 224707 15 .leaf) 224708 13 (.node .leaf 224709 11 .leaf)))) 224710 17 (.node (.node (.node (.node (.node .leaf 224711 17 .leaf) 224712 13 .leaf) 224713 11 (.node .leaf 224714 17 .leaf)) 224715 15 (.node (.node .leaf 224716 15 .leaf) 224717 9 (.node .leaf 224719 15 .leaf))) 224928 9 (.node (.node (.node (.node .leaf 224929 7 .leaf) 224930 14 .leaf) 224931 13 (.node .leaf 224932 8 .leaf)) 224933 9 (.node (.node .leaf 224934 13 .leaf) 224935 15 (.node .leaf 224936 9 .leaf)))))) 224937 9 (.node (.node (.node (.node (.node (.node (.node .leaf 224938 13 .leaf) 224939 13 .leaf) 224940 10 (.node .leaf 224941 7 .leaf)) 224942 15 (.node (.node .leaf 224943 13 .leaf) 224960 15 (.node .leaf 224961 9 .leaf))) 224963 15 (.node (.node (.node (.node .leaf 224964 13 .leaf) 224965 11 .leaf) 224966 17 (.node .leaf 224967 17 .leaf)) 224968 13 (.node (.node .leaf 224969 11 .leaf) 224970 17 (.node .leaf 224971 17 .leaf)))) 224972 14 (.node (.node (.node (.node (.node .leaf 224973 9 .leaf) 224974 18 .leaf) 224975 15 (.node .leaf 225184 9 .leaf)) 225185 8 (.node (.node .leaf 225186 13 .leaf) 225187 12 (.node .leaf 225188 8 .leaf))) 225189 10 (.node (.node (.node (.node .leaf 225190 12 .leaf) 225191 14 .leaf) 225192 8 (.node .leaf 225193 10 .leaf)) 225194 12 (.node (.node .leaf 225195 14 .leaf) 225196 9 (.node .leaf 225197 8 .leaf))))) 225198 13 (.node (.node (.node (.node (.node (.node .leaf 225199 12 .leaf) 225216 14 .leaf) 225217 10 (.node .leaf 225218 18 .leaf)) 225219 14 (.node (.node .leaf 225220 12 .leaf) 225221 12 (.node .leaf 225222 16 .leaf))) 225223 16 (.node (.node (.node (.node .leaf 225224 12 .leaf) 225225 12 .leaf) 225226 16 (.node .leaf 225227 16 .leaf)) 225228 14 (.node (.node .leaf 225229 10 .leaf) 225230 18 (.node .leaf 225231 14 .leaf)))) 225440 8 (.node (.node (.node (.node (.node .leaf 225441 9 .leaf) 225442 14 .leaf) 225443 13 (.node .leaf 225444 7 .leaf)) 225445 11 (.node (.node .leaf 225446 13 .leaf) 225447 15 (.node .leaf 225448 8 .leaf))) 225449 11 (.node (.node (.node (.node .leaf 225450 15 .leaf) 225451 15 .leaf) 225452 9 (.node .leaf 225453 9 .leaf)) 225454 13 (.node (.node .leaf 225455 13 .leaf) 225472 14 (.node .leaf 225473 10 .leaf)))))))))) 225475 16 (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 225476 12 .leaf) 225477 12 .leaf) 225478 18 (.node .leaf 225479 18 .leaf)) 225480 12 (.node (.node .leaf 225481 12 .leaf) 225483 18 (.node .leaf 225484 13 .leaf))) 225485 10 (.node (.node (.node (.node .leaf 225486 18 .leaf) 225487 16 .leaf) 225696 8 (.node .leaf 225697 10 .leaf)) 225698 15 (.node (.node .leaf 225699 14 .leaf) 225700 7 (.node .leaf 225701 12 .leaf)))) 225702 14 (.node (.node (.node (.node (.node .leaf 225703 16 .leaf) 225704 7 .leaf) 225705 12 (.node .leaf 225706 16 .leaf)) 225707 16 (.node (.node .leaf 225708 8 .leaf) 225709 10 (.node .leaf 225710 14 .leaf))) 225711 14 (.node (.node (.node (.node .leaf 225728 13 .leaf) 225729 11 .leaf) 225731 15 (.node .leaf 225732 11 .leaf)) 225733 13 (.node (.node .leaf 225734 17 .leaf) 225735 17 (.node .leaf 225736 13 .leaf))))) 225737 13 (.node (.node (.node (.node (.node (.node .leaf 225739 17 .leaf) 225740 13 .leaf) 225741 11 (.node .leaf 225742 17 .leaf)) 225743 15 (.node (.node .leaf 225952 7 .leaf) 225953 11 (.node .leaf 225954 16 .leaf))) 225955 15 (.node (.node (.node (.node .leaf 225956 6 .leaf) 225957 12 .leaf) 225958 15 (.node .leaf 225959 17 .leaf)) 225960 8 (.node (.node .leaf 225961 13 .leaf) 225962 17 (.node .leaf 225963 17 .leaf)))) 225964 8 (.node (.node (.node (.node (.node .leaf 225965 11 .leaf) 225966 15 .leaf) 225967 15 (.node .leaf 225984 14 .leaf)) 225985 11 (.node (.node .leaf 225987 17 .leaf) 225988 12 (.node .leaf 225989 13 .leaf))) 225992 13 (.node (.node (.node (.node .leaf 225993 13 .leaf) 225995 18 .leaf) 225996 12 (.node .leaf 225997 11 .leaf)) 225999 17 (.node (.node .leaf 226208 8 .leaf) 226209 12 (.node .leaf 226210 17 .leaf)))))) 226211 16 (.node (.node (.node (.node (.node (.node (.node .leaf 226212 7 .leaf) 226213 13 .leaf) 226214 16 (.node .leaf 226215 18 .leaf)) 226216 8 (.node (.node .leaf 226217 13 .leaf) 226218 18 (.node .leaf 226219 18 .leaf))) 226220 7 (.node (.node (.node (.node .leaf 226221 12 .leaf) 226222 16 .leaf) 226223 16 (.node .leaf 226240 14 .leaf)) 226241 12 (.node (.node .leaf 226243 16 .leaf) 226244 12 (.node .leaf 226245 14 .leaf)))) 226246 18 (.node (.node (.node (.node (.node .leaf 226247 18 .leaf) 226248 14 .leaf) 226249 18 (.node .leaf 226252 12 .leaf)) 226253 12 (.node (.node .leaf 226254 18 .leaf) 226255 16 (.node .leaf 226464 8 .leaf))) 226465 12 (.node (.node (.node (.node .leaf 226466 18 .leaf) 226467 17 .leaf) 226468 7 (.node .leaf 226469 13 .leaf)) 226470 17 (.node (.node .leaf 226472 9 .leaf) 226473 14 (.node .leaf 226476 8 .leaf))))) 226477 13 (.node (.node (.node (.node (.node (.node .leaf 226478 17 .leaf) 226479 17 .leaf) 226496 15 (.node .leaf 226497 12 .leaf)) 226499 17 (.node (.node .leaf 226500 13 .leaf) 226501 14 (.node .leaf 226508 13 .leaf))) 226509 12 (.node (.node (.node (.node .leaf 226511 17 .leaf) 226720 9 .leaf) 226721 13 (.node .leaf 226723 18 .leaf)) 226724 8 (.node (.node .leaf 226725 14 .leaf) 226726 18 (.node .leaf 226732 8 .leaf)))) 226733 13 (.node (.node (.node (.node (.node .leaf 226734 18 .leaf) 226735 18 .leaf) 240288 12 (.node .leaf 240289 4 .leaf)) 240291 10 (.node (.node .leaf 240292 10 .leaf) 240293 6 (.node .leaf 240294 18 .leaf))) 240295 12 (.node (.node (.node (.node .leaf 240296 10 .leaf) 240297 4 .leaf) 240298 17 (.node .leaf 240299 10 .leaf)) 240301 14 (.node (.node .leaf 240320 17 .leaf) 240321 1 (.node .leaf 240323 13 .leaf))))))) 240324 5 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 240325 3 .leaf) 240327 15 .leaf) 240328 5 (.node .leaf 240329 2 .leaf)) 240331 14 (.node (.node .leaf 240332 17 .leaf) 240333 9 (.node .leaf 240335 15 .leaf))) 240544 12 (.node (.node (.node (.node .leaf 240545 3 .leaf) 240546 18 .leaf) 240547 9 (.node .leaf 240548 11 .leaf)) 240549 5 (.node (.node .leaf 240550 17 .leaf) 240551 11 (.node .leaf 240552 10 .leaf)))) 240553 5 (.node (.node (.node (.node (.node .leaf 240554 16 .leaf) 240555 11 .leaf) 240556 11 (.node .leaf 240557 5 .leaf)) 240558 18 (.node (.node .leaf 240559 11 .leaf) 240576 16 (.node .leaf 240577 7 .leaf))) 240579 14 (.node (.node (.node (.node .leaf 240580 15 .leaf) 240581 9 .leaf) 240583 16 (.node .leaf 240584 15 .leaf)) 240585 9 (.node (.node .leaf 240587 15 .leaf) 240588 17 (.node .leaf 240589 8 .leaf))))) 240591 14 (.node (.node (.node (.node (.node (.node .leaf 240800 11 .leaf) 240801 4 .leaf) 240802 17 (.node .leaf 240803 10 .leaf)) 240804 9 (.node (.node .leaf 240805 6 .leaf) 240806 16 (.node .leaf 240807 12 .leaf))) 240808 9 (.node (.node (.node (.node .leaf 240809 6 .leaf) 240810 15 .leaf) 240811 12 (.node .leaf 240812 11 .leaf)) 240813 4 (.node (.node .leaf 240814 17 .leaf) 240815 10 (.node .leaf 240832 6 .leaf)))) 240833 2 (.node (.node (.node (.node (.node .leaf 240835 15 .leaf) 240836 4 .leaf) 240837 4 (.node .leaf 240839 16 .leaf)) 240840 4 (.node (.node .leaf 240841 4 .leaf) 240843 16 (.node .leaf 240844 6 .leaf))) 240845 2 (.node (.node (.node (.node .leaf 240847 14 .leaf) 241056 11 .leaf) 241057 5 (.node .leaf 241058 16 .leaf)) 241059 11 (.node (.node .leaf 241060 10 .leaf) 241061 7 (.node .leaf 241062 15 .leaf)))))) 241063 13 (.node (.node (.node (.node (.node (.node (.node .leaf 241064 9 .leaf) 241065 7 .leaf) 241066 14 (.node .leaf 241067 13 .leaf)) 241068 10 (.node (.node .leaf 241069 5 .leaf) 241070 16 (.node .leaf 241071 11 .leaf))) 241088 15 (.node (.node (.node (.node .leaf 241089 8 .leaf) 241091 14 .leaf) 241092 14 (.node .leaf 241093 10 .leaf)) 241094 18 (.node (.node .leaf 241095 16 .leaf) 241096 14 (.node .leaf 241097 10 .leaf)))) 241098 18 (.node (.node (.node (.node (.node .leaf 241099 14 .leaf) 241100 16 .leaf) 241101 8 (.node .leaf 241103 15 .leaf)) 241312 10 (.node (.node .leaf 241313 6 .leaf) 241314 15 (.node .leaf 241315 12 .leaf))) 241316 8 (.node (.node (.node (.node .leaf 241317 8 .leaf) 241318 14 .leaf) 241319 14 (.node .leaf 241320 8 .leaf)) 241321 8 (.node (.node .leaf 241322 13 .leaf) 241323 12 (.node .leaf 241324 10 .leaf))))) 241325 6 (.node (.node (.node (.node (.node (.node .leaf 241326 15 .leaf) 241327 12 .leaf) 241344 5 (.node .leaf 241345 3 .leaf)) 241347 15 (.node (.node .leaf 241348 3 .leaf) 241349 5 (.node .leaf 241350 18 .leaf))) 241351 17 (.node (.node (.node (.node .leaf 241352 3 .leaf) 241353 5 .leaf) 241354 18 (.node .leaf 241355 17 .leaf)) 241356 5 (.node (.node .leaf 241357 3 .leaf) 241359 15 (.node .leaf 241568 10 .leaf)))) 241569 7 (.node (.node (.node (.node (.node .leaf 241570 14 .leaf) 241571 11 .leaf) 241572 9 (.node .leaf 241573 9 .leaf)) 241574 13 (.node (.node .leaf 241575 13 .leaf) 241576 8 (.node .leaf 241577 9 .leaf))) 241578 12 (.node (.node (.node (.node .leaf 241579 13 .leaf) 241580 9 .leaf) 241581 7 (.node .leaf 241582 13 .leaf)) 241583 11 (.node (.node .leaf 241600 14 .leaf) 241601 9 (.node .leaf 241602 18 .leaf)))))))) 241603 13 (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 241604 13 .leaf) 241605 11 .leaf) 241606 17 (.node .leaf 241607 15 .leaf)) 241608 13 (.node (.node .leaf 241609 11 .leaf) 241610 17 (.node .leaf 241611 15 .leaf))) 241612 15 (.node (.node (.node (.node .leaf 241613 9 .leaf) 241615 13 .leaf) 241824 9 (.node .leaf 241825 8 .leaf)) 241826 15 (.node (.node .leaf 241827 12 .leaf) 241828 7 (.node .leaf 241829 10 .leaf)))) 241830 14 (.node (.node (.node (.node (.node .leaf 241831 14 .leaf) 241832 7 .leaf) 241833 10 (.node .leaf 241834 15 .leaf)) 241835 14 (.node (.node .leaf 241836 9 .leaf) 241837 8 (.node .leaf 241838 13 .leaf))) 241839 12 (.node (.node (.node (.node .leaf 241856 4 .leaf) 241857 4 .leaf) 241859 17 (.node .leaf 241860 2 .leaf)) 241861 6 (.node (.node .leaf 241863 18 .leaf) 241864 2 (.node .leaf 241865 6 .leaf))))) 241867 18 (.node (.node (.node (.node (.node (.node .leaf 241868 4 .leaf) 241869 4 .leaf) 241871 16 (.node .leaf 242080 9 .leaf)) 242081 9 (.node (.node .leaf 242082 16 .leaf) 242083 13 (.node .leaf 242084 8 .leaf))) 242085 11 (.node (.node (.node (.node .leaf 242086 15 .leaf) 242087 15 .leaf) 242088 7 (.node .leaf 242089 11 .leaf)) 242090 16 (.node (.node .leaf 242091 15 .leaf) 242092 8 (.node .leaf 242093 9 .leaf)))) 242094 14 (.node (.node (.node (.node (.node .leaf 242095 13 .leaf) 242112 13 .leaf) 242113 10 (.node .leaf 242115 14 .leaf)) 242116 12 (.node (.node .leaf 242117 12 .leaf) 242118 18 (.node .leaf 242119 16 .leaf))) 242120 14 (.node (.node (.node (.node .leaf 242121 12 .leaf) 242123 16 .leaf) 242124 14 (.node .leaf 242125 10 .leaf)) 242126 18 (.node (.node .leaf 242127 14 .leaf) 242336 8 (.node .leaf 242337 10 .leaf)))))) 242338 17 (.node (.node (.node (.node (.node (.node (.node .leaf 242339 14 .leaf) 242340 6 .leaf) 242341 12 (.node .leaf 242342 16 .leaf)) 242343 16 (.node (.node .leaf 242344 8 .leaf) 242345 12 (.node .leaf 242346 17 .leaf))) 242347 16 (.node (.node (.node (.node .leaf 242348 8 .leaf) 242349 10 .leaf) 242350 15 (.node .leaf 242351 14 .leaf)) 242368 3 (.node (.node .leaf 242369 5 .leaf) 242371 17 (.node .leaf 242372 1 .leaf)))) 242373 7 (.node (.node (.node (.node (.node .leaf 242376 3 .leaf) 242377 7 .leaf) 242379 17 (.node .leaf 242380 3 .leaf)) 242381 5 (.node (.node .leaf 242383 17 .leaf) 242592 9 (.node .leaf 242593 11 .leaf))) 242594 18 (.node (.node (.node (.node .leaf 242595 15 .leaf) 242596 8 .leaf) 242597 13 (.node .leaf 242598 17 .leaf)) 242599 17 (.node (.node .leaf 242600 8 .leaf) 242601 12 (.node .leaf 242602 18 .leaf))))) 242603 17 (.node (.node (.node (.node (.node (.node .leaf 242604 7 .leaf) 242605 11 .leaf) 242606 16 (.node .leaf 242607 15 .leaf)) 242624 14 (.node (.node .leaf 242625 11 .leaf) 242627 15 (.node .leaf 242628 13 .leaf))) 242629 13 (.node (.node (.node (.node .leaf 242631 17 .leaf) 242632 15 .leaf) 242633 18 (.node .leaf 242635 17 .leaf)) 242636 13 (.node (.node .leaf 242637 11 .leaf) 242639 15 (.node .leaf 242848 9 .leaf)))) 242849 11 (.node (.node (.node (.node (.node .leaf 242851 16 .leaf) 242852 7 .leaf) 242853 13 (.node .leaf 242854 18 .leaf)) 242855 18 (.node (.node .leaf 242856 9 .leaf) 242857 13 (.node .leaf 242859 18 .leaf))) 242860 7 (.node (.node (.node (.node .leaf 242861 11 .leaf) 242862 17 .leaf) 242863 16 (.node .leaf 242880 4 .leaf)) 242881 6 (.node (.node .leaf 242883 16 .leaf) 242884 2 (.node .leaf 242885 8 .leaf))))))) 242887 18 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 242891 18 .leaf) 242892 2 .leaf) 242893 6 (.node .leaf 242895 18 .leaf)) 243104 10 (.node (.node .leaf 243105 13 .leaf) 243107 17 (.node .leaf 243108 9 .leaf))) 243109 14 (.node (.node (.node (.node .leaf 243116 8 .leaf) 243117 12 .leaf) 243118 18 (.node .leaf 243119 17 .leaf)) 243139 17 (.node (.node .leaf 243143 17 .leaf) 243147 18 (.node .leaf 243151 16 .leaf)))) 243363 18 (.node (.node (.node (.node (.node .leaf 243375 18 .leaf) 243395 18 .leaf) 243399 18 (.node .leaf 243407 17 .leaf)) 243651 18 (.node (.node .leaf 243655 18 .leaf) 243663 17 (.node .leaf 243919 18 .leaf))) 244175 18 (.node (.node (.node (.node .leaf 256672 13 .leaf) 256673 3 .leaf) 256675 9 (.node .leaf 256676 11 .leaf)) 256677 5 (.node (.node .leaf 256678 18 .leaf) 256679 11 (.node .leaf 256680 12 .leaf))))) 256681 3 (.node (.node (.node (.node (.node (.node .leaf 256682 18 .leaf) 256683 9 .leaf) 256685 13 (.node .leaf 256704 18 .leaf)) 256705 8 (.node (.node .leaf 256707 14 .leaf) 256708 16 (.node .leaf 256709 8 .leaf))) 256711 14 (.node (.node (.node (.node .leaf 256712 17 .leaf) 256713 6 .leaf) 256715 12 (.node .leaf 256717 8 .leaf)) 256719 14 (.node (.node .leaf 256928 13 .leaf) 256929 2 (.node .leaf 256931 8 .leaf)))) 256932 11 (.node (.node (.node (.node (.node .leaf 256933 4 .leaf) 256934 17 .leaf) 256935 10 (.node .leaf 256936 11 .leaf)) 256937 4 (.node (.node .leaf 256938 17 .leaf) 256939 10 (.node .leaf 256940 12 .leaf))) 256941 4 (.node (.node (.node (.node .leaf 256943 10 .leaf) 256960 17 .leaf) 256961 9 (.node .leaf 256963 15 .leaf)) 256964 15 (.node (.node .leaf 256965 9 .leaf) 256967 15 (.node .leaf 256968 15 .leaf)))))) 256969 9 (.node (.node (.node (.node (.node (.node (.node .leaf 256971 15 .leaf) 256973 7 .leaf) 256975 13 (.node .leaf 257184 11 .leaf)) 257185 3 (.node (.node .leaf 257186 17 .leaf) 257187 9 (.node .leaf 257188 10 .leaf))) 257189 5 (.node (.node (.node (.node .leaf 257190 16 .leaf) 257191 11 .leaf) 257192 11 (.node .leaf 257193 5 .leaf)) 257194 16 (.node (.node .leaf 257195 11 .leaf) 257196 12 (.node .leaf 257197 3 .leaf)))) 257198 18 (.node (.node (.node (.node (.node .leaf 257199 9 .leaf) 257216 17 .leaf) 257217 10 (.node .leaf 257219 16 .leaf)) 257220 15 (.node (.node .leaf 257221 9 .leaf) 257223 15 (.node .leaf 257224 15 .leaf))) 257225 9 (.node (.node (.node (.node .leaf 257227 15 .leaf) 257228 16 .leaf) 257229 7 (.node .leaf 257231 13 .leaf)) 257440 11 (.node (.node .leaf 257441 4 .leaf) 257442 16 (.node .leaf 257443 10 .leaf))))) 257444 10 (.node (.node (.node (.node (.node (.node .leaf 257445 6 .leaf) 257446 15 .leaf) 257447 12 (.node .leaf 257448 10 .leaf)) 257449 6 (.node (.node .leaf 257450 15 .leaf) 257451 12 (.node .leaf 257452 11 .leaf))) 257453 4 (.node (.node (.node (.node .leaf 257454 17 .leaf) 257455 10 .leaf) 257472 16 (.node .leaf 257473 11 .leaf)) 257475 17 (.node (.node .leaf 257476 14 .leaf) 257477 10 (.node .leaf 257478 18 .leaf)))) 257479 16 (.node (.node (.node (.node (.node .leaf 257480 14 .leaf) 257481 10 .leaf) 257482 18 (.node .leaf 257483 14 .leaf)) 257484 16 (.node (.node .leaf 257485 8 .leaf) 257487 14 (.node .leaf 257696 10 .leaf))) 257697 5 (.node (.node (.node (.node .leaf 257698 15 .leaf) 257699 11 .leaf) 257700 9 (.node .leaf 257701 7 .leaf)) 257702 14 (.node (.node .leaf 257703 13 .leaf) 257704 10 (.node .leaf 257705 7 .leaf))))))))) 257706 14 (.node (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 257707 11 .leaf) 257708 11 .leaf) 257709 5 (.node .leaf 257710 16 .leaf)) 257711 11 (.node (.node .leaf 257728 16 .leaf) 257729 12 (.node .leaf 257731 16 .leaf))) 257732 14 (.node (.node (.node (.node .leaf 257733 10 .leaf) 257734 18 .leaf) 257735 16 (.node .leaf 257736 14 .leaf)) 257737 10 (.node (.node .leaf 257738 18 .leaf) 257739 16 (.node .leaf 257740 15 .leaf)))) 257741 8 (.node (.node (.node (.node (.node .leaf 257743 14 .leaf) 257952 10 .leaf) 257953 6 (.node .leaf 257954 14 .leaf)) 257955 10 (.node (.node .leaf 257956 9 .leaf) 257957 8 (.node .leaf 257958 13 .leaf))) 257959 12 (.node (.node (.node (.node .leaf 257960 9 .leaf) 257961 8 .leaf) 257962 13 (.node .leaf 257963 12 .leaf)) 257964 10 (.node (.node .leaf 257965 6 .leaf) 257966 14 (.node .leaf 257967 10 .leaf))))) 257984 15 (.node (.node (.node (.node (.node (.node .leaf 257985 13 .leaf) 257987 17 .leaf) 257988 13 (.node .leaf 257989 11 .leaf)) 257990 17 (.node (.node .leaf 257991 15 .leaf) 257992 13 (.node .leaf 257993 11 .leaf))) 257994 17 (.node (.node (.node (.node .leaf 257995 15 .leaf) 257996 15 .leaf) 257997 9 (.node .leaf 257999 13 .leaf)) 258208 9 (.node (.node .leaf 258209 7 .leaf) 258210 15 (.node .leaf 258211 11 .leaf)))) 258212 8 (.node (.node (.node (.node (.node .leaf 258213 9 .leaf) 258214 14 .leaf) 258215 13 (.node .leaf 258216 9 .leaf)) 258217 9 (.node (.node .leaf 258218 16 .leaf) 258219 13 (.node .leaf 258220 10 .leaf))) 258221 7 (.node (.node (.node (.node .leaf 258222 14 .leaf) 258223 11 .leaf) 258240 15 (.node .leaf 258241 14 .leaf)) 258243 18 (.node (.node .leaf 258244 13 .leaf) 258245 11 (.node .leaf 258247 17 .leaf)))))) 258248 13 (.node (.node (.node (.node (.node (.node (.node .leaf 258249 11 .leaf) 258251 17 .leaf) 258252 14 (.node .leaf 258253 9 .leaf)) 258255 15 (.node (.node .leaf 258464 9 .leaf) 258465 8 (.node .leaf 258466 16 .leaf))) 258467 12 (.node (.node (.node (.node .leaf 258468 8 .leaf) 258469 10 .leaf) 258470 15 (.node .leaf 258471 14 .leaf)) 258472 8 (.node (.node .leaf 258473 10 .leaf) 258474 17 (.node .leaf 258475 14 .leaf)))) 258476 9 (.node (.node (.node (.node (.node .leaf 258477 8 .leaf) 258478 15 .leaf) 258479 12 (.node .leaf 258496 14 .leaf)) 258497 15 (.node (.node .leaf 258500 12 .leaf) 258501 12 (.node .leaf 258502 18 .leaf))) 258503 16 (.node (.node (.node (.node .leaf 258504 14 .leaf) 258505 12 .leaf) 258507 16 (.node .leaf 258508 14 .leaf)) 258509 10 (.node (.node .leaf 258510 18 .leaf) 258511 14 (.node .leaf 258720 8 .leaf))))) 258721 9 (.node (.node (.node (.node (.node (.node .leaf 258722 17 .leaf) 258723 13 .leaf) 258724 7 (.node .leaf 258725 11 .leaf)) 258726 16 (.node (.node .leaf 258727 15 .leaf) 258728 9 (.node .leaf 258729 11 .leaf))) 258730 18 (.node (.node (.node (.node .leaf 258731 15 .leaf) 258732 9 .leaf) 258733 9 (.node .leaf 258734 16 .leaf)) 258735 13 (.node (.node .leaf 258752 15 .leaf) 258753 16 (.node .leaf 258756 13 .leaf)))) 258757 12 (.node (.node (.node (.node (.node .leaf 258759 18 .leaf) 258760 14 .leaf) 258761 12 (.node .leaf 258763 17 .leaf)) 258764 13 (.node (.node .leaf 258765 10 .leaf) 258767 16 (.node .leaf 258976 9 .leaf))) 258977 10 (.node (.node (.node (.node .leaf 258978 18 .leaf) 258979 14 .leaf) 258980 8 (.node .leaf 258981 12 .leaf)) 258982 17 (.node (.node .leaf 258983 16 .leaf) 258984 9 (.node .leaf 258985 12 .leaf))))))) 258987 16 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 258988 8 .leaf) 258989 10 .leaf) 258990 17 (.node .leaf 258991 14 .leaf)) 259008 15 (.node (.node .leaf 259009 17 .leaf) 259012 13 (.node .leaf 259013 13 .leaf))) 259015 17 (.node (.node (.node (.node .leaf 259016 15 .leaf) 259017 17 .leaf) 259020 13 (.node .leaf 259021 11 .leaf)) 259023 15 (.node (.node .leaf 259232 9 .leaf) 259233 11 (.node .leaf 259235 15 .leaf)))) 259236 8 (.node (.node (.node (.node (.node .leaf 259237 12 .leaf) 259238 18 .leaf) 259239 17 (.node .leaf 259240 10 .leaf)) 259241 13 (.node (.node .leaf 259243 17 .leaf) 259244 9 (.node .leaf 259245 11 .leaf))) 259246 18 (.node (.node (.node (.node .leaf 259247 15 .leaf) 259264 16 .leaf) 259265 18 (.node .leaf 259268 14 .leaf)) 259269 13 (.node (.node .leaf 259271 18 .leaf) 259276 14 (.node .leaf 259277 11 .leaf))))) 259279 16 (.node (.node (.node (.node (.node (.node .leaf 259488 10 .leaf) 259489 12 .leaf) 259491 16 (.node .leaf 259492 9 .leaf)) 259493 13 (.node (.node .leaf 259495 18 .leaf) 259499 18 (.node .leaf 259500 9 .leaf))) 259501 12 (.node (.node (.node (.node .leaf 259503 16 .leaf) 259751 18 .leaf) 259759 17 (.node .leaf 260015 18 .leaf)) 273056 14 (.node (.node .leaf 273057 4 .leaf) 273059 10 (.node .leaf 273060 12 .leaf)))) 273061 4 (.node (.node (.node (.node (.node .leaf 273063 10 .leaf) 273064 13 .leaf) 273065 2 (.node .leaf 273067 8 .leaf)) 273069 14 (.node (.node .leaf 273089 9 .leaf) 273091 15 (.node .leaf 273092 17 .leaf))) 273093 0 (.node (.node (.node (.node .leaf 273095 13 .leaf) 273096 18 .leaf) 273097 0 (.node .leaf 273099 13 .leaf)) 273101 9 (.node (.node .leaf 273103 15 .leaf) 273313 3 (.node .leaf 273315 9 .leaf)))))) 273316 12 (.node (.node (.node (.node (.node (.node (.node .leaf 273317 3 .leaf) 273318 18 .leaf) 273319 9 (.node .leaf 273321 1 .leaf)) 273323 7 (.node (.node .leaf 273325 3 .leaf) 273327 9 (.node .leaf 273348 16 .leaf))) 273349 6 (.node (.node (.node (.node .leaf 273351 14 .leaf) 273352 16 .leaf) 273353 8 (.node .leaf 273355 14 .leaf)) 273357 8 (.node (.node .leaf 273359 14 .leaf) 273568 12 (.node .leaf 273569 4 .leaf)))) 273570 18 (.node (.node (.node (.node (.node .leaf 273571 10 .leaf) 273572 10 .leaf) 273573 4 (.node .leaf 273574 17 .leaf)) 273575 10 (.node (.node .leaf 273576 10 .leaf) 273577 4 (.node .leaf 273578 16 .leaf))) 273579 10 (.node (.node (.node (.node .leaf 273581 2 .leaf) 273583 8 .leaf) 273604 5 (.node .leaf 273605 2 .leaf)) 273607 14 (.node (.node .leaf 273608 5 .leaf) 273609 3 (.node .leaf 273611 16 .leaf))))) 273612 17 (.node (.node (.node (.node (.node (.node .leaf 273613 1 .leaf) 273615 14 .leaf) 273824 12 (.node .leaf 273825 5 .leaf)) 273826 17 (.node (.node .leaf 273827 11 .leaf) 273828 11 (.node .leaf 273829 5 .leaf))) 273830 16 (.node (.node (.node (.node .leaf 273831 11 .leaf) 273832 10 .leaf) 273833 5 (.node .leaf 273834 15 .leaf)) 273835 11 (.node (.node .leaf 273836 11 .leaf) 273837 3 (.node .leaf 273838 17 .leaf)))) 273839 9 (.node (.node (.node (.node (.node .leaf 273860 15 .leaf) 273861 8 .leaf) 273863 14 (.node .leaf 273864 15 .leaf)) 273865 9 (.node (.node .leaf 273867 13 .leaf) 273868 17 (.node .leaf 273869 7 .leaf))) 273871 15 (.node (.node (.node (.node .leaf 274080 11 .leaf) 274081 6 .leaf) 274082 16 (.node .leaf 274083 12 .leaf)) 274084 9 (.node (.node .leaf 274085 6 .leaf) 274086 15 (.node .leaf 274087 12 .leaf)))))))) 274088 9 (.node (.node (.node (.node (.node (.node (.node (.node (.node .leaf 274089 6 .leaf) 274090 14 .leaf) 274091 10 (.node .leaf 274092 11 .leaf)) 274093 4 (.node (.node .leaf 274094 16 .leaf) 274095 10 (.node .leaf 274116 4 .leaf))) 274117 3 (.node (.node (.node (.node .leaf 274119 15 .leaf) 274120 4 .leaf) 274121 4 (.node .leaf 274123 17 .leaf)) 274124 6 (.node (.node .leaf 274125 2 .leaf) 274127 15 (.node .leaf 274336 11 .leaf)))) 274337 7 (.node (.node (.node (.node (.node .leaf 274338 15 .leaf) 274339 11 .leaf) 274340 10 (.node .leaf 274341 7 .leaf)) 274342 14 (.node (.node .leaf 274343 11 .leaf) 274344 9 (.node .leaf 274345 7 .leaf))) 274346 13 (.node (.node (.node (.node .leaf 274347 11 .leaf) 274348 10 .leaf) 274349 5 (.node .leaf 274350 14 .leaf)) 274351 9 (.node (.node .leaf 274372 14 .leaf) 274373 9 (.node .leaf 274374 18 .leaf))))) 274375 13 (.node (.node (.node (.node (.node (.node .leaf 274376 14 .leaf) 274377 10 .leaf) 274378 18 (.node .leaf 274379 14 .leaf)) 274380 16 (.node (.node .leaf 274381 8 .leaf) 274383 12 (.node .leaf 274592 10 .leaf))) 274593 8 (.node (.node (.node (.node .leaf 274594 16 .leaf) 274595 12 .leaf) 274596 8 (.node .leaf 274597 8 .leaf)) 274598 15 (.node (.node .leaf 274599 12 .leaf) 274600 8 (.node .leaf 274601 8 .leaf)))) 274602 16 (.node (.node (.node (.node (.node .leaf 274603 12 .leaf) 274604 10 .leaf) 274605 6 (.node .leaf 274606 14 .leaf)) 274607 10 (.node (.node .leaf 274628 3 .leaf) 274629 4 (.node .leaf 274631 16 .leaf))) 274632 3 (.node (.node (.node (.node .leaf 274633 5 .leaf) 274635 17 .leaf) 274636 5 (.node .leaf 274637 3 .leaf)) 274639 16 (.node (.node .leaf 274848 10 .leaf) 274849 9 (.node .leaf 274850 17 .leaf)))))) 274851 13 (.node (.node (.node (.node (.node (.node (.node .leaf 274852 9 .leaf) 274853 9 .leaf) 274854 16 (.node .leaf 274855 13 .leaf)) 274856 8 (.node (.node .leaf 274857 9 .leaf) 274858 17 (.node .leaf 274859 13 .leaf))) 274860 9 (.node (.node (.node (.node .leaf 274861 7 .leaf) 274862 15 .leaf) 274863 11 (.node .leaf 274884 13 .leaf)) 274885 10 (.node (.node .leaf 274887 14 .leaf) 274888 15 (.node .leaf 274889 11 .leaf)))) 274891 15 (.node (.node (.node (.node (.node .leaf 274892 15 .leaf) 274893 9 .leaf) 274895 13 (.node .leaf 275104 9 .leaf)) 275105 10 (.node (.node .leaf 275106 18 .leaf) 275107 14 (.node .leaf 275108 7 .leaf))) 275109 10 (.node (.node (.node (.node .leaf 275110 17 .leaf) 275111 14 .leaf) 275112 9 (.node .leaf 275113 10 .leaf)) 275114 18 (.node (.node .leaf 275115 14 .leaf) 275116 9 (.node .leaf 275117 8 .leaf))))) 275118 16 (.node (.node (.node (.node (.node (.node .leaf 275119 12 .leaf) 275140 2 .leaf) 275141 5 (.node .leaf 275143 17 .leaf)) 275144 4 (.node (.node .leaf 275145 6 .leaf) 275147 16 (.node .leaf 275148 4 .leaf))) 275149 4 (.node (.node (.node (.node .leaf 275151 17 .leaf) 275360 10 .leaf) 275361 11 (.node .leaf 275363 15 .leaf)) 275364 9 (.node (.node .leaf 275365 11 .leaf) 275366 18 (.node .leaf 275367 15 .leaf)))) 275368 9 (.node (.node (.node (.node (.node .leaf 275369 11 .leaf) 275371 15 .leaf) 275372 8 (.node .leaf 275373 9 .leaf)) 275374 17 (.node (.node .leaf 275375 13 .leaf) 275396 14 (.node .leaf 275397 11 .leaf))) 275399 15 (.node (.node (.node (.node .leaf 275400 16 .leaf) 275401 18 .leaf) 275404 14 (.node .leaf 275405 10 .leaf)) 275407 14 (.node (.node .leaf 275616 10 .leaf) 275617 12 (.node .leaf 275619 16 .leaf))))))) 275620 8 (.node (.node (.node (.node (.node (.node (.node (.node .leaf 275621 11 .leaf) 275623 16 .leaf) 275624 10 (.node .leaf 275625 12 .leaf)) 275627 16 (.node (.node .leaf 275628 8 .leaf) 275629 10 (.node .leaf 275630 18 .leaf))) 275631 14 (.node (.node (.node (.node .leaf 275652 3 .leaf) 275653 6 .leaf) 275655 16 (.node .leaf 275660 3 .leaf)) 275661 5 (.node (.node .leaf 275663 15 .leaf) 275872 11 (.node .leaf 275873 13 .leaf)))) 275875 17 (.node (.node (.node (.node (.node .leaf 275876 10 .leaf) 275877 13 .leaf) 275879 17 (.node .leaf 275884 9 .leaf)) 275885 11 (.node (.node .leaf 275887 15 .leaf) 289444 13 (.node .leaf 289445 3 .leaf))) 289447 9 (.node (.node (.node (.node .leaf 289448 14 .leaf) 289449 3 .leaf) 289451 9 (.node .leaf 289701 2 .leaf)) 289703 8 (.node (.node .leaf 289705 2 .leaf) 289707 8 (.node .leaf 289709 4 .leaf))))) 289711 10 (.node (.node (.node (.node (.node (.node .leaf 289956 11 .leaf) 289957 3 .leaf) 289958 17 (.node .leaf 289959 9 .leaf)) 289960 12 (.node (.node .leaf 289961 5 .leaf) 289962 17 (.node .leaf 289963 11 .leaf))) 289965 3 (.node (.node (.node (.node .leaf 289967 9 .leaf) 290212 11 .leaf) 290213 4 (.node .leaf 290214 16 .leaf)) 290215 10 (.node (.node .leaf 290216 11 .leaf) 290217 6 (.node .leaf 290218 16 .leaf)))) 290219 12 (.node (.node (.node (.node (.node .leaf 290220 12 .leaf) 290221 4 .leaf) 290222 18 (.node .leaf 290223 10 .leaf)) 290468 10 (.node (.node .leaf 290469 5 .leaf) 290470 15 (.node .leaf 290471 11 .leaf))) 290472 11 (.node (.node (.node (.node .leaf 290473 7 .leaf) 290474 15 .leaf) 290475 11 (.node .leaf 290476 12 .leaf)) 290477 5 (.node (.node .leaf 290478 17 .leaf) 290479 11 (.node .leaf 290724 10 .leaf)))))) 290725 6 (.node (.node (.node (.node (.node (.node (.node .leaf 290726 14 .leaf) 290727 10 .leaf) 290728 10 (.node .leaf 290729 8 .leaf)) 290730 14 (.node (.node .leaf 290731 12 .leaf) 290732 11 (.node .leaf 290733 6 .leaf))) 290734 15 (.node (.node (.node (.node .leaf 290735 10 .leaf) 290980 9 .leaf) 290981 7 (.node .leaf 290982 15 .leaf)) 290983 11 (.node (.node .leaf 290984 10 .leaf) 290985 9 (.node .leaf 290986 17 .leaf)))) 290987 13 (.node (.node (.node (.node (.node .leaf 290988 11 .leaf) 290989 7 .leaf) 290990 15 (.node .leaf 290991 11 .leaf)) 291236 9 (.node (.node .leaf 291237 8 .leaf) 291238 16 (.node .leaf 291239 12 .leaf))) 291240 9 (.node (.node (.node (.node .leaf 291241 10 .leaf) 291242 18 .leaf) 291243 14 (.node .leaf 291244 10 .leaf)) 291245 8 (.node (.node .leaf 291246 16 .leaf) 291247 12 (.node .leaf 291492 8 .leaf))))) 291493 9 (.node (.node (.node (.node (.node (.node .leaf 291494 17 .leaf) 291495 13 .leaf) 291496 10 (.node .leaf 291497 11 .leaf)) 291499 15 (.node (.node .leaf 291500 10 .leaf) 291501 9 (.node .leaf 291502 17 .leaf))) 291503 13 (.node (.node (.node (.node .leaf 291748 9 .leaf) 291749 10 .leaf) 291750 18 (.node .leaf 291751 14 .leaf)) 291752 10 (.node (.node .leaf 291753 12 .leaf) 291755 16 (.node .leaf 291756 9 .leaf)))) 291757 10 (.node (.node (.node (.node (.node .leaf 291758 18 .leaf) 291759 14 .leaf) 292004 9 (.node .leaf 292005 11 .leaf)) 292007 15 (.node (.node .leaf 292008 11 .leaf) 292009 13 (.node .leaf 292011 17 .leaf))) 292012 10 (.node (.node (.node (.node .leaf 292013 11 .leaf) 292015 15 .leaf) 292260 10 (.node .leaf 292261 12 .leaf)) 292263 16 (.node (.node .leaf 292268 10 .leaf) 292269 12 (.node .leaf 292271 16 .leaf)))))))))))
+
+def gk (k : Nat) : Option Nat := tree.find k
+
+def inB (t : P) : Bool := decide (t.r < 64) && decide (t.c < 64) && decide (t.n < 8)
+
+def ok (p : P) (g : Nat) (a : Act) : Bool :=
+  match absStep p a with
+  | .win => decide (18 < g + 1)
+  | .to t .norm => decide (18 < g + cost a) ||
+      (inB t && match gk (key t) with
+                | some v => decide (v ≤ g + cost a)
+                | none => false)
+  | .to t .refill => decide (18 < g + 1) ||
+      (inB t && match gk (key t) with
+                | some v => decide (v ≤ g + 1 - 10)
+                | none => false)
+
+def allActs : List Act :=
+  [.mv .U, .mv .D, .mv .L, .mv .R, .F 0, .F 1, .F 2, .F 3, .F 4, .M6]
+
+def checkAll : Bool := tree.toList.all fun e => allActs.all (ok (decode e.1) e.2)
+
+theorem checkAll_true : checkAll = true := by decide +kernel
+
+theorem gk_ok (k v : Nat) (h : gk k = some v) : allActs.all (ok (decode k) v) = true := by
+  have hc := checkAll_true
+  simp only [checkAll, List.all_eq_true] at hc
+  rw [List.all_eq_true]
+  exact hc (k, v) (T.find_mem tree k v h)
+
+theorem ok_all (p : P) (g : Nat) (h : allActs.all (ok p g) = true) (a : Act) : ok p g a = true := by
+  rw [List.all_eq_true] at h
+  cases a with
+  | mv d => cases d <;> exact h _ (by simp [allActs])
+  | M6 => exact h _ (by simp [allActs])
+  | F i =>
+    rcases i with _ | _ | _ | _ | i
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · have h4 := h (.F 4) (by simp [allActs])
+      have e : ok p g (.F (i + 4)) = ok p g (.F 4) := rfl
+      rw [e]; exact h4
+
+theorem decode_key (p : P) (h1 : p.r < 64) (h2 : p.c < 64) (h3 : p.n < 8) :
+    decode (key p) = p := by
+  obtain ⟨r, c, n, face, op, rf⟩ := p
+  simp only at h1 h2 h3
+  have hf : fi face < 4 := by cases face <;> simp [fi]
+  have hd : toDir (fi face) = face := by cases face <;> rfl
+  unfold decode key
+  generalize fi face = f at hf hd
+  cases op <;> cases rf <;> simp only [Bool.false_eq_true, if_true, if_false] <;>
+    congr 1 <;> first
+      | omega
+      | (rw [show ((((r * 64 + c) * 8 + n) * 16 + f * 4 + _ + _) / 4 % 4) = f by omega]; exact hd)
+      | decide
+      | (simp; omega)
+
+def J (B : Nat) (s : St) : Prop :=
+  s.won = false ∧ s.k ≤ B ∧ s.p.r < 64 ∧ s.p.c < 64 ∧ s.p.n < 8 ∧
+  ∃ v, gk (key s.p) = some v ∧ v ≤ s.k
+
+theorem cost_pos (a : Act) : 1 ≤ cost a := by cases a <;> simp [cost]
+
+theorem pres (B : Nat) (hB : B ≤ 18) (s : St) (a : Act) (h : J B s) : J B (step B s a) := by
+  obtain ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩ := h
+  unfold step
+  by_cases hg : s.won = false ∧ s.k + cost a ≤ B
+  · rw [if_pos hg]
+    have hc := gk_ok (key s.p) v hv
+    rw [decode_key s.p h1 h2 h3] at hc
+    have hok := ok_all _ _ hc a
+    have cp := cost_pos a
+    unfold ok at hok
+    split at hok
+    · rename_i hres
+      simp at hok; omega
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+  · rw [if_neg hg]; exact ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩
+
+theorem run_J (B : Nat) (hB : B ≤ 18) (as : List Act) : ∀ s, J B s → J B (run B s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (pres B hB s a h)
+
+theorem start_in : gk (key startP) = some 0 := by decide +kernel
+
+theorem J_start (B : Nat) : J B start :=
+  ⟨rfl, Nat.zero_le _, by decide, by decide, by decide, 0, start_in, Nat.le_refl _⟩
+
+/-- MAIN (attempt 4): with any budget B ≤ 18 units, no action sequence wins level 4 in the V4
+    model (both-halves refill checked along the whole slide, refill −10, BR grow when it fits and
+    any of 5 anchors otherwise, barrier trigger c = 31 regardless of facing). -/
+theorem never_wins (B : Nat) (hB : B ≤ 18) (as : List Act) : (run B start as).won = false :=
+  (run_J B hB as start (J_start B)).1
+
+/-- Non-vacuity: with one more unit (B = 19) the same model has a winning route — the route
+    played in attempt 4, which failed on its last push for exactly this unit. -/
+def route19 : List Act :=
+  [.F 0, .F 0, .mv .L, .mv .L, .mv .L, .mv .D, .mv .D, .mv .D, .mv .R, .mv .R, .mv .U, .M6,
+   .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R]
+
+theorem route19_wins : (run 19 start route19).won = true := by decide +kernel
+theorem route19_at18 : (run 18 start route19).won = false := by decide +kernel
+
+end L4.V4
+
+
+#print axioms L4.route_wins
+#print axioms L4.route_needs_trig
+#print axioms L4.closed_never_wins
+#print axioms L4.route_wins_H6
+#print axioms L4.V2.never_wins
+#print axioms L4.V2.never_wins_measured
+#print axioms L4.V2.route26_wins
+#print axioms L4.V3.never_wins
+#print axioms L4.V3.route19_wins
+#print axioms L4.V3.route19_at18
+#print axioms L4.V4.never_wins
+#print axioms L4.V4.route19_wins
+#print axioms L4.V4.route19_at18

@@ -1,0 +1,129 @@
+
+def gk (k : Nat) : Option Nat := tree.find k
+
+def inB (t : P) : Bool := decide (t.r < 64) && decide (t.c < 64) && decide (t.n < 8)
+
+def ok (p : P) (g : Nat) (a : Act) : Bool :=
+  match absStep p a with
+  | .win => decide (18 < g + 1)
+  | .to t .norm => decide (18 < g + cost a) ||
+      (inB t && match gk (key t) with
+                | some v => decide (v ≤ g + cost a)
+                | none => false)
+  | .to t .refill => decide (18 < g + 1) ||
+      (inB t && match gk (key t) with
+                | some v => decide (v ≤ g + 1 - 10)
+                | none => false)
+
+def allActs : List Act :=
+  [.mv .U, .mv .D, .mv .L, .mv .R, .F 0, .F 1, .F 2, .F 3, .F 4, .M6]
+
+def checkAll : Bool := tree.toList.all fun e => allActs.all (ok (decode e.1) e.2)
+
+theorem checkAll_true : checkAll = true := by decide +kernel
+
+theorem gk_ok (k v : Nat) (h : gk k = some v) : allActs.all (ok (decode k) v) = true := by
+  have hc := checkAll_true
+  simp only [checkAll, List.all_eq_true] at hc
+  rw [List.all_eq_true]
+  exact hc (k, v) (T.find_mem tree k v h)
+
+theorem ok_all (p : P) (g : Nat) (h : allActs.all (ok p g) = true) (a : Act) : ok p g a = true := by
+  rw [List.all_eq_true] at h
+  cases a with
+  | mv d => cases d <;> exact h _ (by simp [allActs])
+  | M6 => exact h _ (by simp [allActs])
+  | F i =>
+    rcases i with _ | _ | _ | _ | i
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · exact h _ (by simp [allActs])
+    · have h4 := h (.F 4) (by simp [allActs])
+      have e : ok p g (.F (i + 4)) = ok p g (.F 4) := rfl
+      rw [e]; exact h4
+
+theorem decode_key (p : P) (h1 : p.r < 64) (h2 : p.c < 64) (h3 : p.n < 8) :
+    decode (key p) = p := by
+  obtain ⟨r, c, n, face, op, rf⟩ := p
+  simp only at h1 h2 h3
+  have hf : fi face < 4 := by cases face <;> simp [fi]
+  have hd : toDir (fi face) = face := by cases face <;> rfl
+  unfold decode key
+  generalize fi face = f at hf hd
+  cases op <;> cases rf <;> simp only [Bool.false_eq_true, if_true, if_false] <;>
+    congr 1 <;> first
+      | omega
+      | (rw [show ((((r * 64 + c) * 8 + n) * 16 + f * 4 + _ + _) / 4 % 4) = f by omega]; exact hd)
+      | decide
+      | (simp; omega)
+
+def J (B : Nat) (s : St) : Prop :=
+  s.won = false ∧ s.k ≤ B ∧ s.p.r < 64 ∧ s.p.c < 64 ∧ s.p.n < 8 ∧
+  ∃ v, gk (key s.p) = some v ∧ v ≤ s.k
+
+theorem cost_pos (a : Act) : 1 ≤ cost a := by cases a <;> simp [cost]
+
+theorem pres (B : Nat) (hB : B ≤ 18) (s : St) (a : Act) (h : J B s) : J B (step B s a) := by
+  obtain ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩ := h
+  unfold step
+  by_cases hg : s.won = false ∧ s.k + cost a ≤ B
+  · rw [if_pos hg]
+    have hc := gk_ok (key s.p) v hv
+    rw [decode_key s.p h1 h2 h3] at hc
+    have hok := ok_all _ _ hc a
+    have cp := cost_pos a
+    unfold ok at hok
+    split at hok
+    · rename_i hres
+      simp at hok; omega
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+    · rename_i t hres
+      simp only [Bool.or_eq_true, decide_eq_true_eq, Bool.and_eq_true, inB] at hok
+      rcases hok with hok | ⟨⟨⟨b1, b2⟩, b3⟩, hl⟩
+      · omega
+      · split at hl
+        · rename_i v' hv'
+          simp only [decide_eq_true_eq] at hl
+          exact ⟨rfl, by dsimp only; omega, b1, b2, b3, v', hv', by dsimp only; omega⟩
+        · simp at hl
+  · rw [if_neg hg]; exact ⟨hw, hk, h1, h2, h3, v, hv, hvk⟩
+
+theorem run_J (B : Nat) (hB : B ≤ 18) (as : List Act) : ∀ s, J B s → J B (run B s as) := by
+  induction as with
+  | nil => intro s h; exact h
+  | cons a as ih =>
+    intro s h
+    simp only [run, List.foldl_cons]
+    exact ih _ (pres B hB s a h)
+
+theorem start_in : gk (key startP) = some 0 := by decide +kernel
+
+theorem J_start (B : Nat) : J B start :=
+  ⟨rfl, Nat.zero_le _, by decide, by decide, by decide, 0, start_in, Nat.le_refl _⟩
+
+/-- MAIN (attempt 4): with any budget B ≤ 18 units, no action sequence wins level 4 in the V4
+    model (both-halves refill checked along the whole slide, refill −10, BR grow when it fits and
+    any of 5 anchors otherwise, barrier trigger c = 31 regardless of facing). -/
+theorem never_wins (B : Nat) (hB : B ≤ 18) (as : List Act) : (run B start as).won = false :=
+  (run_J B hB as start (J_start B)).1
+
+/-- Non-vacuity: with one more unit (B = 19) the same model has a winning route — the route
+    played in attempt 4, which failed on its last push for exactly this unit. -/
+def route19 : List Act :=
+  [.F 0, .F 0, .mv .L, .mv .L, .mv .L, .mv .D, .mv .D, .mv .D, .mv .R, .mv .R, .mv .U, .M6,
+   .mv .R, .mv .R, .mv .R, .mv .R, .mv .R, .mv .R]
+
+theorem route19_wins : (run 19 start route19).won = true := by decide +kernel
+theorem route19_at18 : (run 18 start route19).won = false := by decide +kernel
+
+end L4.V4
+

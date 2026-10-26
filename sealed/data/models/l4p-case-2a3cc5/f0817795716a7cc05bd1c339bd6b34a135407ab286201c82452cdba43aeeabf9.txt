@@ -1,0 +1,13 @@
+import json
+L=[json.loads(l) for l in open('transitions.jsonl')]
+r=L[-1]
+p,n=r['prev'],r['nxt']
+d=[(y,x,p[y][x],n[y][x]) for y in range(64) for x in range(64) if p[y][x]!=n[y][x]]
+print(r['action'],'diff',len(d),r['ctx'])
+if d:
+  ys=[t[0] for t in d]; xs=[t[1] for t in d]
+  y0,y1,x0,x1=min(ys),max(ys),min(xs),max(xs)
+  print('bbox rows',y0,y1,'cols',x0,x1)
+  H='0123456789abcdef'
+  for y in range(max(0,y0-1),min(64,y1+2)):
+    print('%2d '%y+''.join(H[p[y][x]] for x in range(max(0,x0-2),min(64,x1+3)))+'  ->  '+''.join(H[n[y][x]] for x in range(max(0,x0-2),min(64,x1+3))))

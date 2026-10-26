@@ -14,7 +14,7 @@ async function loadCase(id){
  if(s.bound_note)$('#summary').append(node('p',s.bound_note,'muted'));
  if(s.pending_note)$('#summary').append(node('p','Continuation pending: the collaborator will upload attempts 4–8 and the final interview.','pending'));
  const a=node('a','Download the complete available run archive');a.href=s.download;a.download='';$('#summary').append(a);
- const missed=s.missing_source_version_count;$('#summary').append(node('p',`Raw user/assistant messages: ${s.raw_messages}. Older source versions without a recovered full snapshot: ${missed}. Original tool history is retained.`,'muted'));
+ const missed=s.missing_source_version_count;$('#summary').append(node('p',`Raw user/assistant messages: ${s.raw_messages}. Older source versions without a recovered full snapshot: ${missed}. Original tool history is retained. ${s.model_coverage_note || ''}`,'muted'));
  document.querySelectorAll('#runs button').forEach(b=>b.classList.toggle('active',b.dataset.id===id));
  clear('#attempt');for(const r of current.attempts)$('#attempt').append(option(r.attempt,'Attempt '+r.attempt));
  clear('#session');for(const source of [...new Set(current.events.map(e=>e.source))])$('#session').append(option(source,source));
@@ -26,7 +26,9 @@ function renderAttempt(){
  $('#answers').append(node('h3','Attempt '+row.attempt));
  if(row.answers.length){for(const text of [...new Set(row.answers)])$('#answers').append(node('pre',text));}
  else $('#answers').append(node('p','This partial run has a console audit and raw session, but no structured round-answer record. Use Full session or the archive.'));
- if(row.verdict)$('#answers').append(details('Recorded verdict',row.verdict));
+ if (row.questions) $('#answers').append(details('Prompts for this attempt', row.questions));
+  if (row.continuation_note) $('#answers').append(node('p', row.continuation_note, 'muted'));
+  if(row.verdict)$('#answers').append(details('Recorded verdict',row.verdict));
  if(row.gate)$('#answers').append(details('Historical gate record',row.gate));
  if(row.model_manifest)$('#answers').append(details(`Model / Lean inventory: ${row.recovered_files} of ${row.model_files} files recovered by exact hash`,row.model_manifest));
 }

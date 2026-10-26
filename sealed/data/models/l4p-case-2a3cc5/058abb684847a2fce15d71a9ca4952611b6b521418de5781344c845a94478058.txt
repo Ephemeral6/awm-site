@@ -1,0 +1,19 @@
+"""ACTION1-4，且动作前计量条非空：块平移一个边长后的目标足迹里含有目标槽的 10 色格（非块自身）⇔ 这一步过关（level +1）。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION1-4；prev 里定位不到块 NA；prev 计量条（列62 的 14 色）为 0 时 NA；两个方向都判"
+NOTE = ("v2: c20aa696def56d6b（attempt4 L4，计量条已为 0 时块推进槽口）判 FALSE——块画进了槽，但 state=GAME_OVER、不升关。"
+        "说明预算耗尽先于过关判定；这一支不归本概念管，缩 scope：prev 计量条为 0 时 NA。")
+EVIDENCE = ["0ba05691632adb10", "c20aa696def56d6b"]
+from _lib import piece, DIRS
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS or not ctx: return "NA"
+    if not any(prev[y][62] == 14 for y in range(64)): return "NA"
+    a = piece(prev)
+    if a is None: return "NA"
+    t, b, l, r = a; s = b - t + 1
+    dy, dx = DIRS[action]
+    foot = [(y + dy * s, x + dx * s) for y in range(t, b + 1) for x in range(l, r + 1)]
+    hits = any(0 <= y < 64 and 0 <= x < 62 and prev[y][x] == 10 and not (t <= y <= b and l <= x <= r) for y, x in foot)
+    up = ctx.get("level_next") == (ctx.get("level_prev") or 0) + 1 or ctx.get("state_next") == "WIN"
+    return "TRUE" if hits == up else "FALSE"

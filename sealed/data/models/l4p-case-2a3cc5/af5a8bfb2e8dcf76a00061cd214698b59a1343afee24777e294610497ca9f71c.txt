@@ -1,0 +1,28 @@
+"""钥匙色 6 时完成匹配：盘面（行<46）上 6 色格与 13 色格全部消失（变地板 2 或背景）⇔ 块朝上(9 在上)且块的列范围与 6 色框列范围相交。"""
+LEVEL = "L5"
+SCOPE = "只看 ACTION6 完成匹配且钥匙色 6；换关 NA"
+NOTE = "仅 3 次观测（2 次朝下不消失、1 次朝上且在竖井下消失），机制（朝向射线？位置？）未分开"
+EVIDENCE = ["47e65ae39a9fe1d2", "235e459221ec318a", "39fb35d00fe80a8b"]
+from _lib import GRID_PTS, piece, facing
+from geo import cells_of, bbox
+
+def key(g):
+    return {(r, c) for r in range(3) for c in range(3) if g[51 + 3 * r][12 + 3 * c] not in (2, 3)}
+
+def assert_(prev, action, nxt, ctx=None):
+    if not action.startswith("ACTION6:"): return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    x, y = map(int, action.split(":")[1].split(","))
+    hit = [i for i, (py, px) in enumerate(GRID_PTS) if abs(py - y) <= 2 and abs(px - x) <= 2]
+    if not hit: return "NA"
+    lit = {(i // 3, i % 3) for i, (py, px) in enumerate(GRID_PTS) if prev[py][px] == 14}
+    i = hit[0]; lit ^= {(i // 3, i % 3)}
+    k = key(prev)
+    if lit != k or {prev[51 + 3 * r][12 + 3 * c] for (r, c) in k} != {6}: return "NA"
+    a = piece(prev)
+    six = [(r, c) for (r, c) in cells_of(prev, 6) if r < 46]
+    if a is None or not six: return "NA"
+    t, b, l, r = bbox(six)
+    pred = facing(prev, a) == 'U' and not (a[3] < l or a[2] > r)
+    gone = not any(nxt[y][x] in (6, 13) for y in range(46) for x in range(62))
+    return "TRUE" if pred == gone else "FALSE"

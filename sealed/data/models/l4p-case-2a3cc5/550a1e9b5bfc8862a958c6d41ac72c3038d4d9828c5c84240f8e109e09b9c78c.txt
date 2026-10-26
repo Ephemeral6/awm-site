@@ -1,0 +1,104 @@
+# Run report (step 1 output)
+
+Result: I reached level 4 of ? (levels_total not read); 3 levels completed. **GAME_OVER on level 4**, ended by running out the budget bar.
+
+## Board vocabulary (assumptions, in concepts/_lib.py)
+- Piece: a square block, 4x4 or 2x2. One half is colour 9 and the other half is colour 10. The 9 half shows the facing.
+- Goal slot: colour-10 interior inside a colour-9 frame.
+- Bottom 3x3 grid (cells sampled at (50+5r, 25+5c)). Clicking a cell toggles it between 14 and its base colour (2, or 0 for a hint cell).
+- Key panels: 10x10 boxes with a colour-3 border, cells at (t+1+3r, l+1+3c). Each key has a colour and a 3x3 mark pattern. In L4 there were two keys.
+- Bar: columns 62-63, colour 14, drains from the top. Exhausting it gives GAME_OVER on the next action (observed in L4).
+
+## Rule table (settle at end: 83 transitions, deduplicated)
+| concept | scope | N | S | C | EVIDENCE | history |
+|---|---|---|---|---|---|---|
+| piece_step | ACTION1-4: the piece moves d ≤ side length; if 0<d<s the next row is wall (colour 5); no claim about d=0 | 36 | 1.000 | 0.462 | 5 | v1 broken by clamping (dda878…); v2 broken by first-move no-op (2b3e…) |
+| piece_facing | after a real move, the 9 half faces the move direction | 34 | 1.000 | 0.425 | 3 | — |
+| grid_click | a click on a grid cell toggles only that cell | 21 | 1.000 | 0.263 | 3 | — |
+| goal_enter | the shifted footprint touches slot colour 10 ⇔ level+1 | 43 | 1.000 | 0.524 | 1 | — |
+| grid_match (key 15) | match → grid resets and the piece's side halves | 0 | UNMEAS. | 0 | 2 | v1 colour-unscoped, broken by L2 |
+| grid_match_b (key 11) | match → piece teleports into the box marked by colour-11 corner brackets | 0 | UNMEAS. | 0 | 1 | — |
+| match6_piece_fixed | a 6-key match does not move the piece | 4 | 1.000 | 0.049 | 2 | replaces retired grid_match_6 |
+| (retired) grid_match_6 | conditions under which the 6 box and the 13 barrier disappear | — | — | — | — | v1 and v2 broken in L4; see history/ |
+
+How many times each rule abstained (returned NA): this is held − N for each rule. For example, grid_match and grid_match_b abstained on every held-out transition, so they are **untested**: each rests on one observation.
+
+## Reconciliation
+- I placed 83 bets before 83 actions, but they were free text, not cell-level predictions. No apply() was written, so E = 0 and there is no cell-level accounting.
+- Free-text bets that missed, in order:
+  1. The first ACTION1 of the game did nothing.
+  2. Clamping to the wall.
+  3. The b key teleported instead of doing something else.
+  4. Hidden 6-effect conditions: 4 of 6 matches did not remove the box.
+  5. The predicted bar costs were wrong.
+- Unexplained items: the first-move no-op (2b3e5ed8fe7b90de), and the 6-key effect condition. The effect fired once (L3, 39fb35d00fe80a8b) and did not fire 5 times.
+
+## Dropped-mechanism audit
+| mechanism | dropping it means | allowed? |
+|---|---|---|
+| bar drain rate (≈1.3/action in L1–L3, 4/action in L4; zero-diff clicks free) | model allows more moves than the real game ⇒ looser | droppable but recorded; it killed the run |
+| 6-key effect condition (unknown) | model can't open the 13 barrier ⇒ fewer transitions | **NOT droppable**: open |
+| e-coloured 2x2 marker in L4 (rows 34-35, cols 23-24) | effect unknown | **NOT droppable**: untested (never touched) |
+| f key in L4 (shrink) | unused | **NOT droppable**: possibly needed for alignment (hypothesis: a 2x2 piece at cols 31-32 under the shaft) |
+| clicks on key panel (re-show 0 hint on grid) | cosmetic as far as seen | not droppable until tested further |
+| actions never tried | ACTION5/7, clicks elsewhere | listed |
+
+## L4 knowledge for a retry
+- Budget at 4/action is ≈16 actions.
+- Route: L, L, U (to rows 21-24, cols 29-32), [6-match], D, D, R×7 = 15 actions. This assumes the 6-match works from there, and in this run it did not (3 attempts).
+- Candidate cause: alignment with the shaft (cols 31-32) needs the f shrink. Untested.
+
+## Attempt 2 (level 4 only)
+- H6 is refuted. I clicked the 6-key panel (it showed the hint and cost no bar), then matched with the 4x4 block at (21,29) facing U. Nothing opened.
+- The shrink works in L4. The f-key match halved the block to 2x2 and kept its top-left corner (21,29).
+- **H5 is confirmed once.** I put the 2x2 block in the shaft at cols 31-32 (rows 19-20), facing U, then made the 6-match. The 6-box (it became floor) and the 13 barrier both disappeared. In L3 the success also had the block's left columns = shaft columns. Working rule: the 6-match opens the barrier when the block is facing up and its leftmost columns sit exactly on the shaft columns.
+- Bar ran out at that moment (0). I did not take the next action; last time, an action at 0 gave GAME_OVER.
+- Open question for a winning line: the shrunk block needs ~2 moves per 4 cells. A full route is shrink(4) + R + U + match(3) + ~13 moves to the slot ≈ 22 actions, which is more than the ~15 budget. The unexplained e-marker at (34,23) and the 2x2 box interior may hold the shortcut. Example: does the shrunk block pass through the opened box, or does the e-marker re-grow it?
+
+## Attempt 3 (level 4) — GAME_OVER
+- **The e-marker at (34-35,23-24) refills the bar.** With the 4x4 block covering it, nothing happened. With the 2x2 block covering it, the bar went from 16 to 48 rows and the marker was consumed. No new marker appeared.
+- **The f-match toggles size.** On a 2x2 block it grows back to 4x4, keeping the bottom-right corner: (33,23) 2x2 became (31,21) 4x4. Shrinking keeps the top-left corner.
+- **Matches need the exact pattern.** Lighting {1,3,4,5,7}, a superset of both keys, did not fire.
+- **A blocked move costs one unit.**
+- **Budget model** (fits every reading in all 3 attempts): 18 units per level. Normal action = 1, completing match click = 2, zero-diff clicks and key-panel clicks are free. Bar = ceil-to-even(64·(1−k/18)). Refill: k −10 (or k := 5; one sample). An action that would go past the budget gives GAME_OVER.
+- Search in work/plan4.py (Dijkstra over these rules, trigger = facing U ∧ c=31): the cheapest win costs 21 net units (20 if facing is not required). The budget is 18. Still infeasible by 2-3 units, so some mechanism is still missing.
+
+## Attempt 4 (level 4) — GAME_OVER on the last move, one unit short
+Route played:
+1. shrink, then grow, at the start;
+2. L ×3, D ×3;
+3. R ×2, U to (29,31) facing U;
+4. 6-match;
+5. R ×6.
+
+- **Shrink at the start.** 4x4 (25,37) facing D became 2x2 (25,37): the top-left corner was kept again, as in earlier shrinks.
+- **Grow.** 2x2 (25,37) became 4x4 (23,35): the bottom-right corner was kept again. So the grow anchor is BR on both observations.
+- **Refill rule revised.** 4x4 at (31,23) facing D did not refill. Its 9 half covered marker row 34; marker row 35 was under nothing. 4x4 at (33,23) facing D did refill: bar 12 → 44, so k went 15 → 16 → 6, i.e. **refill = −10** (set-to-5 refuted). New rule: refill iff the marker is covered by BOTH the 9 half and the 10 half, i.e. it straddles the block's middle line. All 4 samples fit.
+- **6-match with 4x4 at (29,31) facing U, in the room (not the shaft) opened the barrier.** The trigger does not need the shaft or row 21. Facing U and c=31 is enough (or c=31 alone; untested).
+- **Budget edge.** The last R at bar 0 (k=18) pushed the block into the slot: the frame shows it entering. But state = GAME_OVER and no level-up. So once k reaches 18, the next action ends the game even if it would win. The winning move must start with k ≤ 17.
+- **What's needed.** A route of total ≤ 18 units, final move included. The played route cost 19. With BR grow, the minus-10 refill, the both-halves refill rule and the c31U trigger, I need to re-search for an 18-unit route (work/plan5.py with the new refill rule).
+- **Re-search done after the game ended** (same rules, both-halves refill). The cheapest win is still **19** total, under both the c31 and c31U triggers. So a mechanism is still missing: one unit cheaper somewhere. Candidates not yet tested:
+  - how the grow behaves when BR is blocked;
+  - whether a refill can happen twice;
+  - whether some click is cheaper (a match from the shown hint, for example).
+
+## Attempt 5 (level 4) — GAME_OVER
+- **Grow facing L keeps BR.** I ran L, shrink, grow: 2x2 (25,33) facing L became 4x4 (23,31). This is the 3rd observation of BR-kept, and the first facing L. It refutes the only hypothesis (grow facing L keeps TR) that allowed an 18-unit win. A search from that state, under the loosest rules (any anchor, slide refill), found no win within 18.
+- **The 6-match needs facing U.** With the 4x4 at (23,31) facing L, the match did NOT open the barrier. So the trigger is c=31 ∧ facing U; the 'c31 any facing' loosening is now known to be loose.
+- After that the budget drained with filler moves and the game ended.
+
+## Attempt 6 (level 4) — GAME_OVER, again one unit short
+- **Key-panel clicks** (f panel at the start; 6 panel while aligned at (29,31) facing U): each only shows the hint on the grid. They are free and trigger no effect. The "panel click acts as a free match" idea is refuted.
+- **Hint cells cost** the same as other clicks (1, and 2 for the completing click). The match still cost 4.
+- **Free clicks with zero diff:** slot, opened 6-box, bar, opened barrier, the block.
+- I replayed the attempt-4 route (19 units). The last push at k=18 gave GAME_OVER again.
+
+## Attempt 7 (level 4) — GAME_OVER
+- **Whole-board click scan** (work/scan.sh): ACTION6 on every 3rd cell, rows 1-45, cols 1-60, panels excluded. Every click gave zero diff and cost nothing. There are no hidden clickable elements.
+- **Grow facing U, BR blocked by the wall:** 2x2 (21,37) became 4x4 (21,35), keeping top-right. This fits "BR, shifted to fit the floor" and lies inside V4's allowed set for blocked grows.
+- **Shrink facing R:** 4x4 (21,39) became 2x2 (21,39), keeping top-left. Shrink now keeps TL in all four facings.
+- The budget ran out on these tests; GAME_OVER.
+
+## Attempt 8 (level 4) — GAME_OVER
+- I replayed the 19-unit route step by step. Every frame matched V4: positions, the refill at (33,23) (bar 12→44), the barrier opening at (29,31) facing U, and the bar after each action.
+- The final push at k=18 gave GAME_OVER, the third time this was observed. No new mechanism showed up.

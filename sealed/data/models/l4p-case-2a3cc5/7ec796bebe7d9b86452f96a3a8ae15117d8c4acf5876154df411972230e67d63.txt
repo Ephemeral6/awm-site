@@ -1,0 +1,80 @@
+# Formal system: objects / rules (attempt 1; Lean: lean/L4Model.lean)
+
+## a. Objects (L4)
+| object | slots | why it is kept (pair of positions that become indistinguishable without it) |
+|---|---|---|
+| piece | r, c, face | (r,c) separates states where a move wins from states where it doesn't. face is read by trig (H6) and also by the observed L3 success: a match facing D vs facing U at the same cell. |
+| grid | lit (9-bit) | lit=18 vs lit=0: the next click on cell 7 matches in the first case and not the second. |
+| key panels | fixed patterns 146 (6-key), 170 (f-key); slot `sel` | sel=6 vs sel=0 at sPre: under H6 the barrier opens in the first case and not the second. |
+| barrier / 6-box | op | op=true vs false at (29,41): R wins eventually or stays blocked. |
+| slot, walls | static | n/a (not state) |
+| budget | used | used=14 vs 15: a winning move is allowed or not. |
+| won | won | terminal flag |
+
+## b. Rules (Lean `act`, domain = any St with `live`)
+| rule | source concept | in Lean as |
+|---|---|---|
+| MOVE (slide ≤4, stop before non-floor; face := dir even if blocked) | piece_step, piece_facing | definition `move`/`slide` |
+| GOAL (shifted-by-4 footprint touches slot ⇒ won) | goal_enter | definition, inside `move` |
+| CLICK (toggle bit) | grid_click | definition |
+| MATCH6 (lit=146 ⇒ reset, op ∨= trig s) | match6_piece_fixed + the retired grid_match_6 | definition with **parameter `trig`**; its value is a theorem hypothesis |
+| MATCHF effect (halve side) | grid_match | **not in model** (only the reset is modelled) |
+| teleport (11-key) | grid_match_b | not in model (no 11-key in L4) |
+| KEY panel click sets `sel`, free | observed (L3: shows hint, bar unchanged) | definition; that `sel` matters is hypothesis H6 |
+| budget: ≤15 consuming actions | observed L4: 15 actions ok, the 16th gave GAME_OVER | definition `LIMIT` (assumes cost is per action, not per type) |
+| first-move no-op (L1) | piece_step NOTE | not in model |
+| e-coloured 2x2 marker at (34,23) | never touched | not in model; effect unknown |
+
+## c. Simplify
+- The bar drawing was replaced by the action count `used`.
+- Hint display was dropped: no rule reads it.
+- Size was dropped: shrink is not modelled, so the side is always 4.
+
+Check against observations: I ran the L4 moves I observed through the model by hand. They agree, including the blocked U that still turns the piece (21,29)→(21,29) face U. The three observed failing 6-matches are false under trigH6 (`obs1..3`). There is no automated replay of all 83 frames.
+
+## Drop direction
+Dropping shrink, teleport, the e-marker and the first-move no-op makes the model **stricter** than the game: it has fewer transitions. So `closed_never_wins` is only "impossible in model", and it does not transfer to the game. The positive theorem `route_wins` transfers only if (1) every transition on the route behaves as modelled and (2) `trig sPre = true` in the real game.
+
+# Amendment, attempt 2 (Lean: namespace L4.V2 in lean/L4Model.lean; L4 v1 kept as the record)
+- piece: new slot `size` (4|2). Without it, the 4x4 block at (25,37) and the 2x2 block at (25,37) cannot be told apart, yet one moves 4 per step and the other 2.
+- `sel`: DROPPED. H6 was refuted: the panel was clicked and the match at sPre still did not open the barrier. No rule reads `sel` now. The key-panel click is a free no-op.
+- MATCHF: definition. Size 4 → 2, top-left kept (attempt 2). Size 2 → 1 is NOT IN MODEL (never observed).
+- MOVE / GOAL: definitions, generalised to side n.
+- floor: the opened barrier and the 6-box both become floor.
+- MATCH6: `trig` is still a parameter. Measured rule H5 = `face U ∧ c = 31` (trigH5). The theorem uses only `trig ⇒ c = 31`, which is looser than H5.
+- Budget: a parameter LIM. Measured value 15.
+- NOT IN MODEL: re-grow, the e-marker, size-1 halving, the first-move no-op, ACTION5/7.
+
+Main theorem L4.V2.never_wins: for every LIM ≤ 19 and every trig with trig ⇒ c=31, no action list wins.
+Non-vacuity: L4.V2.route26_wins (LIM = 26, trigH5); route26_short (the same route at LIM = 25 does not win).
+
+# Amendment, attempt 3 (Lean: lean/L4ModelV3.lean, namespace L4.V3; imports L4Model)
+- **rule MATCHF revised:** it toggles 4↔2. The grow anchor was observed once as bottom-right kept ((33,23)→(31,21)). The model allows 5 anchors nondeterministically (looser).
+- **new object e-marker** (34-35, 23-24), slot `rf`. **New rule REFILL:** a 2x2 move whose slide footprint touches the marker sets rf and k := min(k+1-10, 5) (looser of the two readings of one sample). A 4x4 covering it gives no refill (observed).
+- **Budget re-measured in units:** move = 1, match click = 2, other clicks = 1, B = 18. This fits every bar reading of all 3 attempts. The V2 budget (15 actions) is superseded.
+- **Abstraction:** match = one macro action (F = 5, M6 = 4). This is sound as a lower bound because every match resets the grid, clicks never move the block, and the trigger reads the position at the completing click.
+- **MATCH6 trigger:** c = 31 for any size and facing (looser than H5). The `face` slot is dropped.
+- **Exact-match rule confirmed** (the superset {1,3,4,5,7} did not fire). This is consistent with the macro abstraction.
+- **Proof method:** work/table4.py computes the least spent budget g(s) for all 1489 states reachable within 18 under the loose rules. Lean (`checkPart*`, decided by kernel) checks every transition against g. The win move needs g+1 > 18. MAIN: L4.V3.never_wins.
+
+## Correction (2026-10-25): where V3 lives, and how the table is checked
+- **Why:** lean/L4ModelV3Tab.lean did not compile. It imported `L4Model`, which needs a prebuilt L4Model.olean, and none was present. Its table check also ran over all 131072 keys and took more than 16 minutes.
+- **Fix: one file.** The V3 definitions and proofs are now folded into lean/L4Model.lean, after L4.V2. The file has no imports and compiles alone in about 85 s.
+- **Retired:** the split files are kept as records in work/*.split-retired.lean.
+- **Table representation:** the 1489-entry table is now a binary search tree `tree : T`; `gk = tree.find`. The kernel check `checkAll` runs over `tree.toList` only. `T.find_mem` proves that any key found is in the list. Neither the table nor any rule changed; work/gen_tab.py regenerates it from work/tab4.lean.txt.
+- MAIN-THEOREM: lean/L4Model.lean : L4.V3.never_wins
+
+# Amendment, attempt 4 (Lean: namespace L4.V4 in lean/L4Model.lean; V3 kept as the record)
+- **REFILL revised.** V3 "only a 2x2 refills" is refuted: in attempt 4 a 4x4 at (33,23) facing D refilled. Without this V3 is STRICTER than the game, so V3.never_wins no longer transfers.
+  - New rule: the refill fires iff the marker lies under both the 9 half and the 10 half. All 4 samples fit.
+  - In the model it is checked at every slide position, including the start cell re-faced (looser).
+  - Concept: concepts/refill.py v2.
+- **Refill amount:** k := k+1−10, measured (bar 12→44). The "k := 5" reading is dropped as refuted.
+- **Slot `face` restored:** the refill rule reads it. Without it, (31,23)D and (33,23)D are told apart only by position, and (33,21)L vs (33,21)D would be indistinguishable.
+- **GROW:** keeps bottom-right whenever that fits (observed twice: (33,23)→(31,21), (25,37)→(23,35)). When blocked: any of the 5 anchors (loose, unobserved).
+- **MATCH6 trigger:** c=31, any facing. Attempt 4: 4x4 at (29,31) facing U in the room opened the barrier.
+- **BUDGET:** confirmed that an action starting at k=18 ends the game even when it would enter the slot (goal_enter v2 narrowed accordingly). The model's `step` already required k+cost ≤ 18.
+- **Search** (work/table6.py, flags `anch clamp slide`): 2304 reachable states; least g at any win-able state is 18. So the win needs total 19 and the budget is 18.
+  - Loosening the grow to any anchor even when BR fits gives a 17-unit win. So the result rests on "grow keeps BR whenever it fits".
+- MAIN-THEOREM: lean/L4Model.lean : L4.V4.never_wins (kernel table check over the 2304 entries).
+- Non-vacuity: route19_wins (B=19, the route played in attempt 4) / route19_at18.
