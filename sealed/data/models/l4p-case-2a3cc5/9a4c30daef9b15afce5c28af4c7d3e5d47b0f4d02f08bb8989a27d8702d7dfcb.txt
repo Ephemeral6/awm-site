@@ -1,0 +1,29 @@
+"""块移动后，若 14 色标记格同时被块的 9 半与 10 半压住（标记跨在块的中线上），则右侧计量条 14 色行数增加（补给）；否则不增加。"""
+LEVEL = "L4"
+SCOPE = "只看 ACTION1-4、同关；只管 L4 标记方框 (34-35,23-24) 且 prev 框内仍见 14 色、nxt 块足迹与框相交；否则 NA"
+NOTE = ("v1『2x2 压住才补、4x4 不补』被 b8acc8d0bb010655 打脸（attempt4：4x4 于 (33,23) 朝下压住标记，补给 16→6 单位）。"
+        "v2：标记须同时落在 9 半与 10 半之下。四个样本全符：4x4(33,21)L 只压 10 半→不补；2x2(33,23)R 两半都压→补；"
+        "4x4(31,23)D 只压 9 半→不补；4x4(33,23)D 两半都压→补。")
+EVIDENCE = ["e328976b63bfb86a", "64f92cc80404e92e", "b8acc8d0bb010655"]
+from _lib import piece, DIRS
+
+
+def bar(g): return sum(1 for y in range(64) if g[y][62] == 14)
+
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS: return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    # 标记可能被 prev 的块部分遮住，所以用 L4 实测的标记方框 (34-35, 23-24)；只在该框里还看得到 14 色时适用
+    box = {(y, x) for y in (34, 35) for x in (23, 24)}
+    if not any(prev[y][x] == 14 for (y, x) in box): return "NA"
+    m = box
+    b = piece(nxt)
+    if b is None: return "NA"
+    foot = {(y, x) for y in range(b[0], b[1] + 1) for x in range(b[2], b[3] + 1)}
+    under = m & foot
+    if not under: return "NA"
+    cols = {nxt[y][x] for (y, x) in under}
+    pred = cols >= {9, 10}
+    up = bar(nxt) > bar(prev)
+    return "TRUE" if up == pred else "FALSE"

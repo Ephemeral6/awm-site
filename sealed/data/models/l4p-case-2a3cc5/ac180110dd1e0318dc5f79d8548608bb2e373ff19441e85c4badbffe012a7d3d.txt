@@ -1,0 +1,5 @@
+import json,sys
+sys.path[:0]=['.','concepts']
+from _lib import piece, facing
+d=json.load(open('.last_frame.json'));f=d['frame']
+b=piece(f); print('piece',b, facing(f,b) if b else None,'bar', sum(1 for y in range(64) if f[y][62]==14), 'level', d['level'])

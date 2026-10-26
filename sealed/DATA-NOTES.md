@@ -7,15 +7,17 @@ have offline validation records; new live six-run results are not included.
 
 ## Run downloads
 
-- [l4p-case-2a3cc5](downloads/l4p-case-2a3cc5.zip): level 4; 3 attempts; continuation and final interview pending.
+- [l4p-case-2a3cc5](downloads/l4p-case-2a3cc5.zip): level 4; 8 attempts and final interview archived; continuation included.
 - [m15fw-case-69fe87](downloads/m15fw-case-69fe87.zip): level 4; 8 initial attempts and final interview archived.
 - [m15fw-case-9ec8d4](downloads/m15fw-case-9ec8d4.zip): level 4; 8 initial attempts and final interview archived.
 - [l5d-case-284967](downloads/l5d-case-284967.zip): level 5; 8 initial attempts and final interview archived.
 - [l5d-case-4f4628](downloads/l5d-case-4f4628.zip): level 5; 8 initial attempts and final interview archived.
 - [l5d-case-977714](downloads/l5d-case-977714.zip): level 5; 8 initial attempts and final interview archived.
 
-The collaborator is continuing `2a3cc5` and will upload the actual continuation.
-Its per-attempt file-hash manifest was not archived, so a zero missing-version
+The collaborator has completed `2a3cc5` through attempt 8 and its final interview.
+The original first three attempts remain intact. Attempts 4–8 have 75/75 tracked
+Python/Lean source snapshots verified by their recorded hashes.
+For its original attempts 1–3, a per-attempt file-hash manifest was not archived, so a zero missing-version
 count must not be read as complete source-version coverage.
 
 ## What is in a run ZIP?
@@ -65,9 +67,14 @@ All download hashes are in [downloads/SHA256SUMS.txt](downloads/SHA256SUMS.txt).
 Model credentials and compiled caches are excluded from the export. Original
 source records were not modified when preparing the archive.
 
-## Updating the pending record
+## Completed continuation
 
-Preserve the original first three attempts. Add the actual continuation with its
-session/version metadata and final interview, then update the corresponding
-`data/l4p-case-2a3cc5.json`, `data/summary.json`, run ZIP and download checksums.
-Do not mark a run complete without uploading the underlying records.
+`2a3cc5` now includes attempts 4–8, all available questions and answers, the
+resumed third-attempt follow-up, final interview, source snapshots, actual
+action logs and receiver cold-build/axiom output. Its final reported threshold
+remains 19 (budget 18), with verdict `impossible_in_model_proved`, confidence 50.
+Original attempts 1–3 and their gate outcomes are preserved. No newer six-run
+or automatic-repair experiments were added. See `README-COMPLETE.md` and
+`completed_continuation/PROVENANCE.json` in the ZIP. The public session excludes
+CLI request/debug/account metadata while retaining all user/assistant messages
+and tool calls/results.

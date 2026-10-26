@@ -1,0 +1,71 @@
+# V3 abstract L4 model, forward min-cost g over (r,c,n,op,rf); budget B=18.
+# Loosenings (vs measured): trig := c==31 (any size/facing); refill if ANY footprint on the slide path
+# of a 2x2 touches the marker, k' = min(k+1-10 floored, 5); grow anchor nondeterministic among ANCH.
+import sys, json
+def box(y0,y1,x0,x1): return lambda y,x: y0<=y<=y1 and x0<=x<=x1
+room=box(21,36,21,44); shaft=box(9,20,31,32); bar_=box(29,32,45,47); corr=box(29,32,48,56); slot=box(29,32,57,60); bx=box(5,8,30,33)
+marker={(34,23),(34,24),(35,23),(35,24)}
+def floor(op,y,x): return room(y,x) or shaft(y,x) or corr(y,x) or (op and (bar_(y,x) or bx(y,x)))
+D={'U':(-1,0),'D':(1,0),'L':(0,-1),'R':(0,1)}
+def fp(r,c,n): return [(r+i,c+j) for i in range(n) for j in range(n)]
+ANCH=[(-2,-2),(0,0),(-1,-1),(-2,0),(0,-2)] if 'loose' in sys.argv else [(-2,-2)]
+B=int([a for a in sys.argv if a.isdigit()][0]) if any(a.isdigit() for a in sys.argv) else 18
+def succ(s):
+    r,c,n,op,rf=s; out=[]
+    for d in 'UDLR':
+        dy,dx=D[d]
+        if any(slot(y,x) for y,x in fp(r+dy*n,c+dx*n,n)): out.append(('mv'+d,'WIN','norm')); continue
+        k=0; touched=False
+        while k<n and all(floor(op,y,x) for y,x in fp(r+dy*(k+1),c+dx*(k+1),n)):
+            k+=1
+            if set(fp(r+dy*k,c+dx*k,n))&marker: touched=True
+        t=(r+dy*k,c+dx*k,n,op,rf)
+        if n==2 and not rf and touched: out.append(('mv'+d,(t[0],t[1],n,op,True),'refill'))
+        else: out.append(('mv'+d,t,'norm'))
+    if n==4: out.append(('F0',(r,c,2,op,rf),5))
+    else:
+        for i,(ay,ax) in enumerate(ANCH):
+            if r+ay>=0 and c+ax>=0 and all(floor(op,y,x) for y,x in fp(r+ay,c+ax,4)): out.append(('F%d'%i,(r+ay,c+ax,4,op,rf),5))
+    out.append(('M6',(r,c,n,op or c==31,rf),4))
+    return out
+def apply_cost(k,kind):
+    if kind=='norm': return k+1
+    if kind=='refill': return min(max(k+1-10,0),5)
+    return k+kind
+start=(25,37,4,False,False)
+g={start:0}; changed=True
+while changed:
+    changed=False
+    for s in list(g):
+        for a,t,kind in succ(s):
+            if t=='WIN': continue
+            k2=apply_cost(g[s],kind)
+            cost_guard = g[s] + (1 if kind in ('norm','refill') else kind)
+            if cost_guard>B: continue
+            if k2<g.get(t,99): g[t]=k2; changed=True
+wins=[(s,g[s]) for s in g for a,t,k in succ(s) if t=='WIN']
+print('states',len(g),'min g at win-able states', min(v for s,v in wins) if wins else None)
+json.dump([[list(s),v] for s,v in g.items()],open('work/g4.json','w'))
+
+# ---- emit Lean table + a witness route at B+1 ----
+def key(s): r,c,n,op,rf=s; return r*2048+c*32+n*4+(2 if op else 0)+(1 if rf else 0)
+if 'emit' in sys.argv:
+    ents=sorted((key(s),v) for s,v in g.items())
+    with open('work/tab4.lean.txt','w',encoding='utf-8') as f:
+        f.write('def tab : List (Nat × Nat) := [\n')
+        f.write(',\n'.join('  (%d, %d)'%e for e in ents))
+        f.write(']\n')
+    # witness at budget B+1
+    B2=B+1; best={start:(0,[])}; changed=True
+    while changed:
+        changed=False
+        for s,(k,path) in list(best.items()):
+            for a,t,kind in succ(s):
+                guard=k+(1 if kind in('norm','refill') else kind)
+                if guard>B2: continue
+                if t=='WIN':
+                    print('WIN route at B=%d:'%B2, path+[a]); best['WIN']=(0,path+[a]); continue
+                k2=apply_cost(k,kind)
+                if k2<best.get(t,(99,))[0]: best[t]=(k2,path+[a]); changed=True
+        if 'WIN' in best: break
+    print(len(ents))

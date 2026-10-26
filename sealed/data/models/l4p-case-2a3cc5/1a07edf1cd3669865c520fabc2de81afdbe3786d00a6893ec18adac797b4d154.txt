@@ -1,0 +1,14 @@
+"""块真的移动了之后，它的 9 色一半朝向移动方向（另一半是 10 色）。"""
+LEVEL = "L1"
+SCOPE = "只看 ACTION1-4 且块位置变了；换关 NA；定位不到 NA"
+NOTE = ""
+EVIDENCE = ["3f5956007e12ca17", "827b6b560fc0b5bb", "e4e6382695d0b949"]
+from _lib import piece, facing, DIRS
+M = {"ACTION1": "U", "ACTION2": "D", "ACTION3": "L", "ACTION4": "R"}
+
+def assert_(prev, action, nxt, ctx=None):
+    if action not in DIRS: return "NA"
+    if ctx and ctx.get("level_prev") != ctx.get("level_next"): return "NA"
+    a, b = piece(prev), piece(nxt)
+    if a is None or b is None or a == b: return "NA"
+    return "TRUE" if facing(nxt, b) == M[action] else "FALSE"

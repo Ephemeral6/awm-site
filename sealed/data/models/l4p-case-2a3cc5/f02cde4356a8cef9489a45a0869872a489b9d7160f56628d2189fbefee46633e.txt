@@ -1,0 +1,55 @@
+"""本局词汇（假设）。
+
+piece(g): 可动块 = {9,10} 的四连通块里 9 与 10 格数相等的那块；返回 (top,bottom,left,right) 或 None。
+          （目标槽是 9 框包 10 芯，9 多于 10，所以被排除。假设。）
+GRID: 底部 3x3 格子，格 (r,c) 采样点 (行 50+5r, 列 25+5c)。
+"""
+from geo import components, cells_of, bbox
+
+def piece(g):
+    cs = cells_of(g, (9, 10))
+    found = []
+    for comp in components(cs):
+        n9 = sum(1 for (r, c) in comp if g[r][c] == 9)
+        if n9 * 2 == len(comp) and c_ok(comp):
+            found.append(bbox(comp))
+    return found[0] if len(found) == 1 else None
+
+def c_ok(comp):
+    t, b, l, r = bbox(comp)
+    return (b - t) == (r - l) and len(comp) == (b - t + 1) ** 2
+
+def facing(g, bb):
+    """9 在哪一侧：返回 'U','D','L','R' 或 None。"""
+    t, b, l, r = bb
+    if all(g[t][x] == 9 for x in range(l, r + 1)) and all(g[b][x] == 10 for x in range(l, r + 1)): return 'U'
+    if all(g[b][x] == 9 for x in range(l, r + 1)) and all(g[t][x] == 10 for x in range(l, r + 1)): return 'D'
+    if all(g[y][l] == 9 for y in range(t, b + 1)) and all(g[y][r] == 10 for y in range(t, b + 1)): return 'L'
+    if all(g[y][r] == 9 for y in range(t, b + 1)) and all(g[y][l] == 10 for y in range(t, b + 1)): return 'R'
+    return None
+
+GRID_PTS = [(50 + 5 * r, 25 + 5 * c) for r in range(3) for c in range(3)]
+DIRS = {"ACTION1": (-1, 0), "ACTION2": (1, 0), "ACTION3": (0, -1), "ACTION4": (0, 1)}
+
+def keys(g):
+    """钥匙面板：3 色连通块中 bbox 恰 10x10 的；格 (t+1+3r, l+1+3c)，非 2 即标记。返回 [(色, 标记集合)]。"""
+    out = []
+    for comp in components(cells_of(g, 3)):
+        t, b, l, r = bbox(comp)
+        if b - t == 9 and r - l == 9:
+            s = {(i, j) for i in range(3) for j in range(3) if g[t + 1 + 3 * i][l + 1 + 3 * j] != 2}
+            cols = {g[t + 1 + 3 * i][l + 1 + 3 * j] for (i, j) in s}
+            out.append((cols.pop() if len(cols) == 1 else None, s, (t, l)))
+    return out
+
+def matched_key(prev, action):
+    """ACTION6 点格后，亮格(14)集合等于某把钥匙的标记集合时返回该钥匙色，否则 None。"""
+    if not action.startswith("ACTION6:"): return None
+    x, y = map(int, action.split(":")[1].split(","))
+    hit = [i for i, (py, px) in enumerate(GRID_PTS) if abs(py - y) <= 2 and abs(px - x) <= 2]
+    if not hit: return None
+    lit = {(i // 3, i % 3) for i, (py, px) in enumerate(GRID_PTS) if prev[py][px] == 14}
+    lit ^= {(hit[0] // 3, hit[0] % 3)}
+    for col, s, _ in keys(prev):
+        if s == lit: return col
+    return None

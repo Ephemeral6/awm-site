@@ -1,0 +1,22 @@
+# Builds the L4.V4 section from work/tab6.txt (emitted by: python work/table6.py 18 anch clamp slide emit)
+# and inserts it into lean/L4Model.lean before the #print block.
+ents = sorted(tuple(map(int, l.split())) for l in open('work/tab6.txt', encoding='utf-8') if l.strip())
+
+def tree(lo, hi):
+    if lo >= hi:
+        return '.leaf'
+    mid = (lo + hi) // 2
+    k, v = ents[mid]
+    return '(.node %s %d %d %s)' % (tree(lo, mid), k, v, tree(mid + 1, hi))
+
+head = open('work/v4_head.lean.txt', encoding='utf-8').read()
+tail = open('work/v4_tail.lean.txt', encoding='utf-8').read()
+sec = head + 'set_option maxRecDepth 100000 in\ndef tree : T :=\n  ' + tree(0, len(ents)) + '\n' + tail
+p = 'lean/L4Model.lean'
+s = open(p, encoding='utf-8').read()
+assert 'namespace L4.V4' not in s
+anchor = '#print axioms L4.route_wins\n'
+k = s.index(anchor)
+s = s[:k] + sec + '\n' + s[k:].rstrip('\n') + '\n#print axioms L4.V4.never_wins\n#print axioms L4.V4.route19_wins\n#print axioms L4.V4.route19_at18\n'
+open(p, 'w', encoding='utf-8').write(s)
+print('entries', len(ents))

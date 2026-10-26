@@ -1,0 +1,75 @@
+L4Model.lean:488:8: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+L4Model.lean:519:12: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+L4Model.lean:520:12: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+L4Model.lean:523:14: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+L4Model.lean:542:14: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+L4Model.lean:544:16: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+L4Model.lean:556:16: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+L4Model.lean:567:8: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+L4Model.lean:511:26: warning: This simp argument is unused:
+  hm
+
+Hint: Omit it from the simp argument list.
+  [apply] simp
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+L4Model.lean:511:65: warning: This simp argument is unused:
+  hm
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [Φ, ho, Rc]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+L4Model.lean:534:70: warning: This simp argument is unused:
+  htt
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [Φ, hw, ho, hs, d60]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+L4Model.lean:535:49: warning: This simp argument is unused:
+  htt
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [ho]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+L4Model.lean:537:70: warning: This simp argument is unused:
+  htt
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [Φ, hw, ho, hc31, Rc]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+L4Model.lean:538:49: warning: This simp argument is unused:
+  htt
+
+Hint: Omit it from the simp argument list.
+  [apply] simp [ho]
+
+Note: This linter can be disabled with `set_option linter.unusedSimpArgs false`
+L4Model.lean:801:8: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+L4Model.lean:828:8: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+L4Model.lean:1055:59: warning: `if_true` has been deprecated: Use `ite_true` instead
+L4Model.lean:1055:68: warning: `if_false` has been deprecated: Use `ite_false` instead
+L4Model.lean:1055:59: warning: `if_true` has been deprecated: Use `ite_true` instead
+L4Model.lean:1055:68: warning: `if_false` has been deprecated: Use `ite_false` instead
+L4Model.lean:1055:59: warning: `if_true` has been deprecated: Use `ite_true` instead
+L4Model.lean:1055:68: warning: `if_false` has been deprecated: Use `ite_false` instead
+L4Model.lean:1055:59: warning: `if_true` has been deprecated: Use `ite_true` instead
+L4Model.lean:1055:68: warning: `if_false` has been deprecated: Use `ite_false` instead
+L4Model.lean:1072:8: warning: `if_pos` has been deprecated: Use `ite_eq_left` instead
+L4Model.lean:1099:8: warning: `if_neg` has been deprecated: Use `ite_eq_right` instead
+'L4.route_wins' depends on axioms: [propext, Quot.sound]
+'L4.route_needs_trig' depends on axioms: [propext, Quot.sound]
+'L4.closed_never_wins' depends on axioms: [propext, Quot.sound]
+'L4.route_wins_H6' depends on axioms: [propext, Quot.sound]
+'L4.V2.never_wins' depends on axioms: [propext, Classical.choice, Quot.sound]
+'L4.V2.never_wins_measured' depends on axioms: [propext, Classical.choice, Quot.sound]
+'L4.V2.route26_wins' depends on axioms: [propext]
+'L4.V3.never_wins' depends on axioms: [propext, Classical.choice, Quot.sound]
+'L4.V3.route19_wins' does not depend on any axioms
+'L4.V3.route19_at18' does not depend on any axioms
+'L4.V4.never_wins' depends on axioms: [propext, Classical.choice, Quot.sound]
+'L4.V4.route19_wins' does not depend on any axioms
+'L4.V4.route19_at18' does not depend on any axioms
