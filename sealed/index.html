@@ -1,77 +1,12 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>When a game cannot be won · Algebraic World Model</title>
-<meta name="description" content="Explore AWM's sealed sc25 levels: the task construction, six run archives, questions and answers, learned models, Lean proofs, and two runnable harnesses.">
-<meta property="og:title" content="When a game cannot be won · Algebraic World Model">
-<meta property="og:description" content="Sealed levels, full agent records, learned models and Lean proofs.">
-<meta property="og:type" content="website">
-<meta property="og:url" content="https://ephemeral6.github.io/awm-site/sealed/">
-<meta property="og:image" content="https://ephemeral6.github.io/awm-site/og.png">
-<link rel="canonical" href="https://ephemeral6.github.io/awm-site/sealed/">
-<link rel="icon" href="../assets/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="../assets/site.css">
-<link rel="stylesheet" href="sealed.css">
-<script>try{var t=localStorage.getItem("awm-theme");if(t)document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>
-</head>
-<body>
-<header class="top"><div class="in"><a class="brand" href="../">AWM</a><nav aria-label="Main navigation"><a href="../games/">Games</a><a class="on" aria-current="page" href="./">Sealed levels</a><a href="../paper.pdf">Paper</a></nav><button id="theme" type="button" aria-label="Switch between light and dark">◐</button></div></header>
-<main class="sealed-page">
-<section class="sealed-intro">
-<p class="eyebrow">Reasoning about impossible tasks</p>
-<h1>When a game cannot be won</h1>
-<p class="lede">An agent that keeps failing has not shown that a task is impossible. Here, AWM learns rules from play and uses Lean to prove that no action sequence can win under its model.</p>
-<p>Two puzzle levels have budgets just below the cost of their cheapest win. Explore the tasks, follow the agents' reasoning, and inspect the models and proofs behind their answers.</p>
-<nav class="page-links" aria-label="On this page"><a href="#levels">The tasks ↓</a><a href="#records">Run records ↓</a><a href="#harnesses">Run the experiment ↓</a></nav>
-</section>
-
-<section id="levels" class="sealed-section">
-<div class="section-heading"><p class="eyebrow">01 · The tasks</p><h2>The same mechanics, a budget that cannot suffice</h2></div>
-<p>In <a href="../games/sc25/#how"><code>sc25</code></a>, a block must reach an exit. Clicking patterns on a 3 × 3 panel resizes the block, teleports it, or fires a ray that removes matching gates. Actions spend budget; fuel restores ten units. These levels rearrange walls and objects while retaining the public game's movement, spells and cost rules.</p>
-<div class="level-grid" aria-label="Initial screens of the five levels">
-<figure><a href="assets/level1-initial.png"><img src="assets/level1-initial.png" alt="Initial screen of level 1, a shrinking puzzle" width="512" height="512"></a><figcaption><b>1 · Resize</b><span>Shrink to cross a narrow corridor.</span></figcaption></figure>
-<figure><a href="assets/level2-initial.png"><img src="assets/level2-initial.png" alt="Initial screen of level 2, a teleportation puzzle" width="512" height="512" loading="lazy"></a><figcaption><b>2 · Teleport</b><span>Enter an isolated exit chamber.</span></figcaption></figure>
-<figure><a href="assets/level3-initial.png"><img src="assets/level3-initial.png" alt="Initial screen of level 3, a shooting puzzle" width="512" height="512" loading="lazy"></a><figcaption><b>3 · Shoot</b><span>Remove a gate to open the way.</span></figcaption></figure>
-<figure class="evaluation"><a href="assets/level4-initial.png"><img src="assets/level4-initial.png" alt="Initial screen of sealed level 4, combining fuel collection, resizing and shooting" width="512" height="512" loading="lazy"></a><figcaption><b>4 · Combine</b><span>Collect fuel while resizing, align a shot, then reach the exit.</span><em>Budget 18 · cheapest win 19</em></figcaption></figure>
-<figure class="evaluation"><a href="assets/level5-initial.png"><img src="assets/level5-initial.png" alt="Initial screen of sealed level 5, combining two targets, fuel, resizing and teleportation" width="512" height="512" loading="lazy"></a><figcaption><b>5 · Combine</b><span>Clear two targets, cross the connector, then teleport to the exit.</span><em>Budget 35 · cheapest win 36</em></figcaption></figure>
-</div>
-<p class="note">Levels 1–3 introduce the three spells. Levels 4–5 are the evaluation tasks. <a href="assets/five-levels.pdf">View the annotated routes ↗</a></p>
-<div class="thresholds"><table><caption>Ground truth from exhaustive search on the game engine</caption><thead><tr><th scope="col">Task</th><th scope="col">Sealed budget</th><th scope="col">Minimum winning budget</th><th scope="col">Winning witness</th></tr></thead><tbody><tr><th scope="row">Level 4</th><td>18</td><td class="truth">19</td><td>27 actions</td></tr><tr><th scope="row">Level 5</th><td>35</td><td class="truth">36</td><td>42 actions</td></tr></tbody></table></div>
-<p class="note">A witness wins at the minimum budget and fails one unit below it; exhaustive search finds no alternative win at the sealed budget. Action counts differ from budget costs: spell completion adds a charge, fuel refunds ten, and the winning move is free. These witnesses minimize the required budget, not the unconstrained number of actions.</p>
-<details class="study-note"><summary>Why inspect the rules as well as the proof?</summary><p>A Lean proof establishes a statement about the learned model. A valid proof can still rely on a rule that misstates the game. Two historical runs overestimated the winning cost; after feedback that a cheaper win existed, they revised a fuel or shooting rule and proved again. The records below keep the initial answers and subsequent repairs separate.</p><p><a href="assets/level4-refund.png">See the fuel-rule correction on level 4 ↗</a></p></details>
-</section>
-
-<section id="records" class="sealed-section">
-<div class="section-heading"><p class="eyebrow">02 · The evidence</p><h2>Read each run, from play to proof</h2></div>
-<p>Select a run to inspect each attempt's answer, the full questions and tool history, model and Lean sources, and the final interview. The download keeps the original records, including available source versions and existing proof-check output.</p>
-<p class="archive-status">Five initial eight-attempt records are available. <code>2a3cc5</code> is being continued by the collaborator; its later attempts and final interview will be uploaded when available.</p>
-<div class="records-app">
-<aside aria-label="Choose a historical run"><h3>Historical runs</h3><nav id="runs" aria-label="Run selection"></nav><p class="note">These runs retain their original protocols. They are separate from the newer harness releases below.</p></aside>
-<article class="run-reader" aria-label="Selected run">
-<section id="summary" aria-live="polite"><p>Loading run records…</p></section>
-<div class="tabs" role="tablist" aria-label="Record views"><button id="tab-attempts" role="tab" aria-controls="attempts" aria-selected="true" tabindex="0" data-tab="attempts">Attempt answers</button><button id="tab-raw" role="tab" aria-controls="raw" aria-selected="false" tabindex="-1" data-tab="raw">Full session</button><button id="tab-models" role="tab" aria-controls="models" aria-selected="false" tabindex="-1" data-tab="models">Model / Lean</button><button id="tab-final" role="tab" aria-controls="final" aria-selected="false" tabindex="-1" data-tab="final">Final interview</button><button id="tab-repair" role="tab" aria-controls="repair" aria-selected="false" tabindex="-1" data-tab="repair">External repair</button></div>
-<section id="attempts" class="pane" role="tabpanel" aria-labelledby="tab-attempts"><label>Attempt <select id="attempt"></select></label><div id="answers"></div></section>
-<section id="raw" class="pane" role="tabpanel" aria-labelledby="tab-raw" hidden><div class="controls"><label>Session file <select id="session"></select></label><label>Role <select id="role"><option value="all">All messages</option><option value="user">User / tool results</option><option value="assistant">Assistant / tool calls</option></select></label><label>Search this session <input id="search" type="search" placeholder="Search questions, answers or tools"></label><div class="pagination"><button id="previous" type="button">Previous</button><button id="next" type="button">Next</button><span id="page" aria-live="polite"></span></div></div><p class="muted">Session branches may share history. Message counts do not represent additional attempts. Original source-file and line references are retained.</p><div id="messages"></div></section>
-<section id="models" class="pane" role="tabpanel" aria-labelledby="tab-models" hidden><p class="note">“Workspace at export” files may include later repairs. Attempt snapshots appear only when their content matches the recorded hash. Unrecovered older versions are listed in the download.</p><label>Source file <select id="source"></select></label><p id="sourceMeta" class="muted"></p><pre id="code"></pre></section>
-<section id="final" class="pane" role="tabpanel" aria-labelledby="tab-final" hidden><div id="finalText"></div></section>
-<section id="repair" class="pane" role="tabpanel" aria-labelledby="tab-repair" hidden><div id="repairText"></div></section>
-<p class="reader-footnote">The viewer preserves historical claims and check results. A proof file's presence does not by itself establish that the final model is correct about the engine. <a href="DATA-NOTES.md">About the archive and source coverage ↗</a></p>
-</article>
-</div>
-<noscript><p>The interactive reader requires JavaScript. You can still <a href="DATA-NOTES.md">read the archive notes and download each run</a>.</p></noscript>
-</section>
-
-<section id="harnesses" class="sealed-section">
-<div class="section-heading"><p class="eyebrow">03 · Reproduce the method</p><h2>Two harnesses</h2></div>
-<p>The four-transform harness makes the transformation steps explicit. The automatic-repair version additionally audits a completed proof and guides further experiments and revisions. Both downloads include source, prompts and setup instructions.</p>
-<div id="releases" class="release-grid"></div>
-<p class="note">These releases have passed offline validation; this archive contains no new live six-run results from them. The automatic-repair release also updates cost accounting and compilation reuse, so the pair is not a single-switch ablation.</p>
-<div class="reference-links"><h3>Further records</h3><div id="references"></div><a href="assets/five-levels.pdf">Annotated five-level construction (PDF)</a><a href="../games/sc25/#sealed">The level-4 theorem on the sc25 page</a><a href="DATA-NOTES.md">Archive notes and checksums</a></div>
-</section>
-</main>
-<footer class="site-foot"><div class="in"><span>Algebraic World Model · <a href="../paper.pdf">Paper</a> · <a href="../games/">Games</a> · <a href="../#cite">Cite</a></span><span>Contact: <a href="mailto:yuanyang@tsinghua.edu.cn">yuanyang@tsinghua.edu.cn</a></span></div></footer>
-<script src="../assets/site.js"></script><script src="viewer.js"></script>
-</body>
-</html>
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AWM · Sealed-level experiment records</title><link rel="stylesheet" href="viewer.css">
+<header><a href="https://ephemeral6.github.io/awm-site/">Algebraic World Model ↗</a><h1>Sealed-level experiment records</h1><p>Inspect the questions, answers, models and Lean developments behind six historical runs.</p></header>
+<div class="notice">Historical runs and newer code releases are separate. Five initial eight-attempt records are present; <b>2a3cc5 is being continued by the collaborator</b>. New four-transform and auto-repair live results are not included.</div>
+<main><aside><h2>Historical runs</h2><nav id="runs"></nav><a href="assets/five-levels.png" target="_blank">Five-level overview ↗</a><a href="assets/level4-refund.png" target="_blank">The fuel-rule repair ↗</a><h2>Code releases</h2><div id="releases"></div><h2>Reference records</h2><div id="references"></div></aside>
+<article><section id="summary"></section><div class="tabs" role="tablist"><button data-tab="attempts">Attempt answers</button><button data-tab="raw">Full session</button><button data-tab="models">Model / Lean files</button><button data-tab="final">Final interview</button><button data-tab="repair">External repair</button></div>
+<section id="attempts" class="pane"><label>Attempt <select id="attempt"></select></label><div id="answers"></div></section>
+<section id="raw" class="pane" hidden><div class="controls"><label>Session file <select id="session"></select></label><label>Role <select id="role"><option value="all">All messages</option><option value="user">User / tool results</option><option value="assistant">Assistant / tool calls</option></select></label><input id="search" type="search" placeholder="Search this session"><button id="previous">Previous</button><button id="next">Next</button><span id="page"></span></div><p class="muted">Branch files may share history. Message counts do not represent additional attempts. Source file and line are retained.</p><div id="messages"></div></section>
+<section id="models" class="pane" hidden><p>Files marked “workspace at export” may include later repairs. Per-attempt snapshots are shown only when their recorded content hash matches. Missing older source versions are listed in the download.</p><label>Source file <select id="source"></select></label><p id="sourceMeta" class="muted"></p><pre id="code"></pre></section>
+<section id="final" class="pane" hidden><div id="finalText"></div></section>
+<section id="repair" class="pane" hidden><div id="repairText"></div></section>
+<footer><p>Use the full run ZIP for original JSONL, tool payloads, server logs, archived source versions and existing proof-check output. This viewer does not independently certify theorem semantics.</p></footer></article></main><script src="viewer.js"></script></html>
