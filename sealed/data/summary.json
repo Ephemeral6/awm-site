@@ -56,7 +56,8 @@
       "reported_final_bound": 19,
       "completed_utc": "2026-10-25T08:39:50Z",
       "completion_note": "All eight attempts and the final interview are archived, including the collaborator continuation.",
-      "model_coverage_note": "Exact-hash snapshots cover attempts 4–8. Attempts 1–3 retain their original sources and tool history; no complete per-attempt file manifest was available for them."
+      "model_coverage_note": "Exact-hash snapshots cover attempts 4–8. Attempts 1–3 retain their original sources and tool history; no complete per-attempt file manifest was available for them.",
+      "motion_url": "data/actions/l4p-case-2a3cc5.json"
     },
     {
       "id": "m15fw-case-69fe87",
@@ -123,7 +124,8 @@
       "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
       "download": "downloads/m15fw-case-69fe87.zip",
       "data": "data/m15fw-case-69fe87.json",
-      "pending_note": ""
+      "pending_note": "",
+      "motion_url": "data/actions/m15fw-case-69fe87.json"
     },
     {
       "id": "m15fw-case-9ec8d4",
@@ -190,7 +192,11 @@
       "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
       "download": "downloads/m15fw-case-9ec8d4.zip",
       "data": "data/m15fw-case-9ec8d4.json",
-      "pending_note": ""
+      "pending_note": "",
+      "motion_url": "data/actions/m15fw-case-9ec8d4.json",
+      "repaired_bound": 19,
+      "feedback_motion_url": "data/actions/m15fw-case-9ec8d4-feedback.json",
+      "feedback_motion_attempts": 4
     },
     {
       "id": "l5d-case-284967",
@@ -257,7 +263,8 @@
       "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
       "download": "downloads/l5d-case-284967.zip",
       "data": "data/l5d-case-284967.json",
-      "pending_note": ""
+      "pending_note": "",
+      "motion_url": "data/actions/l5d-case-284967.json"
     },
     {
       "id": "l5d-case-4f4628",
@@ -324,7 +331,8 @@
       "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
       "download": "downloads/l5d-case-4f4628.zip",
       "data": "data/l5d-case-4f4628.json",
-      "pending_note": ""
+      "pending_note": "",
+      "motion_url": "data/actions/l5d-case-4f4628.json"
     },
     {
       "id": "l5d-case-977714",
@@ -391,7 +399,12 @@
       "proof_status": "Historical proof artifacts and audits included; no new theorem-semantic certification in this handoff",
       "download": "downloads/l5d-case-977714.zip",
       "data": "data/l5d-case-977714.json",
-      "pending_note": ""
+      "pending_note": "",
+      "motion_url": "data/actions/l5d-case-977714.json",
+      "repaired_bound": 37,
+      "repair_note": "37 charges the winning move; it corresponds to engine budget 36.",
+      "feedback_motion_url": "data/actions/l5d-case-977714-feedback.json",
+      "feedback_motion_attempts": 4
     }
   ],
   "harnesses": [
@@ -439,10 +452,8 @@
       "label": "Four transforms + automatic repair"
     }
   ],
-  "complete_initial8_records": 5,
-  "continuation_pending": [
-    "l4p-case-2a3cc5"
-  ],
+  "complete_initial8_records": 6,
+  "continuation_pending": [],
   "new_four_transform_results_available": false,
   "new_auto_repair_results_available": false,
   "selected_external_repairs": [
@@ -470,5 +481,24 @@
       "label": "Historical baseline reference records",
       "path": "downloads/baseline-reference-records.zip"
     }
-  ]
+  ],
+  "palette": [
+    "#FFFFFF",
+    "#CCCCCC",
+    "#999999",
+    "#666666",
+    "#333333",
+    "#000000",
+    "#E53AA3",
+    "#FF7BCC",
+    "#F93C31",
+    "#1E93FF",
+    "#88D8F1",
+    "#FFDC00",
+    "#FF851B",
+    "#921231",
+    "#4FCC30",
+    "#A356D6"
+  ],
+  "baseline_page": "baselines/"
 }
