@@ -1,0 +1,40 @@
+PUBLIC RUN EXPORT — SCOPE AND REPRODUCTION
+
+All six cases appear together. The eight initial attempts, final interview and
+recorded follow-ups are preserved per case. Actual execution protocols and input
+hashes are retained in the downloaded run.json.
+Historical records are not relabelled as executions of a later release.
+
+This is a complete export of the allowlisted public evidence, not an unredacted
+client-session dump. Only structured public text fields are selected from result
+records. Raw client sessions, hidden thinking, accounts, credentials, personal
+homes, operator reference solutions and engine source are not exported. Privacy
+redactions are explicit, and original public text hashes are retained. No model
+answer is replaced with an operator repair or a rewritten answer.
+
+Archive contents:
+- run.json: all eight attempts, final, follow-ups, provenance and source coverage;
+- answers.txt: readable public answers;
+- gameplay-*.jsonl: public action/frame records for the available snapshots;
+- models/: subject-created endpoint model/proof files;
+- proof_targets.json: main declarations actually recovered in Lean source;
+- verify.py and SHA256SUMS.json: offline integrity and cold-compile checks.
+
+Earlier source versions are credited only on exact original hash matches.
+Missing versions remain missing. Phase-endpoint snapshots may include later
+changes. A downloaded main theorem may therefore prove a different statement
+from an earlier attempt. The verifier checks closure, not semantic adequacy.
+
+To check hashes: python verify.py --hash-only
+To cold-compile: python verify.py --lean <absolute Lean 4.34.1 executable>
+The verifier uses a new temporary build and starts no model or game service.
+Re-executing the original interactive experiment additionally requires its real
+game environment and historical protocol. Privacy-safe public evidence is not
+presented as a bit-for-bit reproduction of private runtime/account state.
+
+Leakage boundary for future experiment-code publication:
+Historical learned models, answers and gameplay are result artifacts. They must
+never be mounted into a fresh subject workspace as experimental inputs. Future
+runner code needs a separate review of subject-visible files, prompts, memory,
+reference routes/bounds, environment configuration and archive mount paths.
+Publishing result artifacts does not itself certify a new runner as leak-free.

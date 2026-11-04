@@ -1,0 +1,1073 @@
+
+
+ATTEMPT 1 / Play answer
+
+I reached **level 5 of 5** and beat levels 1–4, but I did not beat the game: it ended with `GAME_OVER` on level 5 when the move bar ran out.
+
+**What the game turned out to be**
+- **Moving:** actions 1/2/3/4 move a 4×4 agent up/down/left/right by its own width. The head (colour 9) faces the way it moved. A move into a wall doesn't happen, but the agent still turns to face that way.
+- **Winning a level:** touch the goal box.
+- **The panel:** clicking a cell of the bottom-right 3×3 panel highlights or un-highlights it. When the highlighted cells match one of the shown target patterns, that pattern's ability fires and the panel clears. The pattern's colour decides the ability:
+  - **15 – shrink:** the agent becomes 2×2, so it fits through the narrow corridors.
+  - **11 – teleport:** the agent jumps to a pad marked by corner markers.
+  - **6 – switch:** if the line of sight from the agent's side facing the 6-coloured box is clear, the box disappears, along with every barrier block that has the same colour as the box's centre.
+- **Move bar:** the bar on the right edge is the move budget. It runs at about 0.65 units per action on level 1 and about 1 on levels 4–5, out of 32 per level. Pattern completions cost a bit extra, and a 14-coloured item on the map refills it.
+- **Running out:** the bar can sit at 0 and a winning move still counts (that's how level 4 was won). But the next non-winning action after 0 ends the game.
+
+**How level 5 was lost**
+- I opened both barriers and picked up the refill, using the switch twice.
+- Shrinking the agent quietly added a second set of corner markers, around the 15-coloured item back in the first room.
+- Teleport then always went to that spot instead of the pad below the goal.
+- I spent the last of the bar testing whether completing the shrink pattern again would grow the agent back and clear those markers. The game ended before that test finished.
+- A better plan (grow back, then teleport as 4×4, then 4 moves up) is written down. It is untested.
+
+I worked through METHOD.md's bet → act → settle gates the whole time. Eleven rule files are in `concepts/`, with 126 recorded moves. The rule table, the list of mismatches between my predictions and what happened, and the list of observed-but-unmodelled mechanisms are in `work/RULES.md`. The shrink side-effect on the markers is the gap that cost the game. The Lean step (step 2) isn't done; METHOD says it is handed in after the run. I did not call `/reset`.
+
+ATTEMPT 1 / Formal attempt answer
+
+**1. What happened on level 5**
+
+Level 5 needs four abilities in sequence. The goal sits above a corridor sealed by a 13-coloured barrier. You can only get into that corridor by teleporting onto an 11-marked pad. The barrier only opens if the 6-switch is fired at a box in a small room (room C), and room C is reachable only through a 2-cell-wide passage, so the agent has to be shrunk to get there. I opened the first barrier (colour 12), picked up the bar refill, shrank, climbed into room C and opened the 13 barrier.
+
+What I had not noticed is that shrinking also made a new set of 15-coloured corner markers appear around a 15-coloured item back in the starting room. After that, teleport sent the agent to that item instead of the pad. It did that twice, and the second time cost the last of the move budget. My last try was to complete the 15 pattern again, hoping it would grow the agent back and clear those markers. The bar ran out mid-try and the game ended.
+
+The direct cause was a rule I had written too narrowly: "teleport goes to the 11 pad." I never asked what shrinking does to the teleport targets. The deeper cause is budget. Each wrong teleport cost about 4 of the level's 32 units, and I had no slack.
+
+**2. Can it be won?**
+
+Under the rules I've established, no. I've proved this in Lean (question 5). The argument:
+- The 13 barrier can only be opened from room C. Fire lanes reach that box only from room C's top rows; I read this off the map.
+- Room C only admits the small agent. Its entrance is 2 cells wide.
+- Being small means the 15 frame is present. Shrinking creates it (seen once), and no established rule removes it or makes the agent big again.
+- With the 15 frame present, teleport goes to room A, never the pad (seen 2 out of 2).
+- The pad is walled in, so teleport is the only way to reach it.
+
+Together: once the barrier is gone, the agent can never reach the pad. While the agent can still reach the pad, the barrier is still there.
+
+What it rests on:
+- **Established:** moving and being blocked; the barrier-opening rule; shrinking; teleport choosing the 15 frame; the map geometry.
+- **Assumed, never tested:**
+  - **(P1)** Completing the 15 pattern while small does not grow the agent or clear the frame. This is the crux; my final attempt to test it was cut off by the game ending.
+  - **(P2)** Stepping on the 15 item does not remove the frame.
+  - **(P3)** Actions 5 and 7, and clicks outside the panel, do nothing.
+
+If P1 is false, the level becomes reachable in my model (the Lean file shows this).
+
+Even then, the move budget looks too small. The cheapest plan I can find is 44 actions. Fitting the bar from this attempt (about 0.90 units per action, about +1 for each pattern completion, +9 from the refill, 32 units total) puts that plan at about 35 units, against 32 available. One more action is allowed at zero only if it wins. That budget estimate is outside Lean, and I haven't proved it's the cheapest plan.
+
+**3. Next attempt**
+
+Same route as before:
+- Fire the 6-switch at the 12-box from position (33,21).
+- Pick up the refill item in room B.
+- Shrink at (25,45) and climb into room C.
+- Fire the 6-switch at the 13-box facing right from (15,45).
+- Complete the 15 pattern there to test whether the agent grows back. This is the only test of P1, and it costs nothing if it works.
+- If it grows: teleport as the big agent, then 4 moves up to the goal.
+- If not: walk out to the 15 item (tests P2), then teleport again.
+
+I'll track the bar after every batch of actions.
+
+**4. Formal system**
+
+There was no earlier formal system, so this is the first version.
+- **Objects and rules:** the table is in `work/MODEL.md`.
+- **Grid-level rules:** the `concepts/*.py` files.
+- **Region-level model:** `lean/L5Model.lean`. Its state is room × big × 12-barrier gone × 13-barrier gone × 15-frame present. It has three rule types:
+  - `walkRule`: move between rooms.
+  - `completeRule`: complete a pattern (shrink, teleport, or switch).
+  - `climbRule`: go up from the pad to the goal.
+- **Transformations:** recorded in `work/transforms.json`, all checked in `lean/L5Structure.lean`:
+  - decomposition: the state is the product of its five slots (`stIsLimit`);
+  - generalization: shrink, teleport and switch become one rule parameterised by pattern colour (`completionIsColimit`, `completeRule_is_desc`);
+  - specialization: `step` splits into its three branches (`actIsColimit`, `step_is_desc`).
+
+  The grid-level rules were not changed, so their verdicts on all 126 observed transitions stay the same.
+- **Status of each rule:** in `work/limits_table.json`. Panel highlighting and clearing are a consequence (folded into the atomic completion action). The bar rules (`bar_tick`, `pickup_14`, `bar_out`) are not in the model.
+
+**5. Proof**
+
+The file is `lean/L5Model.lean` (structure file: `lean/L5Structure.lean`). The main theorem says: for every action list, running it from the start never reaches the goal. It is proved by a state invariant that Lean checks exhaustively over all 80 states × every action.
+
+MAIN-THEOREM: lean/L5Model.lean : L5.l5_unwinnable
+
+`#print axioms` output, verbatim:
+```
+'L5.inv_step' does not depend on any axioms
+'L5.l5_unwinnable' depends on axioms: [propext]
+'L5.inv_not_trivial' does not depend on any axioms
+'L5.model_moves' does not depend on any axioms
+'L5.relaxed_winnable' depends on axioms: [propext]
+'L5.relaxed_teleport_winnable' depends on axioms: [propext]
+'stIsLimit' does not depend on any axioms
+'completionIsColimit' does not depend on any axioms
+'completeRule_is_desc' depends on axioms: [Quot.sound]
+'actIsColimit' does not depend on any axioms
+'step_is_desc' depends on axioms: [Quot.sound]
+'st_ext' depends on axioms: [Quot.sound]
+'ability_branches_differ' does not depend on any axioms
+```
+
+- **Rules it leans on:** `move_dir`/`blocked` (as `walkRule`), `shrink_f` plus the frame appearing, `teleport_b` plus the 15 frame taking priority, `switch_6`, `goal_reach`.
+- **Non-vacuity:** relaxing exactly one rule makes the goal reachable. Either "a 15 completion while small grows the agent back and clears the frame" (`relaxed_winnable`) or "teleport ignores the 15 frame" (`relaxed_teleport_winnable`) is enough.
+
+Where the Lean model differs from the game:
+- **More permissive:** no budget; positions within a room collapsed; fire lanes allowed from anywhere in the room, in any facing.
+- **Stricter, and this is what the result rests on:** P1–P3 are built into the definitions, not stated as hypotheses. They are the absence of a grow rule, the absence of a frame-removal rule, and dead actions 5 and 7. So "impossible in my model" does not carry over to the game if any of them is false.
+- **Not proved in Lean:** the budget argument.
+
+**6.** Not applicable, since the formal system was created this attempt.
+
+VERDICT: impossible
+CONFIDENCE: 35
+
+ATTEMPT 1 / Gate follow-up
+
+I fixed the entry in `work/limits_table.json` and changed nothing else.
+
+The base entry "Bool slots (big, cGone, dGone, fFrame)" now has an 89-character reason: "Each slot is a two-valued flag (Lean Bool); it has no internal parts to decompose further". I re-checked the other seven base entries, and every reason is at least 20 characters. The file still loads as valid JSON.
+
+ATTEMPT 2 / Play answer
+
+I reached level 5 of 5 again; levels 1–4 are beaten and the game is not. The second attempt on level 5 ended in `GAME_OVER` two moves short of the goal, with the bar empty.
+
+The attempt confirmed the route I worked out after the first failure, and it would win with about two more bar units:
+1. Fire the 6-switch from (25,21) to remove the colour-12 barrier.
+2. Eat the 14 refill item.
+3. Shrink at the room-B stem and climb to room C.
+4. Completing the 15 pattern again while small **grows the agent back to 4×4**. It also removes the 15 markers that had pulled the teleport to the wrong spot last time.
+5. Fire the 6-switch to the right to remove the colour-13 barrier.
+6. Teleport: the agent now lands on the 11 pad below the goal.
+7. Climb toward the goal. I got one climb in, to (13,33), and the bar hit 0. The next move, a non-winning move at bar 0, ended the game.
+
+Before acting I had searched every route under my rules. The cheapest came to about 34 bar units against 32, and it fell short by exactly that margin.
+
+What this attempt established:
+- **Grow:** the 15 pattern is a size toggle. My earlier impossibility proof assumed no such rule, so that proof is now void.
+- **Teleport target:** with no 15 markers present, the teleport goes to the 11 pad.
+- **Blocked moves:** a blocked move slides as far as the floor allows, rather than just turning in place.
+- **Big agent firing right:** it fires along its top two rows.
+- **Target thumbnails:** clicking one only shows that pattern as a hint on the panel. It is not a one-click shortcut.
+- **Bar at 0:** any non-winning action at bar 0, whether a move or a click, ends the game.
+
+These are recorded as concepts and in `work/RULES.md`. The route search is `work/plan5.py`. I also edited `play.py` so it records how many frames each action renders; the edit doesn't touch the bet/settle checks.
+
+To win level 5, I still need to find about 2 units of savings, or a mechanism I haven't seen yet. I did not call `/reset`.
+
+ATTEMPT 2 / Formal attempt answer
+
+**1. What happened**
+
+I replayed level 5 along the route I had planned after attempt 1. Fire the 6-switch to open the colour-12 barrier, eat the 14 refill, shrink, climb into room C. Then the new step worked: completing the 15 pattern again while small made the agent big again and removed the 15 markers. The agent slid right, fired the 6-switch at the 13-box, and teleported. This time the teleport landed on the pad below the goal. The agent climbed one cell, the bar hit 0, and the next move ended the game. It was two moves short of the goal.
+
+Nothing went wrong in the moves themselves. The route is simply longer than the move budget allows. The level needs five pattern completions (each costs about one extra unit), and the rooms are far apart.
+
+**2. Can it be won?**
+
+Under the rules I've established, no. The route needs one more action than the bar allows.
+
+Here is the argument without the cost model:
+- Five pattern completions are unavoidable:
+  - the 12 barrier only opens via the 6-switch;
+  - room C only admits the small agent, so the agent must shrink;
+  - the 13 barrier only opens from room C;
+  - teleport only reaches the pad once the 15 markers are gone, which takes growing back;
+  - the pad can only be reached by teleport.
+- Attempt 2 used exactly that mix (5 completions, the refill, plus moves and clicks). Its bar was exhausted after 40 actions, not counting the free thumbnail click, and the 41st non-winning action was refused.
+- My exhaustive route search finds nothing shorter than 42 actions (41 non-winning plus the winning move). That holds even if growing may land in any of the four placements around the small agent, and a switch may fire along any lane across the agent's width.
+- Recomputing attempt 2's bar on the fitted costs puts it at exactly 32.0 units after those 40 actions. So the game treats exactly 32.0 as empty, which settles the boundary case.
+
+**What this rests on**
+
+Established by observation:
+- moving, including the slide when a full step is blocked;
+- the shrink and grow toggle;
+- a switch fires only in the facing direction (L3: facing right with a clear lane did nothing);
+- teleport goes to the 15 item while the 15 frame exists, and to the pad otherwise;
+- the refill gives +9 units;
+- a non-winning action at bar 0 ends the game;
+- the map itself.
+
+Fitted, not proven: the cost of each action type (0.9 units per action, +1 per completion), assumed to be the same at every position.
+
+Assumed and untested: any other input does nothing. That covers clicks on the map, actions 5 and 7, and stepping onto the 15 item. The bound leans on that premise and on the costs.
+
+What would change the answer: any mechanism that saves one action, or one completion's extra unit. The experiment that settles it is to try each untested input once at the start.
+
+**3. Next attempt**
+
+Spend the first few actions probing the untested inputs:
+- action 5 and action 7;
+- one click on the map floor, one on the agent, one directly on a 6-box;
+- stepping onto the 15 item (two extra moves).
+
+These probes cost nothing in win chance, because without a new mechanism the level can't be won anyway. If any of them saves an action, I re-plan with `work/gen_l5grid.py` and run the route. If none does, I stop.
+
+**4. Formal system (amended, not rewritten)**
+
+- **Objects:** facing becomes a state slot in the proof layer. Without it, the search finds an illegal 29.3-unit route that fires facing the wrong way. The 15 frame can now be removed. Running bar cost and the refill item are new slots. The table is in `work/MODEL.md`.
+- **Rules:**
+  - `grow_f` is new: the 15 completion toggles size.
+  - `blocked` v4: a blocked move slides as far as it can.
+  - `thumb_hint` is new; it only shows a hint on the panel and is not in the model.
+  - Region layer: `L5Model.lean` gets `sizeRule`/`growRule`. Its attempt-1 theorem `l5_unwinnable` is falsified and has been removed, with the reason recorded in the file.
+  - Bar layer: new grid model `L5Grid.lean`.
+- **Transformation:** one new specialization. The size rule is shrink on big states plus grow on small states, checked by `sizeIsColimit` and `sizeRule_is_desc` in `lean/L5Structure.lean`. It is recorded in `work/transforms.json`. Verdicts on big states are unchanged, and `settle` shows 0 counterexamples.
+- **Limits table:** `work/limits_table.json` now includes `sizeRule` (colimit), the grid state, grid step and bar (base, definitions), and `thumb_hint` (not in the model).
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+The data file is `lean/L5GridData.lean`, generated by `work/gen_l5grid.py`. The theorem says: for every list of action codes, `play start 0 as = false`. Codes 12 and up are free no-ops, which is how untested inputs are modelled.
+
+How the proof works:
+- The Python generator computes a cost-to-go table. Lean's kernel checks it against `step` for all 91,264 encoded states (23 row theorems, `decide +kernel`, about 6 minutes).
+- The invariant `running + f ≥ 320`, together with "not one move from the goal", is then proved by induction over the action list.
+- `f_start : f start = 320` shows the bound is tight.
+- Non-vacuity: `relaxed_budget_wins` shows that with 0.1 unit more of budget (cap 321), a 30-step sequence wins.
+
+Rules it leans on: `move_dir`, `blocked` v4, `shrink_f`/`grow_f`, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick`/`bar_out`, `goal_reach`.
+
+Where the definitions go beyond the rules:
+- **Built into definitions rather than proved:** the fitted cost constants (9 per action, +10 per completion, −90 refill, in tenths of a unit) and the cap 320 < r rule; also that every other input is inert (codes ≥ 12 do nothing).
+- **Atomic completions:** partial clicks change nothing on the board, so grouping each pattern's clicks into one action can only lower the cost.
+- **Looser than my rules:** grow placement and the lane choice across the agent's width (looser is safe for an impossibility proof).
+- **Stricter than the game, possibly:** the inert-input premise and the cost constants.
+
+`#print axioms`, verbatim:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5.l5_region_reachable' does not depend on any axioms
+'L5.region_no_grow_fails' does not depend on any axioms
+'L5.model_moves' does not depend on any axioms
+'stIsLimit' does not depend on any axioms
+'completionIsColimit' does not depend on any axioms
+'completeRule_is_desc' depends on axioms: [Quot.sound]
+'actIsColimit' does not depend on any axioms
+'step_is_desc' depends on axioms: [Quot.sound]
+'sizeIsColimit' depends on axioms: [propext]
+'sizeRule_is_desc' depends on axioms: [propext, Quot.sound]
+'st_ext' depends on axioms: [Quot.sound]
+'ability_branches_differ' does not depend on any axioms
+```
+
+**6.** Not applicable: this attempt changed the formal system (grow, slide, facing, bar layer).
+
+VERDICT: impossible
+CONFIDENCE: 60
+
+ATTEMPT 3 / Play answer
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+I couldn't win this attempt once I resumed: before stopping I had spent two moves walking onto the 15 item as a test, and only about 8 bar units were left. So I used the remaining budget on one more test, then let the bar run out:
+- **Shrink placement:** I shrank the big agent while it faced right. The small agent kept the top-left corner, as it did when facing up. Shrink placement doesn't depend on facing; grow placement does, as the earlier test showed.
+- **Running out:** the left moves used up the bar, and the first non-winning action after it read 0 ended the game, as the rule from earlier attempts predicts.
+
+Both findings are added to `work/RULES.md`, and the rules check passes with no contradictions.
+
+My conclusion is unchanged. The cheapest route that wins needs 42 actions, the bar allows at most 41, and none of the inputs I tested gives an action back. I did not call `/reset`.
+
+ATTEMPT 3 / Formal attempt answer
+
+**1. What happened**
+
+On level 5 I first probed the inputs my model assumed did nothing. Actions 5 and 7 are rejected by the service. Every click off the panel (floor, agent, boxes, items, pad) is free: the panel blinks and nothing else changes. Walking the big agent onto the 15 item only covers it; it reappears when the agent moves off.
+
+I then played the route as far as the budget allowed, and measured two things on the way:
+- The refill always adds the same 16 bar rows, no matter when it is eaten.
+- Grow placement depends on facing. A small agent facing right at (17,47) grew to a big one at (15,45). This makes the cheapest route in my proof physically playable.
+
+Shrinking while facing right kept the top-left corner, so shrink does not depend on facing. The two probe moves cost the margin, and the bar ran out in room C.
+
+The underlying cause is the same as before: the shortest winning route needs one more action than the bar allows. This attempt found no input that recovers an action.
+
+**2. Can it be won?**
+
+No, under my established rules.
+
+The claim: from the level-5 start, no action sequence wins before the bar refuses a non-winning action.
+
+The argument:
+- **Five completions are forced.** Fire the 12-box (the only way past the first barrier). Shrink (the stem into room C is 2 wide). Fire the 13-box (its lane only exists from room C, facing right). Grow back (while the 15 markers exist, teleport goes to the 15 item; only growing removes them). Teleport (the pad is walled in).
+- **Attempt 2 measured the bar for exactly that mix.** With these five completions and the refill, after 40 actions the 41st non-winning action was refused.
+- **The best route is too long.** An exhaustive search over my grid model finds no route under 42 actions, i.e. 41 non-winning plus the winning move. One too many.
+- **Lean confirms it.** The cost-to-go table checked by the Lean kernel gives `f start = 320` tenths of a unit: the last non-winning move would start exactly at the bar limit, which the rule refuses.
+
+What it rests on:
+- **Established:** moving and sliding; switches fire only in the facing direction; shrink and grow, including grow placement; teleport targets; the refill amount; a non-winning action at bar 0 ends the game; off-panel clicks and actions 5/7 change nothing.
+- **Fitted, not proven:** per-action costs (0.9 per action, +1 per completion, refill +9) and that they don't depend on position. The empirical half of the argument (attempt 2's bar profile, identical action mix) does not depend on those constants.
+- **Untested:**
+  - A *small* agent walking onto the 15 item. Even if that grew the agent, my count gives 21.0 units versus 19.2 for growing with the pattern, so it wouldn't help.
+  - Whether the engine's floating-point sum lands just under 32.0 for a different action order. That is the only gap I can name, and the experiment is to play the 42-action route in exactly the search's order.
+
+**3. Next attempt**
+
+Play the 42-action route exactly as the search found it, with no probes:
+1. Down, down, right, up; fire the 12-box.
+2. Right ×4, down, right ×3 to eat the refill; up ×3, left; shrink.
+3. Up ×4, right; grow; fire the 13-box; teleport.
+4. Up ×4.
+
+I expect the game to end one move short of the goal. If the 41st non-winning move is accepted, I finish the level.
+
+**4. Formal system (amended, not rewritten)**
+
+- **Objects:** facing now also decides the grow placement. The pair it separates: a small agent at (17,47) facing up grows to (17,45), facing right to (15,45). Shown by `grow_branches_differ`.
+- **Rules:** new `grow_place`, as concept `concepts/grow_place.py` and as Lean `L5G.growIdx`/`L5G.growEst` in `lean/L5Grid.lean`. Both observed grows are reproduced: `growEst_obs_up`, `growEst_obs_right`. `shrink_f` is confirmed for facing right, with no definition change. The "other inputs do nothing" premise is now mostly established; the notes in `L5Grid.lean` and `work/MODEL.md` are updated.
+- **Transformation:** one new specialization. `growEst` is the combination, by facing class, of four placement rules of the grid model. Checked by `facingIsColimit` and `growEst_is_desc` in `lean/L5GridStructure.lean`, and recorded in `work/transforms.json`. The grid model's step is unchanged, so the certificate and every earlier verdict are unchanged. The `settle` check passes.
+- **Limits table:** `work/limits_table.json` adds `growEst` (colimit) and `FacingIx` (base), and updates the `thumb_hint`/off-panel-clicks entry.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+The data file is `lean/L5GridData.lean`; the structure file is `lean/L5GridStructure.lean`.
+
+- **What it quantifies over:** every `List Nat` of action codes, played from the level-5 start with `play = playB 320`. Codes 12 and above are free no-ops; attempt 3 showed that off-panel clicks are exactly that.
+- **What is built into the definitions:**
+  - the fitted costs (9 tenths per action, +10 per completion, −90 refill) and the bar limit 320;
+  - completions as single actions, which can only lower the cost, since partial clicks change nothing on the board;
+  - teleport targets.
+- **Where the model is looser than the game, which is safe for an impossibility proof:** grow may take any of four placements, and a switch may fire along any lane across the agent's width.
+- **Rules it leans on:** `move_dir`, `blocked` v4, `shrink_f`, `grow_f`, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick`/`bar_out`, `goal_reach`.
+- **Non-vacuity:** `relaxed_budget_wins` shows that 0.1 unit more budget lets a 30-action macro sequence win.
+
+`#print axioms`, verbatim:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'facingIsColimit' depends on axioms: [propext]
+'growEst_is_desc' depends on axioms: [propext, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+
+**6.** Not applicable: the system changed this attempt (`grow_place` and the facing specialization).
+
+VERDICT: impossible
+CONFIDENCE: 70
+
+ATTEMPT 3 / Continuation 1
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+I couldn't win this attempt once I resumed: before stopping I had spent two moves walking onto the 15 item as a test, and only about 8 bar units were left. So I used the remaining budget on one more test, then let the bar run out:
+- **Shrink placement:** I shrank the big agent while it faced right. The small agent kept the top-left corner, as it did when facing up. Shrink placement doesn't depend on facing; grow placement does, as the earlier test showed.
+- **Running out:** the left moves used up the bar, and the first non-winning action after it read 0 ended the game, as the rule from earlier attempts predicts.
+
+Both findings are added to `work/RULES.md`, and the rules check passes with no contradictions.
+
+My conclusion is unchanged. The cheapest route that wins needs 42 actions, the bar allows at most 41, and none of the inputs I tested gives an action back. I did not call `/reset`.
+
+ATTEMPT 4 / Play answer
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+This attempt I played the cheapest route my search found (42 actions) with no experiments. Every step went as planned:
+- I fired the switch at the 12-box and ate the refill; the bar read 54 after 15 actions.
+- I shrank, climbed into room C, stepped right and grew. The agent landed at (15,45) as the facing rule predicts.
+- I fired the switch at the 13-box and teleported to the pad, leaving the bar at 4 rows.
+- The bar hit 0 after the second climb. The third climb, at (5,33), ended the game one move short of the goal.
+
+That is exactly what I bet before acting and what the Lean model of the level computes: the last move before the winning one starts at the budget limit, which the game refuses. The route is one action too long for the bar. I found no mechanism that gives an action back, so under everything I've established this level can't be won. Records are in `work/RULES.md` and `lean/L5Grid.lean`. I did not call `/reset`.
+
+ATTEMPT 4 / Formal attempt answer
+
+**1. What happened**
+
+On level 5 I played, with no detours, the cheapest route my model allows (42 actions):
+1. Fire the 6-switch at the 12-box from (33,21) facing up; eat the refill.
+2. Shrink at the room-B stem, climb to (17,45), step right, then complete the 15 pattern to grow back. The agent became big at (15,45), facing right.
+3. Fire the 6-switch at the 13-box, then teleport to the pad.
+4. Climb toward the goal.
+
+The bar read 0 after the second climb. The third climb, a non-winning move at bar 0, ended the game at (5,33), one move short of the goal.
+
+That is exactly what I bet in writing before acting, and exactly what the Lean model computes. The cause is the budget: the shortest route needs one action more than the bar allows.
+
+**2. Can it be won?**
+
+Not under my established rules: no action sequence from the level-5 start reaches the goal before the bar ends the game.
+
+The argument:
+- **Five pattern completions are forced:**
+  - the 6-switch on the 12-box, the only way through the first barrier;
+  - shrink, because the stem into room C is 2 cells wide;
+  - the 6-switch on the 13-box, whose lane exists only from room C facing right;
+  - grow, because teleport goes to the 15 item while its markers exist, and only growing removes them;
+  - teleport, because the pad is walled in.
+- **The bar for that mix is measured.** Attempts 2 and 4 used exactly this mix (5 completions plus the refill). In both, the bar reached 0 after 40 non-winning actions and the next non-winning action ended the game.
+- **The shortest route is 42 actions.** An exhaustive search over my grid model, with loose rules for grow placement and switch lanes, finds nothing shorter: 41 non-winning actions plus the winning move.
+- **Lean checks the bound.** The kernel checks a cost-to-go table against the model's step function and gets `f start = 320`, exactly the limit at which the bar refuses a non-winning move. Attempt 4 hit that boundary as predicted.
+
+What it rests on:
+- **Established:**
+  - moving and sliding; facing-only switch lanes;
+  - shrink, grow and grow placement; teleport targets;
+  - the refill's fixed amount; the end-of-bar rule;
+  - off-panel clicks and actions 5/7 do nothing; walking big over the 15 item does nothing;
+  - the map.
+- **Fitted:** per-action costs (0.9 per action, +1 per completion). The empirical half of the argument doesn't depend on these constants, only on cost depending on action type and not on position or order. Attempts 2 and 4 support that: they performed the same action mix in different orders and ran out at the same count.
+- **Untested:** a small agent walking onto the 15 item. By my count even a free grow there costs more than the pattern grow (21.0 vs 19.2 units), so it wouldn't change the bound.
+
+**3. Next attempt**
+
+There is nothing left in my rules to try. I would spend the attempt on the one untested input: walk a small agent onto the 15 item, to see whether it does something my rules don't predict. Otherwise I would replay the 42-action route and expect the same result.
+
+**4. Formal system**
+
+FORMAL-UNCHANGED: this attempt played the route the model already computes as optimal, and every observation matched the model: bar counts, grow placement (15,45), teleport target (17,33), and game over on the 3rd climb. No rule was refuted or extended and no definition was touched. The only new detail is cosmetic: the 12-box completion rendered 21 frames instead of 17, at the same bar cost. For the model to change, an action would have needed to cost differently, land somewhere unpredicted, or the 41st non-winning move would have needed to be accepted.
+
+TRANSFORMS-NONE: no object or rule changed, so there was nothing to condense. Attempt 3's specialization (`facingIsColimit`) and the earlier ones still stand.
+
+**5. Proof** (unchanged; I re-checked the build of the current files)
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+The data file is `lean/L5GridData.lean`; the structure file is `lean/L5GridStructure.lean`.
+
+- **What it quantifies over:** every `List Nat` of action codes, played from the level-5 start under `playB 320`. A winning move always goes through; any other action needs the running cost to be below 320 tenths. Codes 12 and above are free no-ops, which is what off-panel clicks were observed to be.
+- **Built into the definitions:**
+  - the fitted costs (9 tenths per action, +10 per completion, −90 refill);
+  - completions treated as single actions, which can only lower the cost;
+  - teleport targets.
+- **Looser than my rules (safe for this direction):** grow may land in any of four placements, and a switch may fire along any lane across the agent's width.
+- **Rules it leans on:** `move_dir`, `blocked` v4, `shrink_f`, `grow_f`, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick`/`bar_out`, `goal_reach`.
+- **Non-vacuity:** `relaxed_budget_wins` shows that 0.1 unit more budget lets a 30-action macro sequence win.
+
+`#print axioms`, verbatim (build of the current `L5Grid.lean` and `L5GridStructure.lean`):
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'facingIsColimit' depends on axioms: [propext]
+'growEst_is_desc' depends on axioms: [propext, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+
+**6.** See the FORMAL-UNCHANGED line under 4.
+
+VERDICT: impossible
+CONFIDENCE: 75
+
+ATTEMPT 5 / Play answer
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+My model already said level 5 can't be won within its move bar: the shortest winning route needs one action more than the bar allows. So I spent this attempt testing the inputs my model had never seen:
+- **Small agent onto the 15 item:** nothing happens. The agent stays small, the markers stay, and the item reappears when the agent leaves.
+- **Agent moving into a 6-box:** the move is simply blocked. Touching a box does not trigger the switch.
+- **Growing with no room:** a small agent inside the 2-wide stem tried to grow back. The grow fails, but the panel still clears and the full completion cost is still charged. My Lean grid model already had this branch. My written rule for growing claimed it always succeeds; the check caught that and I narrowed it.
+- **Firing the switch from point-blank** inside the stem works as before.
+
+None of these gives back an action, so the earlier impossibility result stands. The new findings are in `work/RULES.md` and the revised `concepts/grow_f.py`. I did not call `/reset`.
+
+ATTEMPT 5 / Formal attempt answer
+
+**1. What happened**
+
+Level 5 again. My model already said the level can't be won within its move bar, so I spent this attempt testing the last inputs my model had never seen:
+- **Small agent onto the 15 item:** I shrank in the first room and walked onto the item. Nothing happened; the agent stayed small and the markers stayed.
+- **Moving into a 6-box:** I walked the small agent up the stem and into the 12-box. The move was simply blocked; touching does not trigger the switch.
+- **Growing with no room:** inside the 2-wide stem the grow failed. The agent was unchanged, but the panel still cleared and the full completion cost was charged.
+- **Point-blank switch fire** from inside the stem removed the 12 barrier as usual.
+
+The bar then ran out and the next non-winning move ended the game. The attempt was spent on purpose; the level itself fails because its shortest winning route is one action longer than the bar allows.
+
+**2. Can it be won?**
+
+No, under my established rules. From the level-5 start, no action sequence reaches the goal before the bar ends the game.
+
+The argument:
+- **Five pattern completions are forced:**
+  - the switch on the 12-box, the only way through the first barrier;
+  - shrink, because room C's entrance is 2 wide and touching or covering things does nothing;
+  - the switch on the 13-box, which has a lane only from room C facing right;
+  - grow, the only thing that removes the 15 markers, while those markers force teleport to the 15 item;
+  - teleport, because the pad is walled in.
+- **The bar for that mix is measured.** In attempts 2 and 4 (5 completions plus refill) the bar reached 0 after 40 non-winning actions, and the next one ended the game.
+- **The shortest route is 42 actions.** An exhaustive search over my grid model, with grow placement and switch lanes left looser than the game, finds no route under 42 actions, i.e. 41 non-winning plus the winning move.
+- **Lean checks the bound.** The kernel-checked table gives exactly the limit (`f start = 320`), and attempt 4 hit that boundary as predicted.
+
+What it rests on:
+- **Established:** moving, sliding and blocking (including into boxes); switches fire only in the facing direction; shrink, grow, grow placement and grow failure; teleport targets; the fixed refill; the end-of-bar rule; and every input off the panel, including the 15 item covered by an agent of either size, does nothing.
+- **Fitted, not proven:** per-action costs (0.9 per action, +1 per completion). The empirical part of the argument needs only that cost depends on action type, which attempts 2 and 4 support.
+
+I can no longer name a specific untested mechanism that would change the answer. The remaining unknown is a general one: an input I haven't thought of.
+
+**3. Next attempt**
+
+Replay the 42-action route once more, in case the bar's boundary behaves differently. I expect `GAME_OVER` one move short of the goal.
+
+**4. Formal system (amended)**
+
+- **Rules:** `grow_f` revised to v2. Its scope is narrowed to grows whose placement fits on floor, after `821d9d4677ca0bb8` refuted the old claim. The Lean grid model already had the failure branch.
+- **New consequence file `lean/L5GridObs.lean`:** it replays this attempt's observations against the existing `L5G.step`:
+  - `obs_grow_fails`: the failed grow;
+  - `obs_touch_box_blocked`: the blocked move into the box;
+  - `obs_fire_point_blank`: the point-blank fire.
+- **Objects:** no slots changed.
+- **Records:** `work/MODEL.md` and `work/limits_table.json` are updated; the new entry is marked "consequence".
+
+TRANSFORMS-NONE: the only revision narrowed a text-level rule to agree with a branch the Lean definitions already contained, so there was no structure to decompose, compose, generalize or specialize.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+Supporting files: `lean/L5GridData.lean`, `lean/L5GridStructure.lean`, `lean/L5GridObs.lean`. Nothing in the main theorem's chain changed this attempt; the output below is from its last build plus the new file.
+
+- **What it quantifies over:** every `List Nat` of action codes, played from the level-5 start under `playB 320`. A winning move always goes through; any other action needs the running cost below 320 tenths. Codes 12 and above are free no-ops, which is what off-panel clicks were observed to be.
+- **Built into the definitions:**
+  - the fitted costs (9 tenths per action, +10 per completion, −90 refill);
+  - completions treated as single actions, which can only lower the cost;
+  - teleport targets.
+- **Looser than my rules (safe for this direction):** grow may land in any of four placements, and a switch may fire along any lane across the agent's width.
+- **Rules it leans on:** `move_dir`, `blocked` v4, `shrink_f`, `grow_f` v2, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick`/`bar_out`, `goal_reach`.
+- **Non-vacuity:** `relaxed_budget_wins` shows that 0.1 unit more budget lets a 30-action macro sequence win.
+
+`#print axioms`, verbatim:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'obs_grow_fails' does not depend on any axioms
+'obs_touch_box_blocked' does not depend on any axioms
+'obs_fire_point_blank' does not depend on any axioms
+```
+
+**6.** Not applicable: `grow_f` was revised and observation checks were added.
+
+VERDICT: impossible
+CONFIDENCE: 78
+
+ATTEMPT 6 / Play answer
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+This attempt followed the cheapest route again and tested the last two cheap inputs:
+- **Target thumbnail as a shortcut:** clicking it after entering 2 of the 3 cells of the switch pattern only showed a hint. It doesn't complete anything, so it saves nothing.
+- **Gaps between panel cells:** I wrongly assumed this click was inert. It actually switched on the neighbouring cell (0,0), because each cell's click area covers the gap. That stray cell broke the next shrink, every later pattern went out of step, and the agent teleported while still big with the 13 barrier in place. The game ended when the bar ran out. My output filter hid the panel change at the time, so I only caught it afterwards.
+
+I've corrected the panel click areas in `concepts/_lib.py`. I also fixed a reading error the gate flagged in my blocked-move rule: it had treated the 11 pad markers as obstacles. Both are noted in `work/RULES.md`.
+
+Nothing found here recovers an action, so my conclusion stands: the shortest winning route is one action longer than level 5's move bar allows. I did not call `/reset`.
+
+ATTEMPT 6 / Formal attempt answer
+
+**1. What happened**
+
+On level 5 I followed the cheapest route again and tested two inputs I hadn't tried:
+- **Thumbnail as a shortcut:** I entered 2 of the 3 cells of the switch pattern, then clicked the pattern's thumbnail in the top-left. It only showed a hint on the panel; it did not complete the pattern.
+- **A click in the gap between panel cells:** I assumed this was inert. It actually switched on the neighbouring cell (0,0), because each cell's click area covers the gap.
+
+That stray cell meant the next shrink pattern never matched. Every later pattern was then out of step, so the agent teleported while still big, with the 13 barrier intact, and the bar ran out. My output filter hid the panel change when it happened.
+
+The immediate cause was that mistake. Even without it, the route is one action too long, as attempt 4 showed.
+
+**2. Can it be won?**
+
+No, under my established rules: from the level-5 start, no action sequence wins before the bar ends the game.
+
+The argument:
+- **Five pattern completions are forced:**
+  - the switch on the 12-box;
+  - shrink, because room C's entrance is 2 wide;
+  - the switch on the 13-box, which has a lane only from room C facing right;
+  - grow, the only way to remove the 15 markers that otherwise send teleport to the 15 item;
+  - teleport, because the pad is walled in.
+- **The bar for that mix is measured.** Attempts 2 and 4 used exactly this mix (5 completions plus the refill). Both allowed 40 non-winning actions and ended the game on the next one.
+- **The shortest route is 42 actions.** An exhaustive search over my grid model, with grow placement and switch lanes left looser than the game, finds nothing shorter: 41 non-winning plus the winning move.
+- **Lean checks the bound.** The kernel-checked table gives exactly the limit (`f start = 320`), and attempt 4 matched it action for action.
+
+What it rests on:
+- **Established:** moving, sliding and blocking; switches fire only in the facing direction; shrink, grow, grow placement and grow failure; teleport targets; the refill amount; the end-of-bar rule. Also, nothing saves an action:
+  - thumbnail clicks, now including after a partial pattern;
+  - off-panel clicks and actions 5/7;
+  - walking onto items or boxes.
+- **Fitted:** per-action costs (0.9 per action, +1 per completion). The empirical part of the argument needs only that cost depends on action type, which attempts 2 and 4 support.
+
+There is no specific untested mechanism left that I can name.
+
+**3. Next attempt**
+
+Replay the 42-action route with no probes and no clicks outside the nine cell centres. I expect `GAME_OVER` one move short, as in attempt 4.
+
+**4. Formal system (amended)**
+
+- **Objects:** each panel cell's click area is 5×5, including the gaps; `_lib.panel_cell_at` is now v2. The pair it separates: after a click at (27,50), the panel is {} versus {(0,0)}.
+- **Rules:**
+  - `blocked` v4.1/v4.2 are reading fixes from `718146ddcc560be2`: the 11 markers and the 15 item count as floor for sliding, and cells the agent vacates are not checked.
+  - `thumb_hint` is re-confirmed.
+- **Lean:** no definitions changed. Gap clicks are panel clicks, and a non-completing panel click only adds cost; treating each completion as one action already gives a lower bound for those. Only the `L5Grid.lean` header comment changed (recompiled); `work/MODEL.md` and `work/limits_table.json` are updated.
+
+TRANSFORMS-NONE: the changes were a vocabulary correction (panel click areas) and two reading fixes in one rule, with no new structure to decompose, compose, generalize or specialize.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+Supporting files: `lean/L5GridData.lean`, `lean/L5GridStructure.lean`, `lean/L5GridObs.lean`.
+
+- **What it quantifies over:** every `List Nat` of action codes, played from the level-5 start under `playB 320`. A winning move always goes through; any other action needs the running cost below 320 tenths. Codes 12 and above are free no-ops; panel clicks, gap clicks included, are covered by the completion abstraction.
+- **Built into the definitions:**
+  - the fitted costs (9 tenths per action, +10 per completion, −90 refill);
+  - completions treated as single actions, which can only lower the cost;
+  - teleport targets.
+- **Looser than my rules (safe for this direction):** grow may land in any of four placements, and a switch may fire along any lane across the agent's width.
+- **Rules it leans on:** `move_dir`, `blocked` v4.x, `shrink_f`, `grow_f` v2, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick`/`bar_out`, `goal_reach`.
+- **Non-vacuity:** `relaxed_budget_wins` shows that 0.1 unit more budget lets a 30-action macro sequence win.
+
+`#print axioms`, verbatim from this rebuild:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'obs_grow_fails' does not depend on any axioms
+'obs_touch_box_blocked' does not depend on any axioms
+'obs_fire_point_blank' does not depend on any axioms
+'facingIsColimit' depends on axioms: [propext]
+'growEst_is_desc' depends on axioms: [propext, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+
+**6.** Not applicable: the panel click areas and the `blocked` rule were revised.
+
+VERDICT: impossible
+CONFIDENCE: 78
+
+ATTEMPT 7 / Play answer
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+Before playing, I checked my logs for one more possible saving: whether the 14 refill item comes back after being eaten. It doesn't. With nothing left to test, I played the cheapest route my search found (42 actions), clicking only cell centres:
+- I fired the switch at the 12-box and ate the refill; the bar read 54 after 15 actions.
+- I shrank, climbed into room C, stepped right and grew back; the bar read 20 after 32 actions.
+- I fired the switch at the 13-box and teleported to the pad, then climbed.
+- The bar hit 0 after the second climb, and the third climb ended the game at (5,33), one move short of the goal.
+
+That matches attempt 4 action for action and is exactly what my Lean model predicts: the shortest route is one action longer than level 5's move bar allows. The result is noted in `work/RULES.md`. I did not call `/reset`.
+
+ATTEMPT 7 / Formal attempt answer
+
+**1. What happened**
+
+On level 5 I played, cleanly and with no probes, the cheapest route my model allows:
+- Fire the 6-switch at the 12-box from (33,21), then eat the refill. The bar read 54 after 15 actions.
+- Shrink at the room-B stem, climb to (17,45), step right and grow back to (15,45). The bar read 20 after 32 actions.
+- Fire the 6-switch at the 13-box, teleport to the pad, and climb.
+
+The bar reached 0 after the second climb. The third climb, a non-winning move at bar 0, ended the game at (5,33), one move short of the goal.
+
+That is action for action what happened in attempt 4, and exactly what my Lean model predicts. It failed because the shortest winning route needs one more action than the bar allows.
+
+**2. Can it be won?**
+
+No, under my established rules: from the level-5 start, no action sequence reaches the goal before the bar ends the game.
+
+The argument:
+- **Five pattern completions are forced:**
+  - the 6-switch at the 12-box, the only way through the first barrier;
+  - shrink, because room C's entrance is 2 wide;
+  - the 6-switch at the 13-box, which has a lane only from room C facing right;
+  - grow, the only thing that removes the 15 markers that otherwise send teleport to the 15 item;
+  - teleport, because the pad is walled in.
+- **The bar for that mix is measured.** Three attempts (2, 4, 7) used exactly this mix (5 completions plus the one refill). Each allowed 40 non-winning actions and ended the game on the next one.
+- **The shortest route is 42 actions.** An exhaustive search over my grid model, with grow placement and switch lanes left looser than the game, finds nothing shorter: 41 non-winning plus the winning move.
+- **Lean checks the bound.** The kernel-checked table gives exactly the limit (`f start = 320`), and two separate playthroughs matched the predicted end.
+
+What it rests on:
+- **Established:**
+  - moving, sliding and blocking; switches fire only in the facing direction;
+  - shrink, grow, grow placement and grow failure; teleport targets;
+  - the refill is fixed in amount and consumed for good (checked in the logs this time); the end-of-bar rule;
+  - none of these change anything on the board: thumbnail clicks, off-panel clicks, actions 5/7 (rejected by the service), walking onto the 15 item or into a box. Gap clicks just toggle a panel cell.
+- **Fitted:** per-action costs (0.9 per action, +1 per completion). The empirical part of the argument needs only that cost depends on action type; three attempts with the same action mix in different orders support that.
+
+There is no specific untested mechanism left that I can name.
+
+**3. Next attempt**
+
+Replay the same route. My rules give no better line, and I expect the same `GAME_OVER` one move short of the goal.
+
+**4. Formal system**
+
+FORMAL-UNCHANGED: the attempt replayed the route the model already proves optimal, and every observation matched: bar 54 after 15 actions, 20 after 32, the grow placement, the teleport target, and game over on the 3rd climb. The one extra check, that the 14 refill item stays gone once eaten, confirms what the model's refill-eaten flag already encodes. No rule was refuted or extended, and no object, slot or definition changed. For the model to change, an action would have needed a different cost or effect, or the 41st non-winning action would have needed to be accepted.
+
+TRANSFORMS-NONE: nothing in the objects or rules changed, so there was nothing to condense.
+
+**5. Proof** (unchanged; last rebuild of the current files)
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+Supporting files: `lean/L5GridData.lean`, `lean/L5GridStructure.lean`, `lean/L5GridObs.lean`.
+
+- **What it quantifies over:** every `List Nat` of action codes, played from the level-5 start under `playB 320`. A winning move always goes through; any other action needs the running cost below 320 tenths. Codes 12 and above are free no-ops, which is what off-panel clicks are; panel clicks, including gap clicks, are covered by treating each completion as one action, which can only lower the cost.
+- **Built into the definitions:** the fitted costs (9 tenths per action, +10 per completion, −90 refill) and the teleport targets.
+- **Looser than my rules (safe for this direction):** grow may land in any of four placements, and a switch may fire along any lane across the agent's width.
+- **Rules it leans on:** `move_dir`, `blocked` v4.x, `shrink_f`, `grow_f` v2, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick`/`bar_out`, `goal_reach`.
+- **Non-vacuity:** `relaxed_budget_wins` shows that 0.1 unit more budget lets a 30-action macro sequence win.
+
+`#print axioms`, verbatim:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'obs_grow_fails' does not depend on any axioms
+'obs_touch_box_blocked' does not depend on any axioms
+'obs_fire_point_blank' does not depend on any axioms
+'facingIsColimit' depends on axioms: [propext]
+'growEst_is_desc' depends on axioms: [propext, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+
+**6.** See the FORMAL-UNCHANGED line under 4.
+
+VERDICT: impossible
+CONFIDENCE: 80
+
+ATTEMPT 8 / Play answer
+
+The game has ended with `GAME_OVER` on level 5 of 5. Levels 1–4 are beaten; I did not beat the game.
+
+Before playing I refit the move-bar costs on all level-5 attempts, separating big moves, small moves and panel clicks. They come out effectively equal (about 0.9 bar units each, plus 1 for a pattern completion). So no cheaper mix of action types exists.
+
+I also checked how far a panel cell's click area extends. It covers the whole panel, including the outer frame: clicks at (23,50) and (23,48) both switched cell (0,0). A click on the bar column does nothing and costs nothing. I've updated the panel click areas in my rules (`concepts/_lib.py`).
+
+I then played the cheapest route as far as it goes. With the two border clicks spent on testing, the bar hit 0 right after the teleport, and the first climb ended the game, as I predicted before acting.
+
+My conclusion is unchanged: the shortest winning route is one action longer than level 5's move bar allows, and I found no mechanism that recovers an action. Notes are in `work/RULES.md`. I did not call `/reset`.
+
+ATTEMPT 8 / Formal attempt answer
+
+**1. What happened**
+
+On level 5 I first refit the bar costs on every level-5 attempt, separately for big moves, small moves and panel clicks. I then tested how far a panel cell's click area reaches: clicks on the panel's outer frame, at (23,50) and (23,48), both switched cell (0,0). A click on the bar column was free and did nothing.
+
+After that I played the cheapest route. The two frame clicks cost about two units, so the bar reached 0 right after the teleport, and the first climb ended the game.
+
+As in every attempt, the cause is the budget: the shortest winning route needs more than the bar allows. This time the two test clicks made the shortfall larger.
+
+**2. Can it be won?**
+
+No, under my established rules: from the level-5 start, no action sequence reaches the goal before the bar ends the game.
+
+The argument:
+- **Five pattern completions are forced:**
+  - the switch on the 12-box;
+  - shrink, because room C's entrance is 2 wide;
+  - the switch on the 13-box, which has a lane only from room C facing right;
+  - grow, the only way to remove the 15 markers that otherwise send teleport to the 15 item;
+  - teleport, because the pad is walled in.
+- **Every route is too expensive.** Using the refit costs (big move 0.90, small move 0.89, click 0.92, +1.00 per completion, refill −9), an exhaustive search over my grid model finds no route whose last non-winning action starts below 32.00. The best starts at 32.29. Lean's kernel checks this, giving `f start = 3229` against a limit of 3200, in hundredths of a bar unit.
+- **The one cost set that would make it feasible is refuted.** With clicks at 0.90 and small moves at 0.89, the optimal route would start its last non-winning action at 31.95 and win. Attempts 4 and 7 played exactly that route and lost at the predicted step.
+
+What it rests on:
+- **Established:** moving, sliding and blocking; switches fire only in the facing direction; shrink, grow, grow placement and grow failure; teleport targets; the fixed, single refill; the end-of-bar rule.
+- **Established, panel and clicks:**
+  - thumbnail clicks only show a hint;
+  - off-panel clicks and actions 5/7 do nothing;
+  - clicks anywhere on the panel, including its frame and gaps, toggle a cell;
+  - touching items or boxes does nothing.
+- **Fitted:** the cost constants. They come from 7 level-5 runs and fit as a single point, but attempt 5 does not fit them exactly. The margin is 0.29 units, about a third of an action.
+
+There is no specific untested mechanism left that I can name.
+
+**3. Next attempt**
+
+Play the 42-action route with clicks only at cell centres and no probes. I expect `GAME_OVER` one move short of the goal.
+
+**4. Formal system (amended)**
+
+- **Objects:** the panel's click area tiles the whole panel, frame included, into 3×3 (`_lib.panel_cell_at` v3). The pair it separates: a click at (23,48) toggles (0,0) versus doing nothing.
+- **Rules:** `bar_tick` is refined to per-action-type costs. In Lean, `L5G.step` now charges `mc` (90 for a big move, 89 for a small one), 468 for shrink/grow, 376 for a switch or teleport, and `mc − 900` for the refill move, in hundredths; `play := playB 3200`.
+  - Why: the old uniform 0.9 charged small moves more than the fit, which made the model stricter than the game, and clicks less than the fit.
+  - The certificate was regenerated (`work/gen_l5grid.py` → `lean/L5GridData.lean`, 16-bit fields).
+  - `L5GridObs.lean` was updated to the new costs.
+  - `work/MODEL.md` and `work/limits_table.json` are updated.
+
+TRANSFORMS-NONE: the changes are a refinement of cost constants inside an existing definition and a vocabulary correction (panel click areas). Neither changes the diagram structure of any object or rule, so no decomposition, composition, generalization or specialization applied.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+Supporting files: `lean/L5GridData.lean`, `lean/L5GridObs.lean`, `lean/L5GridStructure.lean`.
+
+- **What it quantifies over:** every `List Nat` of action codes from the level-5 start under `playB 3200`. A winning move always goes through; any other action needs the running cost below 3200 hundredths. Codes 12 and above are free no-ops, which is what off-panel clicks are. Panel clicks, gap and frame clicks included, are covered by treating each completion as one action.
+- **Built into the definitions:**
+  - the fitted per-type costs;
+  - completions treated as single actions; wasted clicks only add cost, so this is a lower bound;
+  - teleport targets.
+- **Looser than my rules (safe for this direction):** grow may land in any of four placements, and a switch may fire along any lane across the agent's width.
+- **Rules it leans on:** `move_dir`, `blocked` v4.x, `shrink_f`, `grow_f` v2, `switch_6` (facing only), `teleport_b`, `pickup_14`, `bar_tick` (refit), `bar_out`, `goal_reach`.
+- **Non-vacuity:** `relaxed_budget_wins` shows that with cap 3230 (0.30 unit more), a 30-action macro sequence wins.
+
+`#print axioms`, verbatim:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'obs_grow_fails' does not depend on any axioms
+'obs_touch_box_blocked' does not depend on any axioms
+'obs_fire_point_blank' does not depend on any axioms
+'facingIsColimit' depends on axioms: [propext]
+'growEst_is_desc' depends on axioms: [propext, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+
+**6.** Not applicable: the panel click areas and the bar cost rule changed.
+
+VERDICT: impossible
+CONFIDENCE: 80
+
+FINAL INTERVIEW
+
+**1. What happened**
+
+Level 5 is the last of five levels. Levels 1–4 are beaten. Level 5 needs four abilities, each triggered by completing a pattern on the 3×3 panel:
+- **Switch (6 pattern):** removes the barrier whose colour matches a box the agent faces with a clear lane.
+- **Shrink/grow (15 pattern):** toggles the agent between 4×4 and 2×2.
+- **Teleport (11 pattern):** jumps the agent to a marked pad.
+
+The route:
+1. Open the 12 barrier from the first room.
+2. Eat the bar refill in the second room.
+3. Shrink to fit the 2-wide passage into room C.
+4. Fire the switch at the 13-box from room C.
+5. Grow back, which removes the 15 markers that would otherwise pull the teleport to the wrong place.
+6. Teleport to the pad below the goal.
+7. Climb four moves.
+
+On this attempt I spent two clicks testing the panel's click areas, then played that route. The bar ran out right after the teleport, and the first climb ended the game.
+
+The underlying cause is the same as before: every route that wins needs more bar than the level gives. On attempts 4 and 7 the cleanest route fell exactly one move short.
+
+**2. Can it be won?**
+
+No, under my established rules. My claim: from the level-5 start, no action sequence reaches the goal before the bar ends the game.
+
+The argument:
+- **Five pattern completions are forced:**
+  - the switch on the 12-box, the only way through the first barrier;
+  - shrink, because room C's entrance is 2 wide;
+  - the switch on the 13-box, which has a straight lane only from room C facing right;
+  - grow, the only thing that removes the 15 markers, while those markers send teleport to the 15 item;
+  - teleport, because the pad is walled in.
+- **Every route is too expensive.** I fitted costs per action type on all level-5 runs: big move 0.90, small move 0.89, click 0.92, +1.00 per completion, refill +9 once. An exhaustive search over my grid model finds no route whose last non-winning action starts below the limit of 32.00. The best starts at 32.29.
+- **Lean checks the bound.** The kernel checks a cost-to-go table against the model's step function.
+- **The play record agrees.** Attempts 4 and 7 played the optimal route exactly and ended on the predicted move. That also refutes the one cost set that would make it feasible (clicks at 0.90).
+
+What it rests on:
+- **Established by observation:**
+  - moving, sliding and blocking;
+  - switches fire only in the facing direction;
+  - shrink, grow, grow placement and failed grow;
+  - teleport targets, including the 15-marker priority;
+  - the refill is fixed and single;
+  - a non-winning action at bar 0 ends the game;
+  - thumbnail clicks only show a hint; off-panel clicks and actions 5/7 change nothing; panel frame and gap clicks toggle a cell; touching items or boxes does nothing.
+- **Fitted:** the cost constants, a margin of 0.29 units. The empirical fact that the optimal route fails does not depend on them.
+- **Left looser than the game in the model (safe for this direction):** where grow lands, and which lane across the agent's width a switch fires along.
+
+There is no specific untested mechanism left that I can name.
+
+**3. Rules I worked out, and from what**
+
+- **15 is a size toggle (grow).** Completing the 15 pattern while small makes the agent big again and removes the 15 markers (attempt 2, tid 2d6344b3b63cb07b).
+- **Teleport target.** While the 15 markers exist, teleport goes to the 15 item, not the pad (attempt 1, twice). Once they're gone, it goes to the pad (attempt 2).
+- **Switches need facing.** In L3, the agent at (25,29) facing right had a clear lane up to the 6-box and nothing fired. Facing up at (21,29), it fired. In L4 the lane from the agent's left two columns was blocked by a wall and nothing fired.
+- **Grow placement depends on facing.** Facing up, a 2×2 at (15,45) grew to (15,43); facing right, a 2×2 at (17,47) grew to (15,45). Grow with no room fails but still clears the panel and is charged (attempt 5).
+- **Blocked moves slide.** A move whose full step is blocked slides as far as fits: the 4×4 at (15,43) moving right went to (15,45).
+- **Bar costs.** Per-type costs, a fixed +16-row refill, and the game ending at bar 0, fitted and tested across attempts 1–8.
+- **Panel click areas tile the whole panel.** Clicks at (27,50), (23,50) and (23,48) each toggled cell (0,0).
+
+**4. Rules I'm still unsure about**
+
+- **Exact cost arithmetic.** The fit is a single point, but attempt 5 doesn't match it exactly, so the engine may sum fractions with float rounding. The verdict leans on this only through the 0.29 margin; the direct evidence is attempts 4 and 7.
+- **Grow placement facing down or left.** I extrapolated it by rotation and never tested it. The proof sidesteps this by allowing all four placements.
+- **Which lane across the agent's width a switch fires along.** Observed lanes fit "left columns facing up, top rows facing right". The proof allows any lane across the width.
+- **The first ACTION1 on level 1** did nothing for no reason I could find. I never saw it again.
+
+**5. Lean proof**
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+Supporting files: `lean/L5GridData.lean` (map masks and the cost-to-go table), `lean/L5GridObs.lean` and `lean/L5GridStructure.lean`.
+
+- **What it quantifies over:** every `List Nat` of action codes, played from the level-5 start under `playB 3200`. A winning move is always allowed; any other action needs the running cost below 3200 hundredths. Codes 12 and above are no-ops costing nothing, which is what off-panel clicks are; panel clicks, frame and gap clicks included, are covered by treating each completion as one action.
+- **How it's proved:** an invariant (running cost + cost-to-go ≥ 3200, and the agent is not one move from the goal) is preserved by every action. The step for that invariant comes from a table checked by `decide +kernel` over all 91,264 encoded states, and `f_start` gives `f start = 3229`.
+- **Built into the definitions rather than taken as hypotheses:**
+  - the fitted cost constants;
+  - completions treated as single actions, which is a lower bound since wasted clicks only add cost;
+  - teleport targets;
+  - the map from the level-5 start frame.
+- **Non-vacuity:** `relaxed_budget_wins` shows that with cap 3230 (0.30 unit more) the route wins. `obs_grow_fails`, `obs_touch_box_blocked`, `obs_fire_point_blank` and `growEst_obs_up`/`growEst_obs_right` replay observed transitions against the model.
+
+`#print axioms`, verbatim from the last build:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growEst_obs_up' does not depend on any axioms
+'L5G.growEst_obs_right' does not depend on any axioms
+'obs_grow_fails' does not depend on any axioms
+'obs_touch_box_blocked' does not depend on any axioms
+'obs_fire_point_blank' does not depend on any axioms
+'facingIsColimit' depends on axioms: [propext]
+'growEst_is_desc' depends on axioms: [propext, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+
+VERDICT: impossible
+CONFIDENCE: 80
+
+FOLLOW-UP / attempt 1 play
+
+The first audit attempt has ended: `GAME_OVER` on level 5 of 5. Levels 1–4 were replayed and beaten; the game is not beaten. I spent level 5 on experiments rather than another route replay, because under my rules the best route was already known to fall one action short.
+
+**Audit of the move bar.** My old cost model was fractional and fitted (about 0.9 per action). I replaced it with a more mechanical alternative that fits every level-5 run exactly, with one unique solution:
+- The bar is an integer tick count with a budget of 35 on level 5 (35 on level 4, 50 on level 3).
+- Every action costs 1 tick, the click that completes a pattern costs 2, the refill gives back 10, and off-panel clicks are free.
+- It correctly predicts 241 transitions it wasn't fitted on, with no misses.
+- I also tested the end-of-bar rule directly: a 2-tick completing click at 34 ticks ended the game. Any non-winning action that would push the count past 35 ends it, whatever that action costs. So a route works only if its non-winning actions total 35 ticks or fewer.
+- An exhaustive search under this exact model finds the minimum is 36. That is one tick over, which matches attempts 4 and 7.
+
+**Experiments on mechanisms the model hadn't covered:**
+- **Thumbnails:** a second click replays a free demonstration of the pattern on the panel. It never completes the pattern.
+- **Select-then-apply:** clicking a thumbnail and then the pad does nothing. Clicks on the goal, both barriers and the 13-box also do nothing and cost nothing.
+- **Small teleport:** it still went to the 15 item in three new situations:
+  - from the start, facing down, with both barriers intact;
+  - after growing on top of the item;
+  - with the agent covering one of the frame's corners.
+
+  The item survives growing on it, and its markers come back on the next shrink.
+- **Grow placement:** the facing-based rule was refuted when facing down. Grow actually takes the first placement that fits, expanding up-left first, regardless of facing. This fits all five observed grows, including the failed one inside the stem.
+
+**Formal system:** updated, not rewritten.
+- New rules: `bar_ticks`, `bar_out` v2, and `grow_fit`. The facing-based `grow_place` is retired.
+- `lean/L5Grid.lean` now uses integer ticks and the after-action limit. Its certificate was regenerated, giving a minimum of 36 against a budget of 35.
+- New theorems check `growFit` against all five observed grows.
+- `lean/L5GridStructure.lean` presents `growFit` as a combination over fit classes (`fitIsColimit`).
+- `work/transforms.json`, `work/limits_table.json`, `work/MODEL.md` and `work/RULES.md` are updated.
+
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar
+
+It says: for every action sequence from the level-5 start, the game is not won, under a budget of 35 ticks. `#print axioms`, verbatim:
+```
+'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]
+'L5G.relaxed_budget_wins' does not depend on any axioms
+'L5G.f_start' does not depend on any axioms
+'L5G.growFit_obs_up' does not depend on any axioms
+'L5G.growFit_obs_right' does not depend on any axioms
+'L5G.growFit_obs_down' does not depend on any axioms
+'L5G.growFit_obs_left' does not depend on any axioms
+'L5G.growFit_obs_stem' does not depend on any axioms
+'obs_grow_fails' does not depend on any axioms
+'obs_touch_box_blocked' does not depend on any axioms
+'obs_fire_point_blank' does not depend on any axioms
+'fitIsColimit' depends on axioms: [propext, Classical.choice, Quot.sound]
+'growFit_is_desc' depends on axioms: [propext, Classical.choice, Quot.sound]
+'grow_branches_differ' does not depend on any axioms
+```
+`relaxed_budget_wins` shows that with a budget of 36 the 42-action route wins, so the bound is exactly one tick.
+
+**Still uncertain:**
+- The order between the two middle grow placements has never been distinguished, because only one of them ever fit.
+- Why level 1's very first action did nothing is unexplained; it was never repeated on later levels.
+- The pad's inner 11 frame, sized for a small agent, has no observed role. A small agent that reaches the pad would make the level winnable (about 34 ticks), but nothing tested so far gets it there.
+
+I did not call `/reset`.
+
+FOLLOW-UP / attempt 1 M2
+
+**What I tested:**
+- An exact model of the move bar, against all eight level-5 runs.
+- What happens when a 2-tick click would push the bar past its limit.
+- Repeated thumbnail clicks, and clicking a thumbnail and then the pad.
+- Clicks on the goal, both barriers and the 13-box.
+- Small teleports in new situations: from the start facing down with both barriers intact, after growing on the 15 item, and while covering a corner of the 15 frame.
+- Grow while facing down and left.
+
+**What I observed:**
+- **Bar:** it is an integer tick budget of 35 per level-5 play. Every action costs 1 tick, the click that completes a pattern costs 2, the refill gives back 10, and off-panel clicks are free. This fits uniquely and predicts 241 held-out transitions with no misses.
+- **End of the bar:** any non-winning action that would take the count past 35 ends the game, even a 2-tick click made at 34. Winning moves always go through.
+- **Thumbnails:** a second click only replays a free demonstration; clicking a thumbnail and then the pad does nothing.
+- **Other clicks:** the goal, barriers and box clicks are free and do nothing.
+- **Small teleport:** it always lands on the 15 item. The item survives growing on it, and its markers return on the next shrink.
+- **Grow:** placement doesn't depend on facing. It takes the first placement that fits, expanding up-left first. That fits all five observed grows, including the failed one.
+
+**Did this change my account?** The bar model moved from a fitted approximation to an exact, mechanical rule, and the facing-based grow rule was replaced. The verdict didn't change. The exhaustive search under the exact rules gives a minimum of 36 non-winning ticks against a limit of 35. The Lean model now uses these rules, and the main theorem `L5G.l5_unwinnable_with_bar` in `lean/L5Grid.lean` compiles clean, using only `propext` and `Quot.sound`. With a budget of 36 the 42-action route wins in the model.
+
+**What remains uncertain:**
+- The pad's inner 11 frame, sized for a 2×2 agent, has no observed use. If a small agent could teleport there, the level would cost about 34 ticks and be winnable. Every variation I tested still sends a small teleport to the 15 item.
+- The order between the two middle grow placements is untested; only one ever fit.
+- Why level 1's very first action did nothing is unexplained.
+
+I can't name a specific untested input that would plausibly recover the missing tick, so I'm ending the remaining attempts.
+
+LEAST_BUDGET=36 ticks
+VERDICT: impossible
+REPAIR-DONE
+
+FOLLOW-UP / M3
+
+I reached level 5 of 5 and did not beat the game. My conclusion is that level 5 cannot be won under the rules I've established: the cheapest win needs 36 bar ticks and the level starts with 35.
+
+**What changed this round**
+- **Bar model:** the move bar is now an integer tick counter instead of fitted fractional costs (concept `bar_ticks`).
+  - Level 5 starts with 35 ticks (level 4 also 35, level 3 has 50).
+  - An action costs 1 tick, the click that completes a pattern costs 2, the refill gives back 10 (net −9 on the move that eats it), and off-panel clicks are free.
+  - The bar shows 2 × ceil(32 × (35 − n) / 35) rows after n ticks used.
+- **End of the bar (`bar_out` v2):** a non-winning action that would take the count past 35 ends the game, whatever it costs. I tested this directly: a 2-tick click at 34 ticks ended it. Winning moves always go through.
+- **Grow placement:** the facing-based rule (`grow_place`) is retired; facing down refuted it. The new rule (`grow_fit`) takes the first placement that fits, trying up-left (−2,−2) first, regardless of facing.
+- **Lean artifacts, amended rather than rewritten:**
+  - `lean/L5Grid.lean` now uses integer ticks and the after-action limit, with a regenerated table in `lean/L5GridData.lean`.
+  - It adds `growFit` and five theorems that replay the observed grows.
+  - `lean/L5GridObs.lean` is updated to tick costs.
+  - `lean/L5GridStructure.lean` presents `growFit` as a combination over fit classes (`fitIsColimit`, `growFit_is_desc`).
+  - `work/transforms.json`, `work/limits_table.json`, `work/MODEL.md` and `work/RULES.md` are updated, and the rule check passes with 0 counterexamples.
+
+**Evidence for the conclusion**
+- **The tick model fits exactly.** It is the unique fit across all eight level-5 runs and predicts 241 held-out transitions with no misses.
+- **Five pattern completions are unavoidable:** fire the 12 switch, shrink, fire the 13 switch, grow back, teleport.
+  - A small agent's teleport always lands on the 15 item. That held in four different situations: different rooms, facings and barrier states, and with the agent covering a frame corner.
+  - Growing is the only thing that removes those 15 markers.
+  - Nothing else tested saves an action: thumbnail clicks, select-then-click, and clicks on map objects.
+- **Lean confirms the bound.** An exhaustive search over the grid model, with grow placement and switch lanes left looser than the game, finds a minimum of 36. The Lean kernel checks a cost-to-go table against the model's step function, gives `f start = 36`, and proves that no action list wins with 35. The 42-action witness wins in the model when the budget is 36.
+- **Play agrees.** Attempts 4 and 7 played that exact 42-action route and ended on exactly the move the model predicts.
+
+**Budgets**
+- **Proved minimum needed:** 36 ticks, under my rules.
+- **Measured starting budget:** 35 ticks.
+- **Working example:** I have no winning example in the real game at any budget. The 42-action route only wins in the model with a budget of 36.
+
+**What remains uncertain**
+- The pad's inner 11 frame, sized for a 2×2 agent, has no observed use. A small agent that reached the pad would cost about 34 ticks, so the level would be winnable. I found no condition that sends it there.
+- The order between the two middle grow placements is untested, because only one of them ever fit.
+- Why level 1's very first action did nothing is unexplained.
+
+`#print axioms` on the main theorem: `'L5G.l5_unwinnable_with_bar' depends on axioms: [propext, Quot.sound]`.
+
+CHANGED_RULES=bar_tick→bar_ticks (integer ticks: B=35, action 1, completing click 2, refill −10, off-panel 0); bar_out v2 (game ends when a non-winning action would exceed B); grow_place retired→grow_fit (first fitting placement, (−2,−2) first, facing-independent)
+LEAST_BUDGET=36 ticks
+MEASURED_BUDGET=35 ticks
+VERDICT: impossible
+CONFIDENCE: 80
+MAIN-THEOREM: lean/L5Grid.lean : L5G.l5_unwinnable_with_bar

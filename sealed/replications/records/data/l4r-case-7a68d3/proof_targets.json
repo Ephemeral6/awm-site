@@ -1,0 +1,12 @@
+[
+  {
+    "root": "models/l4-main/lean",
+    "module": "L4Proof",
+    "decl": "L4.l4_unwinnable"
+  },
+  {
+    "root": "models/l4-review/lean",
+    "module": "L4Proof",
+    "decl": "L4.l4_unwinnable"
+  }
+]

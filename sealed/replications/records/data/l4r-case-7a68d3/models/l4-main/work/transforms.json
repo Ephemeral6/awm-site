@@ -1,0 +1,86 @@
+[
+ {
+  "attempt": 1,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "block state read off frames (concepts/_lib.piece + colours)"
+   ],
+   "after": [
+    "Blk = t × l × big × up × box × item"
+   ]
+  },
+  "lean_file": "lean/L4Limits.lean",
+  "lean_decl": "L4.blkIsLimit",
+  "check": "work/replay_m4.py replays all 26 observed L4 transitions through M4: 26 matched, 0 mismatched, 0 abstained (before the decomposition the concepts' assert_ verdicts were unchanged: settle S=1.000 on all live concepts)",
+  "check_attempt2": "re-proved for Blk v2 (slot up:Bool replaced by face:Dir); replay 51/51 matched"
+ },
+ {
+  "attempt": 1,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "game position"
+   ],
+   "after": [
+    "Full = Blk × mask × used × won"
+   ]
+  },
+  "lean_file": "lean/L4Limits.lean",
+  "lean_decl": "L4.fullIsLimit",
+  "check": "same replay (counter ticks: moves 1, clicks 1, completing click 2, off-grid 0 fit the 26 L4 transitions; fitted budget 18)"
+ },
+ {
+  "attempt": 1,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "move_step",
+    "lead_face(up flag only)",
+    "d_block",
+    "pattern_shrink/grow",
+    "pattern_beam",
+    "e_refill"
+   ],
+   "after": [
+    "bstep = copairing [moveRule, sizeRule, beamRule] over BAct"
+   ]
+  },
+  "lean_file": "lean/L4Limits.lean",
+  "lean_decl": "L4.bactIsColimit",
+  "check": "bstep_is_desc proves bstep = desc; replay 26/26 matched"
+ },
+ {
+  "attempt": 2,
+  "kind": "specialization",
+  "components": {
+   "before": [
+    "e_refill: one rule 'a 2x2 overlapping the item eats it' (4x4 case not claimed)"
+   ],
+   "after": [
+    "eatSmall: 2x2 overlaps item",
+    "eatBig: 4x4 front half overlaps item",
+    "eatsAt = copairing over the size coproduct {small, big}"
+   ]
+  },
+  "lean_file": "lean/L4Limits.lean",
+  "lean_decl": "L4.sizedIsColimit",
+  "check": "theorem L4.eatsAt_is_desc proves eatsAt = desc; work/replay_m4.py over all 54 observed L4 transitions (attempts 1+2): 51 matched, 0 mismatched, 3 abstained (attempt boundary, 2 GAME_OVER steps)"
+ },
+ {
+  "attempt": 5,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "grow facing L/D/U: (t-2,l-2)",
+    "grow facing R: free placement q (untested)"
+   ],
+   "after": [
+    "grow: (t-2,l-2) for every facing (facing-independent)"
+   ]
+  },
+  "lean_file": "lean/L4Limits.lean",
+  "lean_decl": "L4.facedIsColimit",
+  "check": "theorem L4.grow_generalized: desc over the facing coproduct = (t-2,l-2); work/replay_m4.py over all observed L4 transitions after the change: 126 transitions: 117 matched, 0 mismatched, 9 abstained"
+ }
+]

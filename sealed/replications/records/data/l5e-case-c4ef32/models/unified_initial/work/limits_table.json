@@ -1,0 +1,138 @@
+[
+ {
+  "name": "St (board state: block r,c,size,facing; gates oc,od; refill pad ep)",
+  "kind": "limit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.stIsLimit",
+  "status": "definition (L5Model.St)"
+ },
+ {
+  "name": "Gate_k (switch box k present, barrier k open; present = not open)",
+  "kind": "limit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.gateIsLimit",
+  "status": "definition (one Bool slot St.oc / St.od)"
+ },
+ {
+  "name": "Act (macro actions: move d | shrink q | grow q | shot | tele)",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition (L5Model.Act)"
+ },
+ {
+  "name": "Dir",
+  "kind": "base",
+  "reason": "four constructors, no internal structure used by any rule"
+ },
+ {
+  "name": "Quad",
+  "kind": "base",
+  "reason": "four quadrant offsets, no internal structure"
+ },
+ {
+  "name": "Fin 32 half-pixel coordinate",
+  "kind": "base",
+  "reason": "coordinate; pixel = 2*i+1"
+ },
+ {
+  "name": "Bool",
+  "kind": "base",
+  "reason": "two-valued flag type; no rule reads any internal structure of it"
+ },
+ {
+  "name": "map masks W0/WC/WD and cert (L5Data)",
+  "kind": "base",
+  "reason": "level data read off the frame / untrusted certificate re-checked in L5Proof"
+ },
+ {
+  "name": "step (transition rule)",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition; L5.step_is_desc proves step s = desc (rulesCocone s)"
+ },
+ {
+  "name": "R1 ruleMove (2-px sub-steps, stops at last free one; blocked move still sets facing)",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition (injection .move of rulesCocone); revised attempt 5: a 4x4 makes a 2-px partial step when the full step is blocked (L5Main.attempt5_partial_move); a 2x2 has no partial step (attempt5_small_blocked)"
+ },
+ {
+  "name": "R2a ruleShrink",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition (injection .shrink)"
+ },
+ {
+  "name": "R2b ruleGrow (walkable-footprint check)",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition (injection .grow); Lean allows every quadrant whose 4x4 footprint is walkable (superset). Attempt 6: the engine tries (r-2,c-2) first and falls back to another walkable quadrant (2x2 at (15,43) -> 4x4 at (15,41)); executable as rules.rule_grow_engine; covered by the Lean superset"
+ },
+ {
+  "name": "R3 ruleShot",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition (injection .shot)"
+ },
+ {
+  "name": "R4 ruleTele",
+  "kind": "colimit",
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "status": "definition (injection .tele)"
+ },
+ {
+  "name": "R5 post (refill pad consumed)",
+  "kind": "base",
+  "reason": "post-composed on every injection; a plain function St -> St",
+  "status": "definition (L5Model.post)"
+ },
+ {
+  "name": "R6 win",
+  "kind": "base",
+  "reason": "a plain predicate St -> Bool (footprint overlaps goal rect); it is not built from other components",
+  "status": "definition (L5Model.win)"
+ },
+ {
+  "name": "R7 budget (affordable)",
+  "kind": "base",
+  "reason": "predicate on runs; attempt-2 refit over all 43 L5 transitions (B=35, move/click 1, firing click 2, icon click 0, refill +10, game over iff rem<0 after a non-winning action): 0 mismatches",
+  "status": "definition (L5Model.affordable)"
+ },
+ {
+  "name": "potential bound H <= spend",
+  "kind": "base",
+  "reason": "a proved theorem (L5Main.bound), not a definition; it has no universal property to register",
+  "status": "consequence (L5Main.bound, L5_unwinnable)"
+ },
+ {
+  "name": "Panel (3x3 click grid, e-cells)",
+  "kind": "base",
+  "reason": "folded into fire macros",
+  "status": "not in the model: clicks folded into macros with cost |pattern|+1 (lower bound, see transforms T1)"
+ },
+ {
+  "name": "budget bar display 2*ceil(32*rem/B)",
+  "kind": "base",
+  "reason": "observation function only",
+  "status": "not in the model"
+ },
+ {
+  "name": "first action after /reset swallowed",
+  "kind": "base",
+  "reason": "applies only to the very first action after a game reset, not to a level reset; excluded from the L5 model",
+  "status": "not in the model"
+ },
+ {
+  "name": "icon click (clicking a power icon left of the board)",
+  "kind": "base",
+  "reason": "observed twice (attempt 2): marks that icon's pattern cells as 0 on the panel, costs 0 budget units (bar refit: 43 transitions, 0 mismatches), fires nothing",
+  "status": "not in the model: free and changes only the panel marks, never the board or the cost of a power"
+ }
+]

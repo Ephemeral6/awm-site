@@ -1,0 +1,4 @@
+# Preserve archived evidence bytes and their published hashes.
+* -text whitespace=cr-at-eol
+# Historical subject sources may contain trailing blank lines.
+records/data/**/models/** whitespace=cr-at-eol,-blank-at-eof

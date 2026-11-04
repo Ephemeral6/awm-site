@@ -1,0 +1,1050 @@
+
+
+ATTEMPT 1 / Play answer
+
+I reached level 4 and did not beat the game: levels 1–3 are beaten (3 of 4 levels completed), and the game ended with GAME_OVER on level 4. I didn't call /reset.
+
+**How the game works:**
+- **Player:** a 4×4 or 2×2 square. Its colour-9 half shows which way it faces. Actions 1–4 move it up/down/left/right by its own size. If floor isn't free, it only turns to face that way. The very first action after reset is ignored.
+- **Budget bar** (right edge): every move and click uses some of it, the rate differs by level, and pattern animations use extra. On level 4, the first action after it hit zero returned GAME_OVER.
+- **3×3 panel:** clicking a cell switches it between its normal colour and e. When the switched cells match the pattern shown in the legend, an ability fires and the panel resets. Which ability depends on the legend's colour:
+  - **f:** switches the player between 4×4 and 2×2.
+  - **b:** teleports the player into the b-marked box.
+  - **6:** fires a short shot in the direction the player faces. Hitting the 6-box removes the box and the d-coloured door. How far the shot travels is set per level.
+- **Goal:** moving into the 9-framed box with the a-coloured inside finishes the level.
+
+**Levels:**
+- **Level 1:** shrank to 2×2 with the panel, went up the 2-wide passage into the goal. I wasted a lot of budget here because I misread the passage's columns (35–36 as 37–38).
+- **Level 2:** used the b pattern to teleport across the gap, then walked into the goal.
+- **Level 3:** from below the passage, facing up, I shot the 6-box, which opened the door, then walked to the goal.
+- **Level 4 (lost):** I fired from the bottom of the passage before checking range. The shot stopped after one step instead of reaching the box. A 2×2 e-coloured square on the map did not refill the bar when I stepped on it. The likely route is shrink, climb the passage close to the box, shoot it, then go through the door to the goal. By the time I worked that out there wasn't enough budget left, so I ran the bar out to learn what an empty bar does.
+
+**Method record:** five rule files in `concepts/` (movement, facing, blocking, panel toggle, resize). The latest check passed with no counterexamples on 1–47 recorded moves each. I didn't run the move-by-move "predict, then compare" tally (none of the rule files predict frames). The Lean step isn't done — it's due after the run.
+
+Files are in `[LOCAL_WORKSPACE]`:
+- `work/notes.md` — rules and outcome
+- `work/anim/` — saved animation frames
+- the memory file `game-rules-l4r.md` — rules and route notes for another attempt
+
+ATTEMPT 1 / Formal attempt answer
+
+**1. What happened on level 4**
+
+Level 4 is a room with the goal box off to the right. A d-coloured door blocks the corridor to it. Above the room, a 2-pixel-wide passage leads up to a 6-coloured "receiver" box. On level 3 I learned that shooting that box (the 6-pattern ability) removes both the box and the door. Level 4 also offers the shrink/grow ability (f pattern). Each action here cost twice what it did on earlier levels: the bar held about 16 actions.
+
+I went straight to the top of the room under the passage and fired the shot, as on level 3. It fizzled after one step. The gap to the box was 12 rows, versus 9 rows on level 3, and the range is evidently set per level. That cost 6 of the 16 actions. I then spent 6 more checking whether the 2×2 e-coloured square refills the bar when a 4×4 player covers it. It does not. I used the rest to shrink and see what an empty bar does: the next action returned GAME_OVER.
+
+The cause of failure was spending budget on actions whose outcome I hadn't worked out, firing before checking the range in particular. But the analysis below says that even a perfect start would not have fit the budget under the rules I've established.
+
+**2. Can the level be beaten?**
+
+Not under my established rules. Claim: with at most 17 game actions, no sequence wins level 4.
+
+The argument goes like this:
+- The door must be opened, and only the shot does that.
+- The 4×4 player's closest firing position (top of the room, 12-row gap) was observed to fail. Any closer position is inside the 2-wide passage, so the player must shrink first: 4 clicks.
+- Firing costs 3 clicks.
+- From the passage, reaching the goal takes many more moves.
+
+In the formal model, the exact minimum, checked against every state, is 24 game actions.
+
+What this rests on:
+- **Established:**
+  - moves go by the player's own size, and walls and the d door block a 4×4 (seen on level 3);
+  - a completed pattern needs one click per pattern cell, and the panel empties after each completion;
+  - the shot fails at a 12-row gap on this level;
+  - entering the goal box wins;
+  - 16 actions emptied the bar, and the 17th returned GAME_OVER.
+- **Assumed, but the model leans the generous way:**
+  - shrink and grow may anchor in any quadrant (the game was only seen keeping the top-left);
+  - the shot reaches any gap of 11 rows or less (it actually fizzled much sooner);
+  - touching any goal-box pixel counts as a win.
+- **Assumed in the strict direction:**
+  - the d door also blocks a 2×2 player (rule stability supports this, but it was never tested);
+  - the e marker has no effect (tested only with a 4×4 covering it);
+  - no abilities beyond f and 6 are enabled on this level;
+  - a budget of 17 actions.
+
+The bound is not fragile on cost: the minimum is 24, so the conclusion holds for any budget of 23 or fewer actions. Each action would have to average at most about 2.7 bar rows for that to break; the observed average was 4.
+
+Two specific mechanisms would change the answer:
+- **The door:** if a 2×2 can pass the d door, then shrink, down 2, right 10 is exactly 16 actions.
+- **The e marker:** if a 2×2 standing on it refills the bar, the budget changes.
+
+**3. Next attempt**
+
+I'll plan the full action count before moving. The cheapest test that could also win is the 16-action door line: shrink at the start, move down twice, then right toward the door, predicting that the door blocks the 2×2. If it is blocked, I'll report it as the expected outcome and then try the e marker with a 2×2 if any budget remains.
+
+**4. Formal system**
+
+This is the first formal system; there was no earlier one to amend.
+
+- **Objects** (in `work/model.md`): the player has a lattice position (i, j), a size (big or small), and an "up" flag. Only "facing up" is kept, because only the shot reads facing. The door has an open flag. The board is three masks read off the observed level-4 start frame. Each slot separates a specific pair of positions; for example, door open versus closed changes the cost to win from 6 to 24.
+- **Rules:** `moveRule`, `resizeRule`, `fireRule` and `cost`, defined for every state with i, j below 32. The panel is abstracted into two macro actions (resize = 4 clicks, fire = 3); that abstraction is argued in the file header. The bar, the swallowed first action and teleport are explicitly marked "not in the model".
+- **Replay:** all 17 observed level-4 transitions match the model, 0 mismatches. The one skipped transition is the GAME_OVER step, because the bar isn't modelled.
+- **Transformations** (in `work/transforms.json`):
+  - decomposition of the state into its slots: `L4S.stIsLimit`;
+  - specialisation of `step` into its three branch rules: `L4S.actIsColimit`, with `step_is_desc` proving `step` is their copairing;
+  - specialisation of the outcome into win / continue: `L4S.outIsColimit`.
+- **Limits table:** `work/limits_table.json` lists every object type and rule as limit, colimit or base. The four "not in the model" items are base entries with a reason.
+
+**5. Proof**
+
+The main theorem is in `lean/L4Model.lean` (structure in `lean/L4Structure.lean`).
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_within_budget
+
+It says: for every list of model actions with total cost ≤ 17, running it from the level-4 start does not win. The stronger form, `L4.l4_no_win_below_24`, covers total cost < 24. The proof uses a table of cost-to-win values found by a Python search. Lean checks every state and every action against `step` with `decide +kernel`, then finishes by induction over the action list. The file compiles in about 55 seconds.
+
+```
+'L4.l4_no_win_below_24' depends on axioms: [propext, Quot.sound]
+'L4.l4_unwinnable_within_budget' depends on axioms: [propext, Quot.sound]
+'L4.witness_wins' depends on axioms: [propext]
+'L4.open_door_cheap' does not depend on any axioms
+'L4.fire_from_room_top_fails' does not depend on any axioms
+```
+
+The structure file's declarations (`stIsLimit`, `actIsColimit`, `outIsColimit`) are axiom-free; `step_is_desc` uses only `Quot.sound`.
+
+- **Checks that the bound isn't empty:**
+  - `witness_wins`: a concrete 24-cost sequence does win, so raising the budget by +7 (from 17 to 24) is the smallest change that makes the level winnable, and the bound is tight;
+  - `open_door_cheap`: with the door already open, 6 actions win;
+  - `fire_from_room_top_fails`: the range limit really bites.
+- **Hypotheses:** the only one on the theorem is the budget, total cost ≤ 17. It is an empirical premise (16 actions drained the bar), not something proved.
+- **Rules leaned on:** `moveRule`, `resizeRule`, `fireRule`, `cost`.
+- **What Lean carries beyond the rules:**
+  - positions on a 2-pixel lattice: every move and resize I observed stays on it, and teleport isn't available on this level;
+  - panel completions treated as single steps: justified because clicks and moves commute;
+  - two strict-direction assumptions built in as fixed board data: the door blocks a 2×2 player, and the e marker is plain floor.
+
+  Those two strict assumptions are where "impossible in the model" might not transfer to the game.
+
+**6.** Not applicable: the formal system was created in this attempt, so it did change.
+
+VERDICT: impossible
+CONFIDENCE: 60
+
+ATTEMPT 2 / Play answer
+
+I reached level 4 again and did not beat the game: levels 1–3 stay beaten (3 of 4 completed), and the game ended with GAME_OVER on level 4. The service was restored at the start of level 4, so this attempt was spent there; I did not call `/reset`.
+
+**What I learned, all checked against both attempts' recorded data:**
+
+- **The budget is an action count, and smaller than I had planned for.** Every accepted action costs 1 unit, including blocked moves. Clicks outside the panel and the swallowed first action are free, and each completed pattern costs 1 extra. A level 4 budget of 18 units reproduces every bar reading in both attempts, and this attempt's six predicted readings all matched. The action that goes past the budget still takes effect, then the game ends.
+- **The door blocks the 2×2 player as well.** This was the only untested escape hatch: shrink and walk straight through would have cost 15 of the 18 units. My model predicted the block and it happened.
+- **The shot has no short range; walls stop it.** Fired as a 2×2 up open floor, it travelled 3 steps and vanished at the wall. That refutes my attempt-1 explanation. For a 4×4 player facing up, only its left two columns count. In attempt 1 those columns (29-30) hit the wall beside the 2-wide passage (cols 31-32), which is why that shot died after one step. On level 3 the passage was under the left half, so it flew all the way.
+- **Grow keeps the bottom row and extends right, or left if the right is wall.** Shrink always keeps the top-left corner.
+
+**Why level 4 is still out of reach:** with the corrected rules, the cheapest route in my model costs 23 units, or 25 with the grow and shrink anchors I actually observed, against 18. The extra cost comes from first shifting the player one 2-pixel step sideways so a shot can go up the passage. So some level-4 mechanism is still unknown. The 2×2 e-coloured square in the room's bottom-left corner is the only element whose function I haven't found; covering it as a 4×4 did nothing visible. Testing what it does should be the first thing on any further attempt.
+
+Notes are in `work/notes.md`, the budget fit is in `work/fit_budget.py`, and my memory file holds the rules for the next attempt.
+
+ATTEMPT 2 / Formal attempt answer
+
+**1. What happened on level 4**
+
+The service had been put back at the start of level 4. I probed it with a click that belonged to my plan anyway, so I never needed `/reset`. That click came back as level 4.
+
+From the bar readings of both attempts I worked out an exact cost model. Every action costs one unit, a completed pattern costs one extra, and level 4's budget is 18 units. Every prediction it made this attempt matched.
+
+Only one route fit inside 18 units: walk the big player to the door, shrink, then walk the small player through the door. It hinged on the one untested question, whether the d door also blocks the small player. It does, as my model predicted.
+
+With 9 units left I fired the shot as a 2×2 up across open floor. It flew three steps and died at the wall. That refutes my attempt-1 explanation that the shot has a short per-level range. The real rule is that walls stop the shot, and for the 4×4 player only its left two columns count. In attempt 1 those columns (29–30) met the wall beside the passage, which sits at columns 31–32.
+
+I spent the last units seeing where a grow places the player next to a wall. The 2×2 grew into rows 25–28, columns 41–44: it kept its bottom row and extended to the left, because the right side was wall. The completion that needed a 19th unit still resolved, and then the game ended.
+
+The cause of failure: with everything I know, the level costs more than its budget, so some mechanism of this level is still unknown to me.
+
+**2. Can the level be beaten?**
+
+Not under my established rules.
+
+The claim: from the level-4 start, no sequence of actions wins if every action begins with at most 18 units already spent. Such a sequence costs at most 20 units in my model, because the last click of a pattern costs 2. The cheapest win in the model costs 23.
+
+The argument has three steps:
+- **The door must be opened.** The only known way is a shot that reaches the 6-box.
+- **A 4×4 cannot make that shot.** On the columns it can reach without resizing, its left two columns are always 29–30 or 33–34, never the passage's 31–32. A 4×4 shot from columns 29–32 was observed to fail.
+- **So a shot needs a size change.** Either the 2×2 fires from column 31 and then makes the long walk to the goal, or the player shrinks, steps one column and grows. Shrink costs 5 units, grow 5 and a shot 4, so the walking adds up to at least 23 units.
+
+What the argument rests on:
+- **Established:**
+  - moves go by the player's own size, and walls and the door block both sizes;
+  - the cost model and the 18-unit budget;
+  - the shot rule (it flies in the direction faced and dies at the first wall; for a 4×4 facing up only its left two columns count);
+  - shrink keeps the top-left corner;
+  - entering the goal box wins.
+- **Assumed, in the generous direction:** resize may land in any of the four placements, which is looser than the anchors I observed.
+- **Assumed, in the strict direction (unverified):**
+  - the e marker does nothing (seen only with a 4×4 covering it);
+  - only the f and 6 abilities exist on this level;
+  - no other way opens the door;
+  - the player always sits on the odd-numbered 2-pixel grid, which holds because there is no teleport here.
+
+The bound leans on the door rule, the shot rule, the costs and the e-marker assumption. The e marker is the specific untested mechanism that could overturn it. The experiment is to shoot it, or overlap it with a 2×2, and see whether the bar or the door changes.
+
+**3. Next attempt**
+
+The plan costs 9 units of the 18:
+1. Move the 4×4 down 2 and left 3, to rows 33–36, columns 25–28, facing left with the e marker directly ahead.
+2. Fire the 6 shot at the e marker and watch the bar, the door and the box.
+3. If the e marker refills the bar or opens anything, re-plan with the 9 units left. If not, record it and spend the rest testing whether a 2×2 partly overlapping the marker does anything.
+
+**4. Formal system (amended, not rewritten)**
+
+- **Objects:** unchanged from attempt 1 (`work/model.md`).
+- **Rules changed:**
+  - **cost:** move 1, resize 5, fire 4 (was 1/4/3), fitted on all four levels by `work/fit_budget.py`;
+  - **`fireRule`:** a shot travelling up column `s.j`; it opens the door if it reaches the box before any other blocked cell (was a range window);
+  - **door vs 2×2:** blocking is now observed rather than assumed; no definition changed.
+- **Replay:** 33 of 33 observed level-4 transitions match across both attempts. One transition is skipped because its "before" frame comes from the previous attempt.
+- **Transformation this attempt:** one generalization. The fire rule for the two sizes is a single operation parameterised by the shot's column. The proof is `L4S.sizeIsColimit` (the state splits by size) together with `L4S.fireRule_is_desc` (the fire rule is built from the two size branches). It is recorded in `work/transforms.json`. `work/limits_table.json` is updated, with the bar and the e marker marked "not in the model".
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_within_budget
+
+It states: for every list of model actions with total cost ≤ 20, running it from the level-4 start does not win. It rests on `L4.l4_no_win_below_23`, which covers cost < 23. The method is the same as in attempt 1. A cost-to-win table is checked against `step` for every state by `decide +kernel`, then an induction over the action list closes it. The file compiles in about 56 seconds; the supporting structure file is `lean/L4Structure.lean`.
+
+```
+'L4.fire_2x2_col43_fails' does not depend on any axioms
+'L4.fire_2x2_neck_opens' does not depend on any axioms
+'L4.l4_no_win_below_23' depends on axioms: [propext, Quot.sound]
+'L4.l4_unwinnable_within_budget' depends on axioms: [propext, Quot.sound]
+'L4.witness_wins' depends on axioms: [propext]
+'L4.open_door_cheap' does not depend on any axioms
+'L4.fire_from_room_top_fails' does not depend on any axioms
+```
+
+The structure file is clean too: `sizeIsColimit` uses only `propext`, and `fireRule_is_desc` only `propext` and `Quot.sound`.
+
+- **Hypothesis:** the only one is cost ≤ 20. It encodes the budget of 18 units plus at most 2 for the final completion click. This is an empirical premise, not something Lean proves.
+- **Rules used:** `moveRule`, `resizeRule`, `fireRule` (with `shotHits`) and `cost`.
+- **Checks that the bound isn't empty:**
+  - a 23-cost sequence does win, so the smallest budget relaxation that allows a win is +3;
+  - with the door open, 6 units win;
+  - the 2×2 shot under the passage opens the door, while both observed failing shots fail in the model too.
+- **What Lean carries beyond the rules:**
+  - the 2-pixel grid;
+  - pattern clicks bundled into single resize/fire steps (justified because clicks and moves commute);
+  - the strict-direction assumptions, built in as fixed board data: e marker = floor, no other abilities.
+
+**6.** Not applicable: the cost rule and the fire rule both changed.
+
+VERDICT: impossible
+CONFIDENCE: 55
+
+ATTEMPT 3 / Play answer
+
+The game has now ended: GAME_OVER on level 4. I reached level 4 and did not beat the game; levels 1–3 are beaten (3 of 4 completed).
+
+**How it ended:** the counter stood at 16 of 18 units. I moved the small player right three times along rows 31-32 toward the open door. The bar read 4, then 0, and the third move still went through and then returned GAME_OVER. That matches the budget rule exactly: an action that starts at 18 units still takes effect, then the game ends.
+
+**What this attempt established on level 4:**
+- **The e marker is a bar refill, not a shot target.** A shot passed over it with no effect. When the 2×2 player stepped onto it, it disappeared and took the counter from 17 back to 7.
+- **Still open about the e marker:** whether only the small player can collect it or it must be touched by the player's front half, and whether the refill resets the counter to 7 or subtracts 10.
+- **A 2×2 lined up under the passage opens the door from well below it**, so the shot has no short range limit.
+- **Why the level is still unsolved:** even counting the refill, my planner's cheapest routes need 18–21 units against a cap of 18. Settling the pickup trigger, cheaply and before committing to a route, should be the first step on the next attempt.
+
+Notes are in `work/notes.md`, the route planner is `work/plan_l4.py`, and my memory file is updated.
+
+ATTEMPT 3 / Formal attempt answer
+
+**1. What happened on level 4**
+
+The service was again at the start of level 4. The previous attempt left two hypotheses about the 2×2 e-coloured marker in the room's bottom-left corner. First I tested whether it is a target for the shot, like the 6-box. I fired across it; the shot flew over and died at the wall, and nothing changed.
+
+Then I shrank and walked the small player onto the marker. It vanished and the bar jumped back up: the used-units counter dropped from 17 to 7. So the marker is a one-time refill. In attempt 1 the large player had covered it without effect.
+
+With the units left I confirmed that a small player lined up under the passage can shoot the 6-box from well below it, which opens the door. The budget then ran out short of the goal, and the last move ended the game.
+
+The failure itself came from spending this attempt on experiments: two hypotheses were tested and one was confirmed. But even with the refill, my planner (`work/model_l4b.py`) finds no route that fits.
+
+**2. Can the level be beaten?**
+
+Not under my established rules, and by a margin of exactly one unit.
+
+The claim: if every action must start with at most 18 units used, no action sequence wins level 4. If 19 were allowed, one would.
+
+The argument is a cost-to-win table computed by a program and checked by Lean against the model's step function, for every state and every action. The cheapest routes must:
+1. shrink (5 units: 4 clicks plus 1 for completing the pattern);
+2. collect the marker as the small player;
+3. grow back and fire from column 31 facing up (5 + 4 units), because the large player's shot comes from its left two columns and can't otherwise line up with the passage;
+4. walk six steps right to the goal.
+
+With the refill, that still needs the counter to start an action at 19.
+
+**What the bound rests on — established:**
+- Movement, walls, and that the door blocks both sizes.
+- Each action costs 1 unit, a completed pattern 1 extra, and the budget is 18. This fits every bar reading in all three attempts with 0 mismatches.
+- An action that starts at 18 still takes effect, then the game ends.
+- The shot travels until it hits a wall; a large player's shot comes from its left two columns.
+- Shrink keeps the top-left corner (5 observations).
+- The marker refills once and then disappears.
+
+**Weakest established premise:** the grow rule — keep the bottom row, extend right if free, otherwise left — is based on only 2 observations.
+
+**Generous assumptions (looser than what I observed):**
+- The marker is collected if the player is small OR its front half touches it.
+- The refill leaves whichever is lower: counter set to 7, or reduced by 10.
+- A pattern may start even if its later clicks would overrun the budget.
+- Grow may land anywhere when both of its observed placements are walled.
+
+**Strict assumptions (could make the model tighter than the game):**
+- Players only ever sit on the odd-numbered 2-pixel grid.
+- No abilities beyond the two shown in the legends.
+- The marker does not respawn.
+
+**The bound leans hardest on the grow rule.** If growth could instead keep the top row and extend left (from rows 33-34, cols 25-26 to rows 33-36, cols 23-26), and the large player's front half could collect the marker, there is a route of exactly 18. The experiment that settles it is that grow, performed while facing down.
+
+**3. Next attempt**
+
+I'll run the plan that would win if those two untested mechanisms go the generous way, since it tests both directly:
+1. Left 3, down 2.
+2. Shrink, then grow, and see where the grow lands and whether the marker is picked up.
+3. If it lands on the marker: right 2, up 1, fire, then right 6 to the goal (18 units).
+
+If grow follows the observed rule instead, I'll record the result and use the remainder to pin down whether the refill sets the counter to 7 or subtracts 10.
+
+**4. Formal system (amended)**
+
+- **Objects:**
+  - **Facing restored:** the player's facing is back as a four-way slot, because the new pickup rule reads the front half. For example, a large player at rows 33-36, cols 23-26 facing down touches the marker with its front, but facing left it doesn't.
+  - **Pickup flag added:** the same position with the marker present or consumed differs by up to 10 units of budget.
+- **Rules added or amended:**
+  - pickup;
+  - refill;
+  - resize with the observed anchors;
+  - the budget as an explicit cap parameter of `runB`, the budgeted run function.
+- **Rules reused unchanged:** movement, fire, and the board data.
+- **Replay** (`work/replay_l4b.py`): all 57 observed level-4 transitions from three attempts match in position, size, facing, door and pickup. Every bar reading matches the counter-plus-refill model.
+- **Transformations** (`work/transforms.json`):
+  - the amended state is a product of its six slots, `L4S.st3IsLimit` (decomposition);
+  - the step function is again built from its three branches, `L4S.step3_is_desc` via `L4S.actIsColimit` (specialization).
+- **`work/limits_table.json`:** updated. A marker respawn is explicitly "not in the model".
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_with_refill
+
+It states `∀ as, runB 18 start3 0 as = false`: for every action list, the budgeted run with cap 18 from the level-4 start never wins. The file compiles in about 5 minutes with no `sorry` and no `native_decide`.
+
+```
+'L4.l4_unwinnable_with_refill' depends on axioms: [propext, Quot.sound]
+'L4.witness3_wins_cap19' depends on axioms: [propext]
+'L4.pickup_happens' does not depend on any axioms
+'L4.big_cover_no_pickup' does not depend on any axioms
+```
+
+The structure file `lean/L4Structure.lean` is also clean (output abridged to the two new declarations):
+
+```
+'L4S.st3IsLimit' does not depend on any axioms
+'L4S.step3_is_desc' depends on axioms: [Quot.sound]
+```
+
+- **The premise in the definition:** the budget, an action may start only while at most 18 units are used. It is the explicit `cap` argument of `runB`, set to 18 in the theorem. Lean doesn't prove that the game's budget is 18.
+- **Non-vacuity:**
+  - `witness3_wins_cap19`: raising the cap to 19 admits a winning list, so the bound is tight and the minimal relaxation is +1;
+  - `pickup_happens` and `big_cover_no_pickup` reproduce the two observed pickup cases;
+  - the attempt-2 theorems are still there and still compile.
+- **Rules the theorem uses:** movement, `resize3` (with anchors), `fireRule` (via its wall-stopped shot check), pickup, `nu` (the refill/counter rule) and `cost`.
+- **What Lean carries beyond the rules:**
+  - pattern clicks bundled into single steps;
+  - the 2-pixel grid;
+  - the strict-direction assumptions listed in question 2.
+
+  The grow anchor is the one tightening that matters, as shown above.
+
+**6.** Not applicable: the facing and pickup slots, and the pickup, refill, resize-anchor and budget rules, all changed.
+
+VERDICT: impossible
+CONFIDENCE: 50
+
+ATTEMPT 3 / Continuation 1
+
+The game has now ended: GAME_OVER on level 4. I reached level 4 and did not beat the game; levels 1–3 are beaten (3 of 4 completed).
+
+**How it ended:** the counter stood at 16 of 18 units. I moved the small player right three times along rows 31-32 toward the open door. The bar read 4, then 0, and the third move still went through and then returned GAME_OVER. That matches the budget rule exactly: an action that starts at 18 units still takes effect, then the game ends.
+
+**What this attempt established on level 4:**
+- **The e marker is a bar refill, not a shot target.** A shot passed over it with no effect. When the 2×2 player stepped onto it, it disappeared and took the counter from 17 back to 7.
+- **Still open about the e marker:** whether only the small player can collect it or it must be touched by the player's front half, and whether the refill resets the counter to 7 or subtracts 10.
+- **A 2×2 lined up under the passage opens the door from well below it**, so the shot has no short range limit.
+- **Why the level is still unsolved:** even counting the refill, my planner's cheapest routes need 18–21 units against a cap of 18. Settling the pickup trigger, cheaply and before committing to a route, should be the first step on the next attempt.
+
+Notes are in `work/notes.md`, the route planner is `work/plan_l4.py`, and my memory file is updated.
+
+ATTEMPT 4 / Play answer
+
+I reached level 4 again and did not beat the game: levels 1–3 are beaten, and the game ended with GAME_OVER on level 4. The service was restored at the start of level 4, so this attempt was spent there; I did not call `/reset`.
+
+**What happened:** I picked a plan that both tested the three open questions and would have won if they all went the hopeful way. Each result was predicted in advance:
+- **Grow:** a small player, facing down with free floor on both sides, grew upward and to the left. Together with the two earlier grows, the rule is: grow keeps the bottom row and extends left unless the left is walled. My previous "extend right if free" rule was wrong.
+- **Pickup:** the large player picked up the e marker when its front half touched it. So the trigger is front-half contact; "only a small player can collect it" is refuted. In attempt 1 the marker was under the large player's back half, which is why nothing happened.
+- **Refill:** it subtracts 10 from the used-units counter (15 → 5). "Reset to 7" is refuted.
+- **Shot:** a large player at columns 31-34 facing up opened the door, because its left two columns line up with the passage.
+
+Because the grow went up rather than down, the player ended on rows that can't enter the corridor to the goal. Fixing that would have cost another resize, more than the units left. I played out the remaining units, and the final move started at counter 18, took effect, and ended the game, as predicted.
+
+**For the next attempt:** with the corrected rules there is a complete level-4 plan, and every step of it has now been seen working. The counter after each step is in brackets:
+1. Left ×3, down ×2 [5].
+2. Draw the f pattern to shrink [10], then move down [11].
+3. Draw the f pattern again to grow. The player lands on the marker with its front half and the refill brings the counter to [6].
+4. Right ×2, up [9].
+5. Draw the 6 pattern to shoot the box and open the door [13].
+6. Right ×6 into the goal.
+
+The final winning move starts at counter 18. A move starting at 18 is known to take effect, but whether a winning one beats the game-over is the one remaining unknown.
+
+The plan and the evidence for each rule are in `work/notes.md` and my memory file.
+
+ATTEMPT 4 / Formal attempt answer
+
+**1. What happened on level 4**
+
+This attempt was a test of three open questions, run along a route that would win if they all came out favourably.
+
+I took the large player to the bottom-left of the room, facing down, shrank it, then grew it again. The grow went up and to the left: it kept the bottom row and extended left even though the right side was free. The front half of the regrown player landed on the e marker. That picked it up, and the refill subtracted exactly 10 from the used-units counter (15 → 5).
+
+So all three questions were answered:
+- grow extends up and left by default (my "right if free" rule was wrong);
+- the large player collects the marker with its front half;
+- the refill is "minus 10", not "reset to 7".
+
+But because the grow went up instead of down, the player ended on rows 31–34. A 4-row player on those rows cannot enter the 4-row corridor at rows 29–32, and fixing the alignment needs another resize I couldn't afford.
+
+I used the remaining units to confirm the last unobserved step of the new plan: a large player at columns 31–34, facing up, shoots up the passage and opens the door. Then the budget ran out.
+
+The failure came from a wrong rule (grow direction). This attempt was what found it.
+
+**2. Can the level be won?**
+
+Yes, I now see a way. From the level-4 start (counter after each step in brackets):
+1. Left ×3, down ×2 [5].
+2. Draw the f pattern to shrink [10].
+3. Down 1 [11].
+4. Draw the f pattern to grow. The player lands on rows 33–36, cols 23–26 with its front half on the marker, which refills it [6].
+5. Right ×2, up 1 [9]. The player is now on rows 29–32, cols 31–34, facing up.
+6. Draw the 6 pattern to shoot; the door opens [13].
+7. Right ×6 into the goal.
+
+Every step type has been observed working, and the bar's response to every action matches my cost model.
+
+What I still need to be sure of:
+- **Whether a winning move that starts at counter 18 counts.** The sixth right move starts exactly there. Actions starting at 18 have always taken effect, three times, followed by GAME_OVER. Whether reaching the goal on that move beats the game-over is untested.
+- **Whether there is any slack.** There is none: the model proves no plan wins if every action must start at 17 or below.
+- **Two placements not literally observed.** The 2×2 moving down onto rows 35–36, and the grow from that exact spot. Both follow from observed rules.
+
+**3. Next attempt**
+
+Run that plan exactly, with no probes beyond its first move, and check the bar after each step against the predicted counter.
+
+**4. Formal system (amended)**
+
+Definitions changed in `lean/L4Model.lean` (generated via `work/L4Model.template.lean`):
+- `resize3`: grow now extends up and left first, right only if left is walled.
+- `nu` (the refill/counter rule): refill is now exactly minus 10.
+- The pickup rule is unchanged in form. The large-player front-half trigger is now observed positively.
+
+The attempt-3 theorem `l4_unwinnable_with_refill` relied on the refuted grow rule. I retired it, with a comment in the file explaining why, rather than keeping a false result.
+
+Replay against all observed level-4 transitions (`work/replay_l4b.py`): 81 of 81 positions match and 0 bar readings mismatch, across all four attempts and including both refills.
+
+TRANSFORMS-NONE: this attempt changed the bodies of existing definitions (the grow order, the refill amount) inside the same objects and the same three-branch step function. No component was split, merged or re-parameterized. The existing `L4S.st3IsLimit` and `L4S.step3_is_desc` recompile unchanged.
+
+`work/limits_table.json` and `work/model.md` are updated to record the amended rules and the retirement.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_winnable
+
+```
+'L4.l4_winnable' depends on axioms: [propext]
+'L4.l4_no_win_cap17' depends on axioms: [propext, Quot.sound]
+```
+
+- **What it states:** `runB 18 start3 0 plan4 = true`, proved by `decide`. Running the plan with cap 18 from the level-4 start wins in the model.
+- **`l4_no_win_cap17`:** for every action list, cap 17 never wins. So the plan has no slack.
+- **The premise built into the definition:** `runB`, the budgeted run, takes an action if it starts with counter ≤ cap, and counts a win from that action. With cap 18, that is exactly the untested premise that a winning move starting at 18 counts.
+- **Rules it uses:** movement, `resize3` (shrink top-left, grow up-left), `fireRule` (with its wall-stopped shot check), pickup (front half for the large player), refill, `cost`, and the board masks.
+- **Where Lean differs from the game:**
+  - each pattern is treated as a single step (justified because clicks and moves don't interfere);
+  - the 2×2 player's pickup is by any overlap, slightly looser than the large player's front-half rule; the plan doesn't rely on it;
+  - a pattern may start at counter ≤ cap even if its later clicks would pass it. The plan doesn't use that either: every click in it starts at 14 or below.
+
+**6.** Not applicable: definitions changed.
+
+VERDICT: winnable
+CONFIDENCE: 60
+
+ATTEMPT 5 / Play answer
+
+The game has ended: GAME_OVER on level 4. I reached level 4 and did not beat the game; levels 1–3 are beaten.
+
+**What happened:** I ran the planned level-4 route and every step behaved exactly as the model predicted. The bar matched at each step (62, 58, 54, 50, 48, 30, 26, 44, 40, 36, 32, 18, 16, 12, 8, 4, 0):
+- the large player reached the bottom-left of the room;
+- it shrank, stepped down, and grew back onto the e marker, which refilled the budget (counter 16 → 6);
+- it moved under the passage, shot the box, and the door opened;
+- five moves right brought it next to the goal with the budget exactly used up.
+
+The sixth move, the winning one, started at counter 18. The player moved only 2 pixels instead of 4, stopping right beside the goal, and the game ended.
+
+**What this means:** most likely, the move that runs past the budget performs only its first 2-pixel step. Earlier I counted "an action starting at 18 still resolves" as established, but every such case was a 2-pixel move or a grow, so they couldn't show this. The alternative, that a move stops beside the goal, conflicts with levels 1 and 3, where partial overlaps won directly.
+
+So a winning move by the large player has to start at counter 17 or below. My model already proves no plan does that. The one lever I can see is finishing as the small player, whose single 2-pixel step would complete even at 18; I haven't checked yet in the model whether such a plan exists.
+
+The findings are in `work/notes.md` and my memory file.
+
+ATTEMPT 5 / Formal attempt answer
+
+**1. What happened on level 4**
+
+I executed the plan built from attempt 4 exactly. Every intermediate position and every one of the 17 bar readings matched the model's predictions:
+- the large player went to the bottom-left of the room and shrank;
+- it stepped down, grew back onto the e marker, and the refill took the counter from 16 to 6;
+- it moved under the passage and shot the box, which opened the door;
+- five moves right left it beside the goal with exactly one unit of budget left.
+
+The sixth move into the goal started at counter 18. Instead of moving 4 pixels into the goal, the player moved only 2, stopping beside it, and the game ended.
+
+The cause: the action that uses up the last unit performs only its first 2-pixel sub-step. Every earlier "an action starting at 18 still resolves" observation involved a small player, whose whole move is a single 2-pixel step, so they could not reveal this. The plan was correct in every other respect and fell short by exactly one unit.
+
+**2. Can the level be won?**
+
+No, under my established rules.
+
+The claim: for every action sequence from the level-4 start, if the large player's move that starts at the last unit (18) advances only one 2-pixel sub-step, no sequence wins.
+
+The argument is a cost-to-win table computed by a program and checked by Lean against the model's step function, for all 32,768 states × 9 actions, followed by an induction over the action list. The cheapest route found under the old rule, the one I just ran, needs its last move to start at 18. Under the half-step rule nothing wins at a cap of 18. With one extra unit (19) that same route wins.
+
+**What it rests on — established:**
+- Movement, walls, and that the door blocks both sizes.
+- Costs: 1 unit per action, +1 per completed pattern, budget 18 (fits every bar reading in all five attempts).
+- Shrink keeps the top-left corner; grow extends up and left unless walled (3 observations).
+- The shot travels until it hits a wall; a large player's shot comes from its left two columns.
+- The marker is picked up by the large player's front half or the small player's body, and the refill is "minus 10" (observed twice).
+- A large player's move starting at 18 makes only a 2-pixel half-step (observed once). Small players' moves starting at 18 complete (observed 3 times).
+
+**Generous readings (looser than observed):**
+- A half-step that reaches the goal would win.
+- A click or pattern completion starting at 18 resolves.
+- Grow may land anywhere when both of its observed placements are walled.
+
+I also re-ran the search with every alternative grow rule for facing right, the only facing never observed. None of them wins either.
+
+**Strict assumptions (could make the model tighter than the game):**
+- Only the f and 6 abilities exist on this level.
+- There is only one marker, and it doesn't respawn.
+- Players only sit on the odd-numbered 2-pixel grid.
+- Nothing else refunds budget.
+
+The bound leans on the half-step rule (one observation), the "minus 10" refill, and the grow order. A specific mechanism that would flip the answer is a single unit refunded or saved somewhere: for example, an ability other than the two in the legends being active on this level. Drawing the b pattern from level 2 at the very start (4 units) would show whether it does anything.
+
+**3. Next attempt**
+
+Since no plan fits under my rules, the attempt is an experiment. At the start I'll try a pattern that isn't in this level's legends (the b pattern, 4 units) and watch for any effect. If something unexpected happens, I'll re-plan with the model. If nothing does, I'll follow the known route until it runs out, re-checking the half-step rule on the final move.
+
+**4. Formal system (amended)**
+
+The budget rule changed. `lean/L4Model.lean` gains `runB5` (the budgeted run with the new rule), `halfWin` and `lastWins`: the action starting at the last unit is the final one, and a large player's move there advances only one 2-pixel sub-step.
+
+The certificate was recomputed for the new rule. The attempt-4 theorem `l4_no_win_cap17` is retired, with a note in the file. `l4_winnable` is kept as the contrast that shows what the half-step rule changes.
+
+The replay checker (`work/replay_l4b.py`) now applies the half-step rule. All 106 observed level-4 transitions across five attempts match, and every bar reading matches. `work/limits_table.json` and `work/model.md` are updated.
+
+TRANSFORMS-NONE: the amendment adds the budget rule as new definitions inside the existing objects and leaves the three-branch step function unchanged; nothing was split, merged or re-parameterized. `L4S.st3IsLimit` and `L4S.step3_is_desc` recompile unchanged.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_half
+
+It states: for every action list, the run with cap 18 under the half-step rule, from the level-4 start, never wins. The file compiles in about 6 minutes.
+
+```
+'L4.l4_unwinnable_half' depends on axioms: [propext, Quot.sound]
+'L4.plan4_wins_cap19' depends on axioms: [propext]
+'L4.plan4_fails_cap18' depends on axioms: [propext]
+'L4.l4_winnable' depends on axioms: [propext]
+```
+
+- **What the theorem assumes:** there is no hypothesis argument. The budget premise — cap 18, plus the half-step rule for the last move — is written into the definition of `runB5`.
+- **Non-vacuity checks:**
+  - `plan4_wins_cap19`: raising the cap by one unit lets the plan win, so the minimal relaxation is +1;
+  - `plan4_fails_cap18`: the exact plan fails under the new rule;
+  - `l4_winnable`: the same plan wins under the old full-last-move rule. So the half-step rule is exactly what blocks it.
+- **Rules it uses:** movement, `resize3`, `fireRule` (via its wall-stopped shot check), pickup, refill, `cost`, `runB5`, `halfWin`.
+- **What Lean carries beyond the rules:**
+  - patterns treated as single steps (clicks and moves don't interfere);
+  - the 2-pixel grid;
+  - the strict assumptions named in question 2.
+
+  The generous readings only make the model looser than the game, which is the safe direction for an impossibility claim.
+
+**6.** Not applicable: the budget rule changed.
+
+VERDICT: impossible
+CONFIDENCE: 55
+
+ATTEMPT 6 / Play answer
+
+I reached level 4 and did not beat the game: levels 1–3 are beaten, and the game ended with GAME_OVER on level 4. The service was again restored at the level-4 start, so this attempt was spent there; I did not call `/reset`.
+
+My model said the known route is one unit short, so I spent this attempt on experiments, cheapest first. What they showed:
+
+- **Legend boxes:** clicking one costs nothing and copies that pattern onto the panel as hint cells. The hints are cosmetic: a hint cell still costs the normal one unit to toggle.
+- **Other clicks:** clicks on the player, the box, the door, the bar and the goal do nothing and cost nothing. The service rejects action 5.
+- **Other patterns:** the level-2 teleport pattern does nothing here, so only the abilities in this level's legends work.
+- **Pattern matching:** a pattern fires only on an exact match. A panel that contains the shot pattern plus one extra cell did not fire.
+- **Grow, final rule:** when the space above is walled, grow keeps the top row instead. The rule, which doesn't depend on facing, is: extend up if free, else down; extend left if free, else right.
+- **Last-unit moves:** the final move, starting at counter 18, moved the large player the full 4 pixels before the game ended. That refutes my attempt-5 explanation that the budget-exhausting move only half-steps. Both observations fit a different rule: at counter 18 a move still happens, but it cannot enter the goal. That is why attempt 5 stopped right beside it.
+
+**Consequence for level 4:** under either reading, the winning move must start at counter 17 or below. My model finds no such plan, so the route is still one unit short. Whatever mechanism the level's intended solution relies on remains unidentified.
+
+The findings are in `work/notes.md` and my memory file.
+
+ATTEMPT 6 / Formal attempt answer
+
+**1. What happened on level 4**
+
+The model already said the known route was one unit short, so I ran experiments, cheapest first:
+- **Legend boxes:** clicking one costs nothing and only copies its pattern onto the panel as hint cells.
+- **Other clicks:** the player, box, door, bar and goal ignore clicks, at no cost. The service rejects action 5.
+- **Other patterns:** the level-2 teleport pattern does nothing on this level.
+- **Pattern matching:** a pattern fires only on an exact match; a superset of the shot pattern did not fire.
+- **Grow when the space above is walled:** the player kept its top row and extended left.
+
+The last two moves tested my attempt-5 explanation, that a move made on the last budget unit only goes half-way. A 4×4 move started on that last unit went the full 4 pixels, which refutes it. Then the game ended, as it does when the budget is spent.
+
+The attempt was meant as experiments; nothing in it could win.
+
+**2. Can the level be won?**
+
+No, under my established rules.
+
+The claim: from the level-4 start, no action sequence wins if a large player's move starting at the last unit (18) can only win when it reaches the goal within its first 2 pixels.
+
+The argument: a cost-to-win table computed by a program and checked by Lean against the model's step function for every state and action, then an induction over action lists. The best route needs its final move to start at 18. That move needs two 2-pixel steps to reach the goal, and attempt 5 directly observed exactly such a move failing to win. With one more unit, the route wins.
+
+**Established premises:**
+- Movement and walls; the door blocks both sizes.
+- 1 unit per action and 1 more per completed pattern, a budget of 18 (fits every bar reading over six attempts), and an exact match needed to fire a pattern.
+- Only this level's legend abilities work (the teleport pattern was inert).
+- Shrink keeps the top-left corner; grow extends up and left unless walled.
+- The shot travels until it hits a wall; a large player's shot comes from its left two columns.
+- The marker is picked up by the large player's front half, or by the small player's body, and refunds 10.
+- A last-unit large move whose goal contact would come on its second step does not win.
+
+**Generous premises (looser than the game, so they only weaken my claim):**
+- A last-unit move wins if the goal is reached within its first 2 pixels, or if it is a small player's move.
+- A click or pattern starting at 18 resolves.
+- Grow may land anywhere when both upward placements are walled.
+
+**Strict premises (unverified):**
+- There is only one marker.
+- No hidden refunds exist.
+- Players always sit on the odd-numbered 2-pixel grid.
+
+**What the bound leans on most:** the attempt-5 observation and the "minus 10" refill. A specific untested mechanism that could flip it is a shot fired directly at the door by a small player (only the large player's shot was tried, on level 3). Shooting the door from the room facing right would settle it.
+
+**3. Next attempt**
+
+Test that one mechanism first: shrink, walk next to the door, face it, and fire. If the door opens, re-plan with the model. Otherwise the level stays out of reach, and I'll use the remaining units to check whether a move that only touches the goal on its second step wins when the budget isn't exhausted.
+
+**4. Formal system**
+
+- **Rule table (`work/model.md`, `work/limits_table.json`):** the last-unit rule was re-stated. The half-step reading is refuted; what's established is only that the attempt-5 kind of move doesn't win.
+- **Lean definitions:** unchanged. The existing generous `lastWins` already covers both observations. Only its comment in `lean/L4Model.lean` was corrected, and the file recompiles.
+- **Newly established facts:** these strict assumptions are now observed: only legend abilities work, completion needs an exact match, and the action set is complete. Legend clicks are free and hint-only, marked "not in the model". The observed grow fallback is noted; the model keeps the looser any-placement version there.
+- **Replay** (`work/replay_l4b.py`): 124 of 124 level-4 transitions across six attempts, with 0 bar mismatches. The last action of each attempt is treated as terminal: its end position isn't modelled, only that it doesn't win.
+
+TRANSFORMS-NONE: no component was split, merged, generalized or specialized this attempt. Only rule statements and the replay's cost handling changed, inside the existing structure, and `L4S.st3IsLimit` and `L4S.step3_is_desc` recompile unchanged.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_half
+
+It states: for every action list, the run with cap 18 under the last-unit rule above, from the level-4 start, never wins.
+
+```
+'L4.l4_unwinnable_half' depends on axioms: [propext, Quot.sound]
+'L4.plan4_wins_cap19' depends on axioms: [propext]
+'L4.plan4_fails_cap18' depends on axioms: [propext]
+```
+
+- **What the theorem assumes:** there is no hypothesis argument. The budget premise is built into the definition of `runB5`, the budgeted run, and is stated in its comment.
+- **Non-vacuity:**
+  - `plan4_wins_cap19`: one extra unit lets the best plan win, so the minimal relaxation is +1;
+  - `plan4_fails_cap18`: that same plan fails at 18.
+- **Rules the theorem uses:** movement, `resize3`, `fireRule` (via its wall-stopped shot check), pickup, refill, `cost`, `runB5`, `lastWins`.
+- **What Lean carries beyond the rules:** patterns treated as single steps, the 2-pixel grid, and the strict premises named in question 2. The generous readings only loosen the model, the safe direction for an impossibility claim.
+
+**6.** Not applicable: a rule was revised (the last-unit rule), although its Lean definition did not need to change.
+
+VERDICT: impossible
+CONFIDENCE: 60
+
+ATTEMPT 7 / Play answer
+
+I reached level 4 and did not beat the game: levels 1–3 are beaten, and the game ended with GAME_OVER on level 4.
+
+**What I tested this attempt:**
+- **Legend clicks:** they never fire a pattern. A second click does nothing, and clicking the legend when 3 of its 4 cells are already set doesn't complete it. These clicks remain free.
+- **Hidden objects:** a full scan of the level-4 screen found nothing new. Every non-wall cell belongs to a known object.
+- **Shooting the door directly:** in the model this would make the level easy, but level 3 already showed that a shot hitting the door does nothing, so it's ruled out.
+- **The best known route, replayed:** every step produced exactly the same result as in attempt 5. The last move, made on the final budget unit, again stopped 2 pixels short of the goal and the game ended. The game is deterministic here.
+
+**Where this leaves level 4:** under every rule I've established, the best route is one budget unit short, and none of the untested ideas I could name changed that. I don't know what the level's intended solution relies on.
+
+Findings are recorded in `work/notes.md` and my memory file.
+
+ATTEMPT 7 / Formal attempt answer
+
+**1. What happened on level 4**
+
+I first tested the one free action that changes the screen: clicking a legend box. Clicking it a second time does nothing. Clicking it when three of the pattern's four cells are already set does not complete the pattern. Both clicks were free and only redraw hint cells.
+
+I also scanned the whole level-4 screen and found no unexplained cells. Then I replayed the best known route. Every step matched attempt 5 exactly, down to the transition identifiers:
+- shrink, step down, grow onto the e marker, which refilled 10 units;
+- move under the passage and shoot the box, which opened the door;
+- five moves right.
+
+The last move started on the final budget unit, stopped 2 pixels short of the goal, and the game ended.
+
+The cause is the same as before: the best route needs one unit more than the budget allows. This attempt was a deliberate replication plus cheap experiments, so nothing in it could have won.
+
+**2. Can the level be won?**
+
+No, under my established rules.
+
+The claim: from the level-4 start, no action sequence wins when a large player's move starting at the last unit (18) can't win if its goal contact would come on its second 2-pixel step.
+
+The argument: a cost-to-win table, computed by a program and checked by Lean for every state and every action, plus an induction over action lists. With one more unit, the best route wins.
+
+**Established premises:**
+- Movement and walls; the door blocks both sizes; a shot at the door itself does nothing (level 3).
+- 1 unit per action and 1 more per completed pattern, with a budget of 18. This fits every bar reading over seven attempts.
+- A pattern fires only on an exact match, and only this level's legend abilities work.
+- Shrink keeps the top-left corner; grow extends up-else-down and left-else-right.
+- The shot travels until it hits a wall; a large player's shot comes from its left two columns.
+- The marker is picked up by the large player's front half (or the small player's body) and refunds 10.
+- The terminal move stops short of the goal (seen twice, identically).
+- Legend clicks have no effect on the game state.
+
+**Generous premises (looser than observed):**
+- A last-unit move wins if it reaches the goal within its first 2 pixels, or if it is a small player's move.
+- A click starting at 18 resolves.
+- Grow may land anywhere when both upward placements are walled.
+
+**Strict premises:**
+- There is only one marker; this is consistent with the full-screen scan.
+- No hidden refunds exist.
+- Players always sit on the odd-numbered 2-pixel grid.
+
+**What the bound leans on most:** the cost model, the refill of 10, the grow rule and the terminal-move observation. I can no longer name a specific untested mechanism that would close the one-unit gap. Every candidate I've identified is now either observed or ruled out by earlier evidence.
+
+**3. Next attempt**
+
+There's no known winning plan. I'd spend the attempt checking the one modelling choice that matters, with budget to spare: does a large player's move whose goal contact comes on its second 2-pixel step win when it does not start on the last unit? I can't reach the goal early enough to test that directly, so I'd instead look for any refund mechanism. For example: does taking the marker a second time do anything if it reappears, or does a turn-only move cost a unit when the player already faces that way?
+
+**4. Formal system**
+
+Re-checked against this attempt's 26 new transitions. All 150 observed level-4 transitions across seven attempts match the model (`work/replay_l4b.py`), and every bar reading matches.
+
+FORMAL-UNCHANGED: This attempt tested legend clicks (a repeat click is inert; a click on a partly filled pattern doesn't complete it), scanned the board, and replayed the known route. Legend clicks were already recorded as "not in the model" (free, hints only), and the new observations fall within that entry. The scan found no new object. The replay reproduced attempt 5 transition for transition, which the model already predicts, and the door-shot shortcut I considered was already ruled out by level-3 evidence. For the model to change, something would have had to behave differently from its prediction: a legend click firing an ability, a hidden cell, or a different terminal outcome. None did.
+
+TRANSFORMS-NONE: no definitions or objects changed, so there was nothing to decompose, compose, generalize or specialize.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_half
+
+It states: for every action list, the cap-18 run under the last-unit rule above, from the level-4 start, never wins. The file is unchanged from the last report and compiled then without errors.
+
+```
+'L4.l4_unwinnable_half' depends on axioms: [propext, Quot.sound]
+'L4.plan4_wins_cap19' depends on axioms: [propext]
+'L4.plan4_fails_cap18' depends on axioms: [propext]
+```
+
+- **What the theorem assumes:** no hypothesis argument. The budget premise is built into the definition of `runB5`, the budgeted run, and is stated in its comment.
+- **Non-vacuity:**
+  - `plan4_wins_cap19`: one extra unit lets the best plan win, so the minimal relaxation is +1;
+  - `plan4_fails_cap18`: that same plan fails at 18.
+- **Rules the theorem uses:** movement, `resize3`, `fireRule` (via its wall-stopped shot check), pickup, refill, `cost`, `runB5`, `lastWins`.
+- **What Lean carries beyond the rules:** patterns treated as single steps, the 2-pixel grid, and the strict premises named above. The generous readings only loosen the model, which is the safe direction for an impossibility claim.
+
+**6.** See the FORMAL-UNCHANGED line under 4.
+
+VERDICT: impossible
+CONFIDENCE: 60
+
+ATTEMPT 8 / Play answer
+
+I reached level 4 and did not beat the game: levels 1–3 are beaten, and the game ended with GAME_OVER on level 4.
+
+This attempt was spent on experiments, because every reading of my rules left the best known route one budget unit short.
+
+- **New rule found:** moves go in 2-pixel steps, as far as is free. A 4×4 player whose full 4-pixel move was blocked by a wall still moved the 2 pixels that were open. My model had assumed a move either completes or doesn't happen at all. I've corrected the rule files in `concepts/` that encode it.
+- **What it explains:** the earlier "stopped 2 pixels short of the goal" result now makes sense. The player made the free first step, and the step into the goal didn't happen. Whether that's because the goal can't be entered on the last budget unit, or because the move's target must sit fully inside the goal frame, is still unresolved.
+- **Why it doesn't save the level:** in this room the walls only shift the player's position the unhelpful way, so they can't replace the shrink-and-grow needed to line up the shot at the box. Re-planning from the level-4 start with the corrected movement rule still finds nothing within 18 units.
+- **Shooting the door head-on** (adjacent, facing it) does nothing on this level either, which confirms what level 3 showed.
+
+The findings and the updated planners (`work/model_l4d.py`, `work/model_l4e.py`) are in `work/`, and my memory file is updated.
+
+ATTEMPT 8 / Formal attempt answer
+
+**1. What happened on level 4**
+
+My model said the best route was one unit short, so this attempt was a set of experiments. I followed the known route as far as the grow that picks up the e marker (counter 6), then moved the large player left toward a wall.
+
+A full 4-pixel step there was blocked, yet the player still moved the 2 pixels that were free. Moves advance in 2-pixel sub-steps as far as they can; my model had assumed a move either completes or doesn't happen. That explains the "stopped 2 pixels short of the goal" result from attempts 5 and 7: the first sub-step was free and the second, into the goal, didn't happen.
+
+The test cost the alignment the shot needs. So I used the remaining units to shoot the door head-on from right beside it. The door stayed shut, confirming that only hitting the box opens it. The budget then ran out.
+
+The attempt couldn't win: the best route needs 19 units and the budget is 18.
+
+**2. Can the level be won?**
+
+No, under my established rules.
+
+The claim: from the level-4 start, no action sequence wins when the budget is 18 units and the final move into the goal is subject to the last-unit rule. That rule says a large player's move starting on the last unit wins only if it reaches the goal within its first 2-pixel sub-step. The model with the sub-step rule shows that the best plan needs one unit more.
+
+The argument: a cost-to-win table computed by a program and checked by Lean for every state and every action, plus an induction over action lists. One more unit (19) lets the best plan win.
+
+**Why the new sub-step rule doesn't help:** the room is aligned to the start position's 4-pixel grid. So wall sub-steps can only shift the large player from the misaligned grid back to the start grid. The shot needs the opposite shift, which only shrink-and-grow provides.
+
+**Established premises:**
+- Movement in 2-pixel sub-steps; walls and the door block both sizes; a shot at the door itself does nothing.
+- 1 unit per action and 1 more per completed pattern; budget 18; patterns fire only on an exact match; only this level's two abilities work.
+- Shrink keeps the top-left corner; grow extends up-else-down and left-else-right.
+- The shot travels until it hits a wall; a large player's shot comes from its left two columns.
+- The marker is picked up by the large player's front half (or the small player's body) and refunds 10.
+- A last-unit move whose goal contact would come in its second sub-step does not win (seen twice, identically).
+
+**Generous premises (looser than observed):**
+- A last-unit move wins if it reaches the goal within its first sub-step, or if it is a small player's move.
+- A click starting at 18 resolves.
+- Grow may land anywhere when both upward placements are walled.
+
+**Strict premises (unverified):**
+- There is only one marker, and no hidden refunds exist.
+- Players sit on the 2-pixel grid.
+
+**What the bound leans on most:** the cost model, the refill of 10, the grow rule, and the last-unit observation.
+
+**Specific open question:** is the attempt-5/7 stop caused by the budget (no goal entry on the last unit), or does entry need the move's target fully inside the goal frame? Both readings leave the level one unit short, so the verdict doesn't depend on it.
+
+**3. Next attempt**
+
+There's no known winning plan. I'd follow the known route to the refill again, without breaking its alignment. Then I'd spend the remaining units on whatever single mechanism is still untested and could save a unit: for instance, whether the corridor can be entered by a sub-step at a row offset. If nothing turns up, I'll report the bound again.
+
+**4. Formal system (amended)**
+
+- **The movement rule changed.** `step3` now uses the new `moveSub3`, so a move advances a full step if free, otherwise a large player takes one free 2-pixel sub-step, otherwise it only turns. The same change is in the Python model `work/model_l4b.py`.
+- **Why it mattered:** the old atomic rule was stricter than the game, because it ruled out the 2-pixel move. That is the dangerous direction for an impossibility claim, so it had to be fixed before re-proving.
+- **The rule files** `move_by_size` and `blocked_by_nonfloor` in `concepts/` were revised, and the certificate was recomputed.
+- **Replay** (`work/replay_l4b.py`): all 175 observed level-4 transitions across eight attempts match, with 0 bar mismatches.
+- **`work/limits_table.json` and `work/model.md`** are updated.
+
+TRANSFORMS-NONE: the change replaces the body of the move branch inside the existing step function. No component was split, merged, generalized or specialized, and `L4S.step3_is_desc` and `L4S.st3IsLimit` recompile unchanged.
+
+**5. Proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_half
+
+It states: for every action list, the cap-18 run under the last-unit rule, using the sub-step movement rule, from the level-4 start, never wins. The file compiles in about 6 minutes with no errors.
+
+```
+'L4.l4_unwinnable_half' depends on axioms: [propext, Quot.sound]
+'L4.plan4_wins_cap19' depends on axioms: [propext]
+'L4.plan4_fails_cap18' depends on axioms: [propext]
+```
+
+- **What the theorem assumes:** no hypothesis argument. The budget premise is built into the definition of `runB5`, the budgeted run, and is stated in its comment.
+- **Non-vacuity:**
+  - `plan4_wins_cap19`: one extra unit lets the best plan win, so the minimal relaxation is +1;
+  - `plan4_fails_cap18`: that same plan fails at 18.
+- **Rules the theorem uses:** `moveSub3`, `resize3`, `fireRule` (via its wall-stopped shot check), pickup, refill, `cost`, `runB5`, `lastWins`.
+- **What Lean carries beyond the rules:** patterns treated as single steps, the 2-pixel grid, and the strict premises named in question 2. The generous readings only loosen the model, the safe direction for an impossibility claim.
+
+**6.** Not applicable: the movement rule was revised.
+
+VERDICT: impossible
+CONFIDENCE: 55
+
+FINAL INTERVIEW
+
+**1. What happened on level 4**
+
+The player is a square that moves around a room. It needs to reach a goal box behind a door, and every action spends from a budget of 18 units. To open the door, a shot must be fired up a narrow 2-pixel passage at a box above the room. The large player's shot comes from its left two columns, and at its starting alignment those never line up with the passage. Fixing the alignment takes a shrink and a grow, each costing 5 units (four clicks on a 3×3 panel plus one extra for completing the pattern). A refill marker in the room's corner gives back 10 units.
+
+The cheapest complete route I found is: walk to the bottom-left of the room, shrink, step down, then grow so the player's front half lands on the marker. Then move under the passage, shoot (the door opens), and walk six steps to the goal. That needs 19 units. Played exactly, it reached the goal's edge with the budget used up, and the final move stopped 2 pixels short. That happened twice, identically, before the game ended.
+
+The last attempt was an experiment. I moved the large player toward a wall it couldn't fully step into, and it moved the 2 pixels that were free. I also shot the door directly, which did nothing. The failure is structural: under everything I've established, the route is one unit over budget.
+
+**2. Can it be won?**
+
+No, under my established rules.
+
+The claim: from the level-4 start, no action sequence wins, given an 18-unit budget and a final-move restriction. The restriction is that a large player's move starting on the last unit wins only if it reaches the goal within its first 2-pixel sub-step.
+
+The argument:
+- **The door.** It must be opened, and only a shot hitting the box does that. A shot at the door itself does nothing (seen on levels 3 and 4).
+- **The shot.** Firing up the passage needs a small player in its column, or a large player shifted 2 pixels off its starting alignment. Only a shrink followed by a 2-pixel move and a grow achieves that: 10 units plus the step. Wall sub-steps only shift the player back toward the start alignment, because the room is aligned to it.
+- **The total.** Adding the moves to reach the marker, the passage and the goal, the best total is 29 units. After the 10-unit refill that leaves a peak of 19.
+
+A program computed a cost-to-win value for every state (position, size, facing, door, marker taken). Lean checks those values against the model's step function for every state and every action, then concludes by induction over action lists.
+
+**Established premises:**
+- Moves advance in 2-pixel sub-steps as far as free; walls and the door block both sizes.
+- 1 unit per action and 1 more per completed pattern; budget 18 (fits every bar reading over eight attempts); patterns fire only on an exact match; only this level's two abilities work.
+- Shrink keeps the top-left corner; grow extends up-else-down and left-else-right.
+- The shot travels until it hits a wall; a large player's shot comes from its left two columns.
+- The marker is picked up by the large player's front half (or the small player's body) and refunds 10.
+- A last-unit move whose goal contact would come on its second sub-step does not win (seen twice).
+
+**Generous premises (looser than observed, the safe direction for this claim):**
+- A last-unit move wins if it touches the goal within its first sub-step, or if it is a small player's move.
+- A click starting at 18 resolves.
+- Grow may land anywhere when both upward placements are walled.
+
+**Strict, unverified premises:**
+- There is only one marker; a full-screen scan found nothing else.
+- No hidden refunds exist.
+- Players stay on the 2-pixel grid.
+
+**What the bound leans on most:** the cost model, the refill of 10, the grow rule, and the last-unit observation.
+
+I can't name a specific untested mechanism that would close the one-unit gap.
+
+**3. Newly worked out across these attempts:**
+- **Budget = action units.** 1 per accepted action, +1 per completed pattern, a fixed amount per level (18 on level 4). Found by fitting every bar reading; my later predictions matched exactly.
+- **Shot:** it travels until it hits a wall, and a large player's shot comes from its left two columns. Found by comparing the level-3 success, the level-4 failure, and a small-player shot that flew 3 steps across open floor.
+- **Refill:** the e marker refunds 10 units (17→7 and 15→5). A large player collects it only with its front half (attempt 1, back half over it: nothing; attempt 4, front half: collected).
+- **Grow:** extends up-else-down and left-else-right, regardless of facing (four placements).
+- **Sub-step movement:** a 4×4 whose full step into a wall was blocked moved the 2 free pixels.
+- **Smaller facts:** legend clicks are free and only show hints; patterns need an exact match; the level-2 pattern is inert on level 4.
+
+**4. Still unsure:**
+- **Why the final move stops 2 pixels short of the goal.** Either the goal can't be entered on the last budget unit, or entering needs the move's target to sit fully inside the goal frame. Both readings fit both observations, and both leave the level one unit short, so the verdict doesn't depend on it.
+- **A few unobserved rule corners**, which my model treats loosely: a small player's pickup by its 1-pixel front strip versus its whole body, and where grow lands when both upward placements are walled.
+
+**5. Lean proof**
+
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_half
+
+`theorem l4_unwinnable_half (as : List Act) : runB5 18 start3 0 as = false`
+
+It quantifies over every list of model actions (moves, resizes, shots) from the level-4 start. The model includes the sub-step movement rule (`moveSub3`), the grow rule, the shot rule, pickup and refill.
+
+There is no hypothesis argument. The budget premise is built into the definition of `runB5` and stated in its comment: an action may start only while at most 18 units are used, and a large player's last-unit move wins only if its first sub-step reaches the goal.
+
+The proof works like this:
+- A program computes a cost-to-win table.
+- `decide +kernel` checks it against `step3` for all 32,768 states × 9 actions.
+- An induction over the action list, plus a monotonicity lemma for the counter, closes the proof.
+
+It compiled without errors on the last build (about 6 minutes). Output:
+
+```
+'L4.l4_unwinnable_half' depends on axioms: [propext, Quot.sound]
+'L4.plan4_wins_cap19' depends on axioms: [propext]
+'L4.plan4_fails_cap18' depends on axioms: [propext]
+```
+
+**Non-vacuity:**
+- `plan4_wins_cap19`: raising the cap by one unit lets the best plan win, so the minimal relaxation is +1;
+- `plan4_fails_cap18`: that exact plan fails at 18.
+
+**What Lean carries beyond the rules:**
+- Each pattern is treated as a single step (justified because clicks and moves don't interact).
+- The 2-pixel grid.
+- The strict premises named in question 2.
+
+VERDICT: impossible
+CONFIDENCE: 55
+
+FOLLOW-UP / attempt 1 play
+
+I reached level 4 and did not beat it: levels 1–3 are beaten (3 of the game's 6 levels completed), and this first audit attempt ended with GAME_OVER on level 4. I did not call `/reset`.
+
+**What happened:**
+- **Levels 1–3:** the driver had already started a fresh game. I replayed levels 1–3 with the known solutions, and the level-4 start screen was identical to the one my model is built from.
+- **Audit before playing level 4:** I re-searched with every uncertain rule loosened (how the goal is entered, last-unit wins, where resizes land, what triggers the marker pickup, refill size). Only two relaxations admit a win within 18 units:
+  - a winning move that starts on the last unit, which attempts 5 and 7 both contradicted;
+  - resize placements that contradict what I've observed.
+
+  Everything else still needs 19 units.
+
+**Experiments on level 4** (all matched the model's predictions):
+- Shrinking while facing right keeps the top-left corner, like every other facing.
+- Growing while facing right with space above extends up and to the left, as predicted.
+- A fully blocked move that leaves the frame unchanged still costs 1 unit.
+- Clicks on the panel's frame lines hit the nearest cell and cost 1 unit each. The clickable area per cell is larger than its drawn 3×3 square; that corrects a coordinate assumption, not a game mechanic.
+
+**State of the model:** the replay of all 192 observed level-4 transitions matches, and every bar reading matches. No new rule was found, and no experiment turned up the missing unit; the level remains one unit short under my rules. Notes are in `work/notes.md`. I'll wait for the next attempt.
+
+FOLLOW-UP / attempt 1 M2
+
+Attempt 1 of the audit ended with GAME_OVER on level 4, as expected: my model still says the level is one unit short, and nothing tested this attempt changed that.
+
+**What I tested and saw:**
+- **Offline, before playing:** I re-planned with every uncertain rule loosened (`work/loose_union.py`). That covered how the goal is entered (by touching it or by fitting inside it), whether a move started on the last unit can win, where shrink and grow land, what triggers the marker pickup, and the size of the refill. Only two relaxations allow a win within 18 units:
+  - a winning move that starts on the last unit, which attempts 5 and 7 contradicted directly;
+  - resize placements that contradict ones I've already observed.
+- **On level 4 itself:** the start screen was identical to the one my model is built from. Four untested details all behaved exactly as the model predicted:
+  - shrinking while facing right keeps the top-left corner;
+  - growing while facing right with space above extends up and to the left;
+  - a fully blocked move that leaves the screen unchanged still costs 1 unit;
+  - clicks on the panel's frame lines hit the nearest cell, so each cell's clickable area is larger than its drawn square, and each click costs 1 unit as usual.
+- **Replay:** all 192 recorded level-4 transitions match the model, including every bar reading. One replay bookkeeping bug (a fresh-game boundary counted as a level-4 move) was fixed.
+
+**Effect on my account:** none. No rule changed and no saving was found; the best plan still needs 19 units against a budget of 18.
+
+**What remains uncertain:**
+- Why the final move stops 2 pixels short of the goal. Either a goal can't be entered on the last unit, or the move's target must fit inside the goal frame. Both readings leave the level one unit short, so this doesn't affect the verdict.
+- Whether some mechanism exists that I haven't conceived of. I can't name a specific untested one that would save a unit, so I'm ending the remaining attempts.
+
+LEAST_BUDGET=19
+VERDICT: impossible
+REPAIR-DONE
+
+FOLLOW-UP / M3
+
+I did not beat the game: I reached level 4 of 6 and could not win it. Under my rules it needs 19 units of budget and the level gives 18.
+
+**What changed in the review round:** no game rule changed. This round's experiments on level 4 all behaved exactly as the model predicted:
+- shrinking while facing right keeps the top-left corner;
+- growing while facing right with space above extends up and to the left;
+- a fully blocked move that leaves the screen unchanged still costs 1 unit;
+- clicks on the panel's frame lines hit the nearest cell and cost 1 unit each, so each cell's clickable area is larger than its drawn square.
+
+Two record-keeping updates: the replay checker had been treating the start of a fresh game as a level-4 move, which is fixed, and `work/model.md` and `work/limits_table.json` are updated. The Lean files did not need changes and were not rebuilt; the theorems below are from their last successful build.
+
+The rule changes that brought me here came in earlier attempts:
+- the budget is 1 unit per action, plus 1 per completed pattern;
+- a shot travels until it hits a wall, and a large player's shot comes from its left two columns;
+- the e marker refunds 10 units, and a large player collects it only with its front half;
+- grow extends up (else down) and left (else right);
+- moves advance in 2-pixel steps as far as the space is free.
+
+**Evidence for the conclusion:**
+- **Replay:** all 192 recorded level-4 transitions match the model, including every bar reading.
+- **Lean, cap 18:** `L4.l4_unwinnable_half` proves that no action sequence wins when actions may start only while at most 18 units are used. A large player's move started on the last unit counts as a win only if its first 2-pixel step reaches the goal.
+- **Lean, cap 19:** `L4.plan4_wins_cap19` shows a concrete plan that wins with one more unit. `L4.plan4_fails_cap18` shows that same plan fails at 18.
+- **Axioms:** `propext` and `Quot.sound` only, with no `sorryAx` or `native_decide`.
+- **Loose re-planning** (`work/loose_union.py`): with every uncertain rule loosened, only two relaxations let a plan fit in 18 units. One is a winning move started on the last unit, which attempts 5 and 7 contradicted directly. The other is resize placements that contradict ones I observed.
+
+**What remains uncertain:**
+- Why the final move stops 2 pixels short of the goal. Either a goal can't be entered on the last unit, or the move must land fully inside the goal frame. Both readings leave the level one unit short.
+- Several strict assumptions are unverified: there is only one marker, there are no hidden refunds, and the player stays on the 2-pixel grid.
+- A mechanism I haven't conceived of could exist; I can't name a specific one to test.
+
+**Budgets:** 18 units is the level's measured starting budget. In my model, 19 is the proved least winning budget: 18 is proved impossible, and a concrete plan wins at 19. In the game itself, 19 is a model result, not an observed win.
+
+CHANGED_RULES=none in the review round
+LEAST_BUDGET=19
+MEASURED_BUDGET=18
+VERDICT: impossible
+CONFIDENCE: 55
+MAIN-THEOREM: lean/L4Model.lean : L4.l4_unwinnable_half

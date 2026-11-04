@@ -1,0 +1,1 @@
+Slot drop (not one of the four transformations): facing {U,D,L,R} -> up:Bool in M4. No M4 rule reads D/L/R facing (beam reads only 'faces up'; eating rule in M4 reads size only). Replay 26/26 unchanged.

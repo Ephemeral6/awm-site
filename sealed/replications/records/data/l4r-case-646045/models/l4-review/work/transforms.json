@@ -1,0 +1,146 @@
+[
+ {
+  "attempt": 1,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "level-4 position as a whole (frame)"
+   ],
+   "after": [
+    "St.small",
+    "St.opened",
+    "St.won",
+    "St.x",
+    "St.dP",
+    "St.dL"
+   ]
+  },
+  "lean_file": "lean/Game/L4Structure.lean",
+  "lean_decl": "L4S.stIsLimit",
+  "check": "Pure re-presentation: St is the product of its slots; no Python concept changed, settle re-run gives the same TRUE/FALSE/NA on all 69 deduplicated transitions (0 counterexamples)."
+ },
+ {
+  "attempt": 1,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "R_left (ACTION3)",
+    "R_right (ACTION4)",
+    "R_noop (ACTION1/2 with rows dropped, off-panel clicks)",
+    "R_click/R_commit (ACTION6 on panel)"
+   ],
+   "after": [
+    "L4.step as one rule over Act"
+   ]
+  },
+  "lean_file": "lean/Game/L4Structure.lean",
+  "lean_decl": "L4S.actIsColimit",
+  "check": "L4S.step_is_desc proves step = desc of the per-case cocone (definitional, by cases); Python verdicts unchanged (settle: 0 counterexamples)."
+ },
+ {
+  "attempt": 2,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "St with 6 slots (rows, facing dropped)"
+   ],
+   "after": [
+    "St.small",
+    "St.opened",
+    "St.won",
+    "St.x",
+    "St.dP",
+    "St.dL",
+    "St.y",
+    "St.face"
+   ]
+  },
+  "lean_file": "lean/Game/L4Structure.lean",
+  "lean_decl": "L4S.stIsLimit",
+  "check": "Amendment of the attempt-1 decomposition: two slots added because the 6-commit was observed to fire a shot in the facing direction from the piece's row band, so `fires` may read y and face. Python concepts unchanged except the attempt-boundary scope (tid f24f3579c4d9a836 -> NA); settle on 88 transitions: 0 counterexamples. Attempt-1 Lean theorems (L4_no_win_within_21, win22_wins, win8_wins) re-proved unchanged on the amended St."
+ },
+ {
+  "attempt": 2,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "R_noop standing for ACTION1/ACTION2"
+   ],
+   "after": [
+    "R_up",
+    "R_down",
+    "R_noop (off-panel clicks only)",
+    "copaired into L4.step"
+   ]
+  },
+  "lean_file": "lean/Game/L4Structure.lean",
+  "lean_decl": "L4S.actIsColimit",
+  "check": "step_is_desc re-proved with the 6-case action coproduct; Φ does not read y/face so hstep holds unchanged (recompiled)."
+ },
+ {
+  "attempt": 4,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "L4.St (8 slots incl. panel distances dP,dL)"
+   ],
+   "after": [
+    "L4M.MSt: small, opened, y, x, face (dP,dL dropped: in the macro model no rule reads them)"
+   ]
+  },
+  "lean_file": "lean/Game/L4MacroStructure.lean",
+  "lean_decl": "L4MS.mstIsLimit",
+  "check": "Python ledger re-settled on all 125+ transitions: 0 counterexamples (10 concepts). Lean: replay_attempt3 and replay_attempt4 (lean/L4MacroProof.lean) reproduce every observed L4 position of attempts 3 and 4 exactly."
+ },
+ {
+  "attempt": 4,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "R_move x4 (now with clamp and win_touch)",
+    "R_shrink",
+    "R_grow (new, attempt 4)",
+    "R_line (shot, H1'')",
+    "click-level panel rules"
+   ],
+   "after": [
+    "L4M.stepM over the 6-case macro action coproduct (plus = 4 paid clicks, line = 3)"
+   ]
+  },
+  "lean_file": "lean/Game/L4MacroStructure.lean",
+  "lean_decl": "L4MS.mactIsColimit",
+  "check": "L4MS.stepM_is_desc: stepM equals the copairing of the per-action rules; same replay theorems hold."
+ },
+ {
+  "attempt": 6,
+  "kind": "composition",
+  "components": {
+   "before": [
+    "L4M.MSt (board)",
+    "e-pickup flag (new object: the e square, attempt 6)"
+   ],
+   "after": [
+    "L4M.BSt = MSt x Bool with stepB = (stepM, flag || pick)"
+   ]
+  },
+  "lean_file": "lean/Game/L4BudgetStructure.lean",
+  "lean_decl": "L4BS.bstIsLimit",
+  "check": "Board component of stepB is stepM unchanged (L4BS.stepB_components), so replay_attempt3/4/5 verdicts are unchanged; pickup_observed matches the attempt-6 pickup; Python ledger settles with 0 counterexamples (commit_clears v4, bar_tick v3, e_refill v2)."
+ },
+ {
+  "attempt": "audit-A1",
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "R_pickup = 2x2 overlap OR front-half overlap"
+   ],
+   "after": [
+    "R_pickup = 2x2 overlap OR front-half overlap OR top-left == (33,23) (union of the observed rule H_tl with the earlier candidates)"
+   ],
+   "note": "widening a case-defined rule; the action coproduct and stepB's copairing are unchanged"
+  },
+  "lean_file": "lean/Game/L4MacroStructure.lean",
+  "lean_decl": "L4MS.mactIsColimit",
+  "check": "pickup_topleft concept (H_tl) settles S=1.000 on N=45 held-out transitions; L4M.pickup_A1 shows all observed pickups are `pick`; replay_attempt7 and played7_loses still hold; certificate regenerated (2555 states) and re-checked in 54 chunks."
+ }
+]

@@ -1,0 +1,202 @@
+[
+ {
+  "name": "St",
+  "kind": "limit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.stIsLimit",
+  "status": "definition"
+ },
+ {
+  "name": "Blk",
+  "kind": "limit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.blkIsLimit",
+  "status": "definition"
+ },
+ {
+  "name": "Act",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.actIsColimit",
+  "status": "definition"
+ },
+ {
+  "name": "Effect",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.effIsColimit",
+  "status": "definition"
+ },
+ {
+  "name": "Dir",
+  "kind": "base",
+  "reason": "four unrelated constants (the four arrow actions / facings); no internal structure is read by any rule"
+ },
+ {
+  "name": "Status",
+  "kind": "base",
+  "reason": "two constants playing / won"
+ },
+ {
+  "name": "Kind",
+  "kind": "base",
+  "reason": "cost class of an action: mv / ck / fire"
+ },
+ {
+  "name": "Nat (row, col, size, panel mask)",
+  "kind": "base",
+  "reason": "pixel coordinates and a 9-bit mask; the rules use them only arithmetically"
+ },
+ {
+  "name": "Level (floor, goal, recipes)",
+  "kind": "base",
+  "reason": "per-level data read off the frames; the rules take it as a parameter"
+ },
+ {
+  "name": "R-step (stepCore)",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.actIsColimit",
+  "status": "definition (stepCore_is_desc: it is the copairing of R-move and R-click)"
+ },
+ {
+  "name": "R-move (moveRule: sweep; win | moved | blocked-turn)",
+  "kind": "colimit",
+  "status": "definition (attempt 4; moveRule_is_desc)",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.mvIsColimit"
+ },
+ {
+  "name": "R-click (toggle; fire iff mask equals one of this level's recipes; panel clears on fire)",
+  "kind": "base",
+  "reason": "one branch of the stepCore copairing; L5eModel.clickRule",
+  "status": "definition"
+ },
+ {
+  "name": "R-fire (applyEffect)",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.effIsColimit",
+  "status": "definition (applyEffect_is_desc; the shrink branch is now sizeToggle, attempt 3)"
+ },
+ {
+  "name": "R-open condition ocBox",
+  "kind": "colimit",
+  "status": "definition (attempt 2; ocBox_is_desc: copairing of ocVert / ocHoriz)",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.orIsColimit"
+ },
+ {
+  "name": "R-budget (game over when an action is sent with the bar empty; costs per kind)",
+  "kind": "base",
+  "reason": "The unit model C5u (move/click 1, firing click 2, refill 10, budget 35; display 4*ceil(32*(35-u)/35)) fits all observed level-5 readings. An action may be sent only while u < 35 (l5_replay4_budget reproduces the GAME_OVER step).",
+  "status": "consequence-level definition in L5eProof (alive)"
+ },
+ {
+  "name": "first action after /reset swallowed",
+  "kind": "base",
+  "reason": "Observed once, right after /reset on level 1 (tid 2b3e5ed8): the frame was unchanged and no bar was spent. It did not recur after level changes, so it is kept out of step and handled by adaptive replay instead.",
+  "status": "not in the model"
+ },
+ {
+  "name": "colour-14 square covered by a 4x4 (L4)",
+  "kind": "base",
+  "reason": "A 4x4 covering a 14-pad has no effect and the pad reappears afterwards (L4 tids a9960c82, 4385a4f9). The model only lets a 2x2 landing exactly on the pad consume it, so 4x4 cover is a no-op there too.",
+  "status": "consequence of R-refill (usePads requires size 2 and an exact top-left)"
+ },
+ {
+  "name": "board clicks outside the panel are no-ops",
+  "kind": "base",
+  "reason": "One board click on the colour-6 box (L3 tid 0a171a67) produced an identical frame and no bar change. Act therefore has only panel clicks; board clicks are left out as no-ops.",
+  "status": "not in the model (Act has no board clicks)"
+ },
+ {
+  "name": "blocked move turns the block (attempt 4)",
+  "kind": "base",
+  "reason": "The blocked branch of moveRule sets face := d and leaves everything else unchanged (tid 8e11f274). The attempt-1 'keeps facing' entry is withdrawn.",
+  "status": "definition (blocked branch of moveRule)"
+ },
+ {
+  "name": "Orient",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.orIsColimit",
+  "status": "definition (attempt 2)"
+ },
+ {
+  "name": "BoxSpec",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.orIsColimit",
+  "status": "definition: a BoxSpec is an Orient-tagged (row, col); orCocone is its coproduct presentation"
+ },
+ {
+  "name": "gates : List Bool",
+  "kind": "base",
+  "reason": "One opened-flag per 6-box, in level order. It replaces the attempt-1 Gate record, whose two slots were always negations of each other.",
+  "status": "definition"
+ },
+ {
+  "name": "pads : List Bool",
+  "kind": "base",
+  "reason": "One consumed-flag per 14-pad. L5 tid 88632a96 consumed the pad, and it stayed floor afterwards.",
+  "status": "definition"
+ },
+ {
+  "name": "R-refill (usePads + Kind.mvR + Costs.refill)",
+  "kind": "base",
+  "reason": "A pad is consumed when its 2x2 lies inside the block's new square aligned to the block's 2x2 sub-grid, for either size (attempt 4: a 4x4 at r37 c49 refilled 10 units). It sits in the moved branch of the moveRule copairing.",
+  "status": "definition"
+ },
+ {
+  "name": "R-tp (tpDest)",
+  "kind": "base",
+  "reason": "Teleport destination looked up by block size in Level.tp. It is read by the teleport branch of the applyEffect copairing.",
+  "status": "definition"
+ },
+ {
+  "name": "15-pad corner marks appearing when a 2x2 re-enters the pad (L5 last frame)",
+  "kind": "base",
+  "reason": "Seen once, in the GAME_OVER frame of attempt 2. The meaning is unknown (it may frame a 4x4 at r36-39 c14-17), and no rule reads it.",
+  "status": "not in the model"
+ },
+ {
+  "name": "R-size (sizeToggle: shrinkRule | growRule | id)",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.szIsColimit",
+  "status": "definition (attempt 3; sizeToggle_is_desc)"
+ },
+ {
+  "name": "SzCase",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.szIsColimit",
+  "status": "definition (attempt 3)"
+ },
+ {
+  "name": "R-grow placement (growTo: top = t-2; first fitting col of l-2, l-1, l; else no change)",
+  "kind": "base",
+  "reason": "Fits both observed grows: (37,15)->(35,13) and (17,33)->(15,33). The order of the column tries and the no-fit branch are assumptions; neither case was observed.",
+  "status": "definition (part of growRule)"
+ },
+ {
+  "name": "MvOutcome (Sum (Nat x Nat) (Option (Nat x Nat)))",
+  "kind": "colimit",
+  "lean_file": "lean/L5eStructure.lean",
+  "lean_decl": "L5e.mvIsColimit",
+  "status": "definition (attempt 4)"
+ },
+ {
+  "name": "left recipe panel clicks (show 0-hints) and board clicks",
+  "kind": "base",
+  "reason": "Attempt 4: they cost 0 units and change no modelled slot; only the hint display changes. Act therefore has no such clicks.",
+  "status": "not in the model"
+ },
+ {
+  "name": "ACTION5 / ACTION7",
+  "kind": "base",
+  "reason": "The service rejects ACTION5 with 'action must be one of [1, 2, 3, 4, 6]'. No transition was recorded.",
+  "status": "not in the model"
+ }
+]

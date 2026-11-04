@@ -1,0 +1,12 @@
+[
+  {
+    "root": "models/l4-main/lean",
+    "module": "L4BudgetProof",
+    "decl": "L4M.L4_budget_no_win"
+  },
+  {
+    "root": "models/l4-review/lean",
+    "module": "L4BudgetProof",
+    "decl": "L4M.L4_budget_no_win"
+  }
+]

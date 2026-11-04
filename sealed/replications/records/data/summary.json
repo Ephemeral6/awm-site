@@ -1,0 +1,77 @@
+{
+  "runs": [
+    {
+      "id": "l4r-case-d88673",
+      "level": 4,
+      "attempts": 8,
+      "final_present": true,
+      "follow_up_turns": 3,
+      "sources": 155,
+      "download": "downloads/l4r-case-d88673.zip",
+      "download_sha256": "0f74616f69d66098390d24d1d251c240f72809851b6f6903520141daa8cccc0a",
+      "bytes": 643441,
+      "data": "data/l4r-case-d88673.json"
+    },
+    {
+      "id": "l4r-case-7a68d3",
+      "level": 4,
+      "attempts": 8,
+      "final_present": true,
+      "follow_up_turns": 3,
+      "sources": 196,
+      "download": "downloads/l4r-case-7a68d3.zip",
+      "download_sha256": "37e3f2d77ee14555abb4767fcac60afd5e092eaa58151a8e462a9f9799149362",
+      "bytes": 615226,
+      "data": "data/l4r-case-7a68d3.json"
+    },
+    {
+      "id": "l4r-case-646045",
+      "level": 4,
+      "attempts": 8,
+      "final_present": true,
+      "follow_up_turns": 3,
+      "sources": 342,
+      "download": "downloads/l4r-case-646045.zip",
+      "download_sha256": "700e4460c5155b5e2aa98992ce0757015f9e6606b862377f0365e23d8dee45e1",
+      "bytes": 701539,
+      "data": "data/l4r-case-646045.json"
+    },
+    {
+      "id": "l5e-case-37bc5f",
+      "level": 5,
+      "attempts": 8,
+      "final_present": true,
+      "follow_up_turns": 0,
+      "sources": 41,
+      "download": "downloads/l5e-case-37bc5f.zip",
+      "download_sha256": "a8a87dcba5028278ed068cd5cb74bd3128c3684e05ec18af9cc0331233d69e86",
+      "bytes": 285222,
+      "data": "data/l5e-case-37bc5f.json"
+    },
+    {
+      "id": "l5e-case-70b0a6",
+      "level": 5,
+      "attempts": 8,
+      "final_present": true,
+      "follow_up_turns": 3,
+      "sources": 87,
+      "download": "downloads/l5e-case-70b0a6.zip",
+      "download_sha256": "b9ee0a18de05851b7bdb48cf6aa81868b6a44d6088605112a0c8da0b01b60b56",
+      "bytes": 812746,
+      "data": "data/l5e-case-70b0a6.json"
+    },
+    {
+      "id": "l5e-case-c4ef32",
+      "level": 5,
+      "attempts": 8,
+      "final_present": true,
+      "follow_up_turns": 0,
+      "sources": 41,
+      "download": "downloads/l5e-case-c4ef32.zip",
+      "download_sha256": "cf0cd5334c362b02c4f8bd716b3a200548b83424446090e69545de18fb8c8bce",
+      "bytes": 293676,
+      "data": "data/l5e-case-c4ef32.json"
+    }
+  ],
+  "privacy_scope": "complete public evidence, not raw private sessions"
+}

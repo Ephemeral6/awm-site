@@ -1,0 +1,81 @@
+[
+ {
+  "attempt": 1,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "level-5 position as a whole frame"
+   ],
+   "after": [
+    "St = loc × big × cGone × dGone × fFrame"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "stIsLimit",
+  "check": "St is defined from the start as this product; stIsLimit + st_ext show the five slots determine the state. Grid-layer concepts unchanged, so settle verdicts on all 126 observed transitions are identical (N/S table in work/RULES.md)."
+ },
+ {
+  "attempt": 1,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "shrink_f",
+    "teleport_b",
+    "switch_6"
+   ],
+   "after": [
+    "completeRule s : Completion → St, Completion = 15 ⊔ 11 ⊔ 6×Core"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "completionIsColimit",
+  "check": "completeRule_is_desc proves completeRule = desc of the three branch rules (funext + rfl), so the step is unchanged on every state; grid-layer concepts untouched, settle verdicts unchanged. Attempt 2: the c15 branch of abilityRules is now sizeRule (re-checked: completeRule_is_desc still compiles)."
+ },
+ {
+  "attempt": 1,
+  "kind": "specialization",
+  "components": {
+   "before": [
+    "step"
+   ],
+   "after": [
+    "walkRule",
+    "completeRule",
+    "climbRule"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "actIsColimit",
+  "check": "step_is_desc: step = desc of the three branches, definitionally; verdicts unchanged."
+ },
+ {
+  "attempt": 2,
+  "kind": "specialization",
+  "components": {
+   "before": [
+    "shrink_f (the 15-completion rule, big agents only)"
+   ],
+   "after": [
+    "sizeRule = shrinkRule on {s | big} ⊔ growRule on {s | small}"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "sizeIsColimit",
+  "check": "sizeRule_is_desc proves sizeRule = desc of the two branches. On big states it is the old shrinkRule unchanged, so every attempt-1 verdict on big agents stays the same. The small branch is new and is backed by grow_f (tid 2d6344b3b63cb07b). Grid-layer settle after the change: all concepts pass, 0 counterexamples."
+ },
+ {
+  "attempt": 3,
+  "kind": "specialization",
+  "components": {
+   "before": [
+    "grow (four permissive placements, codes 5-8)"
+   ],
+   "after": [
+    "growEst = copairing over facing classes {up, down, left, other} of step·6, step·7, step·5, step·8"
+   ]
+  },
+  "lean_file": "lean/L5GridStructure.lean",
+  "lean_decl": "facingIsColimit",
+  "check": "growEst_is_desc proves growEst = desc of the four branches. growEst_obs_up and growEst_obs_right reproduce the two observed grows (tids 2d6344b3b63cb07b, 75955b9510aed3c6). The permissive step is unchanged, so the L5Grid certificate and every earlier verdict are unchanged. settle: grow_f and grow_place pass."
+ }
+]

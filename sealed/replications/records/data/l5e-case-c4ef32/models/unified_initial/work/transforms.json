@@ -1,0 +1,59 @@
+[
+ {
+  "attempt": 1,
+  "kind": "generalization",
+  "components": {
+   "before": [
+    "move rule",
+    "size-toggle firing",
+    "shot firing",
+    "teleport firing",
+    "panel click sequences"
+   ],
+   "after": [
+    "Act coproduct",
+    "step = copairing over Act"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.actIsColimit",
+  "check": "work/model/replay.py: all 41 observed level-5 transitions mapped to macros (non-firing clicks = identity): 41 matched, 0 mismatched; L5Main.attempt1_end re-derives the observed end state in Lean"
+ },
+ {
+  "attempt": 1,
+  "kind": "composition",
+  "components": {
+   "before": [
+    "Switch_k.present",
+    "Barrier_k.open"
+   ],
+   "after": [
+    "Gate_k.open (single Bool; present = not open)"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.gateIsLimit",
+  "check": "replay.py runs rules.py (separate flags) and fast.py (merged flag) on the same 41 transitions: identical predictions, 41/41 matched"
+ },
+ {
+  "attempt": 1,
+  "kind": "decomposition",
+  "components": {
+   "before": [
+    "board state"
+   ],
+   "after": [
+    "r",
+    "c",
+    "big",
+    "f",
+    "oc",
+    "od",
+    "ep"
+   ]
+  },
+  "lean_file": "lean/L5Structure.lean",
+  "lean_decl": "L5.stIsLimit",
+  "check": "same replay, 41/41; every slot is read by a rule (r,c,big: collision/win; f: shot; oc,od: collision/shot; ep: refill/budget)"
+ }
+]
