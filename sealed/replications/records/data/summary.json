@@ -6,11 +6,23 @@
       "attempts": 8,
       "final_present": true,
       "follow_up_turns": 3,
-      "sources": 155,
+      "sources": 20,
       "download": "downloads/l4r-case-d88673.zip",
       "download_sha256": "0f74616f69d66098390d24d1d251c240f72809851b6f6903520141daa8cccc0a",
       "bytes": 643441,
-      "data": "data/l4r-case-d88673.json"
+      "data": "data/l4r-case-d88673.json",
+      "protocol": "r3-observeprior",
+      "budget": {
+        "value": 19,
+        "source": "Initial report",
+        "description": "The initial final interview reports a net initial budget of 19 after a 10-unit refill."
+      },
+      "proof": {
+        "phase": "Initial",
+        "theorem": "L4.l4_unwinnable_half",
+        "scope": "All model action lists",
+        "description": "The statement quantifies over runB5 action lists under the model’s budget and half-step rules."
+      }
     },
     {
       "id": "l4r-case-7a68d3",
@@ -18,11 +30,23 @@
       "attempts": 8,
       "final_present": true,
       "follow_up_turns": 3,
-      "sources": 196,
+      "sources": 104,
       "download": "downloads/l4r-case-7a68d3.zip",
       "download_sha256": "37e3f2d77ee14555abb4767fcac60afd5e092eaa58151a8e462a9f9799149362",
       "bytes": 615226,
-      "data": "data/l4r-case-7a68d3.json"
+      "data": "data/l4r-case-7a68d3.json",
+      "protocol": "r3-observeprior",
+      "budget": {
+        "value": 19,
+        "source": "Initial report",
+        "description": "The initial final interview reports 19 net ticks."
+      },
+      "proof": {
+        "phase": "Initial",
+        "theorem": "L4.l4_unwinnable",
+        "scope": "Legal model action lists; qD = 0",
+        "description": "The theorem fixes the downward shrink parameter qD to zero and quantifies over legal model action lists."
+      }
     },
     {
       "id": "l4r-case-646045",
@@ -30,11 +54,23 @@
       "attempts": 8,
       "final_present": true,
       "follow_up_turns": 3,
-      "sources": 342,
+      "sources": 216,
       "download": "downloads/l4r-case-646045.zip",
       "download_sha256": "700e4460c5155b5e2aa98992ce0757015f9e6606b862377f0365e23d8dee45e1",
       "bytes": 701539,
-      "data": "data/l4r-case-646045.json"
+      "data": "data/l4r-case-646045.json",
+      "protocol": "r3-observeprior",
+      "budget": {
+        "value": 19,
+        "source": "Follow-up report",
+        "description": "The follow-up reports LEAST_BUDGET = 19. The initial final interview reports a gross cost of 29 units, with a 10-unit refill."
+      },
+      "proof": {
+        "phase": "Initial",
+        "theorem": "L4M.L4_budget_no_win",
+        "scope": "Model macro-action lists",
+        "description": "The original model proof quantifies over lists of its macro actions, whose action domain is defined in the Lean model."
+      }
     },
     {
       "id": "l5e-case-37bc5f",
@@ -42,11 +78,23 @@
       "attempts": 8,
       "final_present": true,
       "follow_up_turns": 0,
-      "sources": 41,
+      "sources": 17,
       "download": "downloads/l5e-case-37bc5f.zip",
       "download_sha256": "a8a87dcba5028278ed068cd5cb74bd3128c3684e05ec18af9cc0331233d69e86",
       "bytes": 285222,
-      "data": "data/l5e-case-37bc5f.json"
+      "data": "data/l5e-case-37bc5f.json",
+      "protocol": "unified-METHOD",
+      "budget": {
+        "value": 36,
+        "source": "Operator conversion from 37",
+        "description": "The subject reports 37 and explicitly says 36 is insufficient in its model. The operator comparison value is 37 minus the final winning move, which is free under the reference convention."
+      },
+      "proof": {
+        "phase": "Initial",
+        "theorem": "L5e.l5Best37_dies",
+        "scope": "One fixed 42-action route",
+        "description": "The related theorem L5e.l5Best37_dies_36 shows that the same route fails at 36 under the subject’s accounting. The conversion is for comparison and does not change that theorem."
+      }
     },
     {
       "id": "l5e-case-70b0a6",
@@ -54,11 +102,23 @@
       "attempts": 8,
       "final_present": true,
       "follow_up_turns": 3,
-      "sources": 87,
+      "sources": 22,
       "download": "downloads/l5e-case-70b0a6.zip",
       "download_sha256": "b9ee0a18de05851b7bdb48cf6aa81868b6a44d6088605112a0c8da0b01b60b56",
       "bytes": 812746,
-      "data": "data/l5e-case-70b0a6.json"
+      "data": "data/l5e-case-70b0a6.json",
+      "protocol": "unified-METHOD",
+      "budget": {
+        "value": 36,
+        "source": "General-v4 follow-up report",
+        "description": "The same-case general-v4 follow-up reports 36 ticks. The initial eight attempts and final interview give no 36-unit integer bound and use fitted costs."
+      },
+      "proof": {
+        "phase": "Follow-up",
+        "theorem": "L5G.l5_unwinnable_with_bar",
+        "scope": "Integer-cost model action lists",
+        "description": "The named lower-bound theorem is from the follow-up model with integer accounting."
+      }
     },
     {
       "id": "l5e-case-c4ef32",
@@ -66,11 +126,23 @@
       "attempts": 8,
       "final_present": true,
       "follow_up_turns": 0,
-      "sources": 41,
+      "sources": 14,
       "download": "downloads/l5e-case-c4ef32.zip",
       "download_sha256": "cf0cd5334c362b02c4f8bd716b3a200548b83424446090e69545de18fb8c8bce",
       "bytes": 293676,
-      "data": "data/l5e-case-c4ef32.json"
+      "data": "data/l5e-case-c4ef32.json",
+      "protocol": "unified-METHOD",
+      "budget": {
+        "value": 36,
+        "source": "Initial report",
+        "description": "The initial final interview reports 36 units against a budget of 35."
+      },
+      "proof": {
+        "phase": "Initial",
+        "theorem": "L5.L5_unwinnable",
+        "scope": "Model macro-action lists",
+        "description": "The original statement quantifies over the model’s macro-action lists and uses the state domain defined by that model."
+      }
     }
   ],
   "privacy_scope": "complete public evidence, not raw private sessions"

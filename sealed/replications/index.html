@@ -1,9 +1,77 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AWM · Structure, proof, and replication</title><link rel="stylesheet" href="style.css"></head>
-<body><header><a class="brand" href="#">AWM<span>Algebraic World Model</span></a><nav><a href="records/">Run records</a><a href="#transfer">Engine transfer</a><a href="#retrofit">25 games</a></nav><span class="preview">LOCAL PREVIEW · 04 NOV 2026</span></header>
-<main><section class="hero"><div><p class="eyebrow">RESEARCH UPDATE / FOUR TRANSFORMATIONS & LIMITS</p><h1>From learned concepts<br>to <em>checkable structure.</em></h1><p class="intro">Six sealed-level replications, with an independent review of model-to-engine transfer. Budget bounds, theorem scopes, and semantic correspondence, with evidence you can inspect.</p><div class="actions"><a class="button" href="records/">Explore the six cases <span>↗</span></a><a class="textlink" href="#retrofit">25-game retrofit review →</a></div><p class="small">Six independent cases. Follow-up records stay attached to their original run.</p></div><div class="hero-art"><div class="art-label"><span>WORLD → STRUCTURE → PROOF</span><span>sc25 / L4</span></div><img src="assets/sealed-start.png" alt="The sc25 L4 opening frame shown on the original website"><div class="budget"><span>SEALED BUDGET <b>18</b></span><span class="arrow">→</span><span>REFERENCE MINIMUM <b>19</b></span></div><p>Reference frame from the original site, not a replay of a new run</p></div></section>
-<section class="metrics"><div><b>6 <small>/ 6</small></b><p>Selected bounds match</p><span>19 / 19 / 19 · 36 / 36 / 36</span></div><div><b>3 <small>+ 3</small></b><p>Independent L4 + L5 cases</p><span>One collection; recorded repair phases retained</span></div><div><b>2</b><p>Shared posthoc repair models</p><span>Closed all-action and optimality proofs</span></div><div><b class="word">Explicit</b><p>Engine-transfer assumptions</p><span>hinit / hstep remain explicit</span></div></section>
-<section id="results"><div class="sectionhead"><div><p class="eyebrow">01 / REPLICATION RECORD</p><h2>Matching bounds. Explicit proof scopes.</h2></div><div class="filters" role="group" aria-label="Filter cases"><button class="active" data-filter="all">All 6</button><button data-filter="L4">L4 · 3</button><button data-filter="L5">L5 · 3</button></div></div><p class="sectionintro">Bounds use the minimum initial winning budget. These selected versions are not a 6/6 initial-run result. A fixed-route theorem is not a universal proof. Select a case to inspect its theorem and transfer gaps.</p><div class="resultlayout"><div class="tablewrap"><table><thead><tr><th>CASE / COHORT</th><th>BOUND</th><th>ORIGINAL PROOF SCOPE</th><th></th></tr></thead><tbody id="cases"></tbody></table></div><aside id="detail" aria-live="polite"></aside></div><div class="legend"><span class="dot green"></span>Bound agreement <span class="dot blue"></span>Model proof artifacts <span class="dot amber"></span>Engine correspondence under review</div></section>
-<section id="transfer" class="transfer"><p class="eyebrow">02 / INDEPENDENT ENGINE AUDIT</p><div class="sectionhead"><h2>The bounds survive. The rules needed repair.</h2><span class="pill">OPERATOR POSTHOC · INDEPENDENT REPAIR</span></div><p class="sectionintro">The shared models include integer pixels, growth fallback, half-step movement, refill ordering, and free winning moves. New proofs exclude wins at or below 18 for L4 and 35 for L5, with winning witnesses at 19 and 36.</p><div class="flow"><div><span>01</span><b>Original learned models</b><p>Original theorems, rules, and verdicts retained</p></div><i>→</i><div><span>02</span><b>Engine checks and repair</b><p>Repair coverage and accounting from counterexamples</p></div><i>→</i><div><span>03</span><b>All-action model proofs</b><p>Including interleaved panel selection and movement</p></div><i>⇢</i><div><span>04</span><b>Engine path transfer</b><p>Step simulation remains an explicit premise</p></div></div><div class="auditgrid"><article><h3>Which additions are outside the optimal paths?</h3><p>The complete optimal subgraphs of the repaired models contain no even-coordinate states or non-default growth-fallback edges. They do contain 78 half-step edges in L4 and 14 in L5, plus 12 growth-pickup edges in L4.</p><p class="small">The new lower-bound proofs exclude cheaper wins through added branches. Absence from known optimal paths alone would not establish that result.</p></article><article><div class="pair"><div><b>4,689</b><span>L4 optimal-subgraph atomic edges</span></div><div><b>2,903</b><span>L5 optimal-subgraph atomic edges</span></div></div><p>Every edge was replayed on the engine, with zero differences. Finite semantic checks pass; unconditional end-to-end correspondence from the Python interpreter to Lean remains unformalized.</p></article></div><details><summary>What happened to the apparent 18-budget win?</summary><p>An overly permissive exit-collision rule combined with free-win accounting produced a spurious 18-budget win. Correcting half-step fallback and the final collision test removed the premature victory. Recomputed certificates establish 19 without raising prices or deleting counterexample paths.</p></details></section>
-<section id="retrofit"><div class="sectionhead"><div><p class="eyebrow">03 / RETROSPECTIVE STRUCTURE CERTIFICATION</p><h2>25 games. Starting from existing models.</h2></div><a class="textlink" href="review.txt">Read the source review ↗</a></div><p class="sectionintro">Historical models come from archive/workspace; concept books are separate supplements. Structural certificates and old-to-new semantic bridges are checked separately. Rule corrections are recorded in separate machines.</p><div class="transformline"><div><span>01</span><b>Decomposition</b><p>Components, compatibility, round trips</p></div><div><span>02</span><b>Composition</b><p>Joint constraints and necessity tests</p></div><div><span>03</span><b>Generalization</b><p>Case partitions, copairing, colimits</p></div><div><span>04</span><b>Specialization</b><p>Parameter distinctions, merge-back, ablation</p></div></div><div class="notice"><b>Reviewed remote revision · <code>a9a58c23</code></b><p>All 25 games have committed implementations: 23 Equivalence and 2 Bridge contracts. All 25 committed robustness records report success. Final full-run receipts are not included in Git, and recent fixes await re-audit. The status below is a source review, not fresh local acceptance of all 25 games.</p></div><div class="gamegrid" id="games"></div><details id="gamedetail"><summary>Select a game to inspect its source and audit status</summary><div id="gamebody"></div></details></section>
-<footer><div><b>AWM</b><p>Evidence before aggregation.</p></div><p>Local preview only. The existing website is unchanged.<br>Six-case evidence: 3 Nov 2026. Source review: 4 Nov 2026.</p><a href="https://github.com/Ephemeral6/awm-site">Original site source ↗</a></footer></main><script src="app.js"></script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AWM · Sealed-level replication records</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="#">AWM<span>Algebraic World Model</span></a>
+  <nav><a href="records/">Run records</a><a href="#selection">Case selection</a><a href="#transfer">Proof scope</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">RESEARCH UPDATE / FOUR TRANSFORMATIONS &amp; LIMITS</p>
+      <h1>From learned concepts<br>to <em>checkable structure.</em></h1>
+      <p class="intro">Six sealed-level cases from two protocols. Read the recorded answers, inspect their Lean proofs, and see which budgets were reported during the initial run, reported in a follow-up, or converted by the operator.</p>
+      <div class="actions"><a class="button" href="records/">Explore the six cases <span>↗</span></a><a class="textlink" href="#selection">How cases were selected →</a></div>
+    </div>
+    <div class="hero-art">
+      <div class="art-label"><span>WORLD → STRUCTURE → PROOF</span><span>sc25 / L4</span></div>
+      <img src="assets/sealed-start.png" alt="The sc25 L4 opening frame from the historical archive">
+      <div class="budget"><span>SEALED BUDGET <b>18</b></span><span class="arrow">→</span><span>REFERENCE MINIMUM <b>19</b></span></div>
+      <p>Reference frame from the historical archive</p>
+    </div>
+  </section>
+
+  <section class="metrics" aria-label="Sources of the displayed budget values">
+    <div><b>3</b><p>Matching initial reports</p><span>d88673, 7a68d3, c4ef32</span></div>
+    <div><b>2</b><p>Matching follow-up reports</p><span>646045 and 70b0a6</span></div>
+    <div><b>1</b><p>Match after cost conversion</p><span>37bc5f: reported 37, converted to 36</span></div>
+    <div><b>2</b><p>Source protocols</p><span>r3-observeprior and unified-METHOD</span></div>
+  </section>
+
+  <section id="results">
+    <div class="sectionhead">
+      <div><p class="eyebrow">01 / REPLICATION RECORD</p><h2>Budget values and proof scopes</h2></div>
+      <div class="filters" role="group" aria-label="Filter cases">
+        <button class="active" data-filter="all" aria-pressed="true">All 6</button>
+        <button data-filter="L4" aria-pressed="false">L4 · 3</button>
+        <button data-filter="L5" aria-pressed="false">L5 · 3</button>
+      </div>
+    </div>
+    <p class="sectionintro">The reference minima are 19 for L4 and 36 for L5, measured as the initial budget with the winning move free. The table shows values on that scale and identifies how each was obtained. A numerical match and a proof about all legal engine actions are separate claims.</p>
+    <div class="resultlayout">
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>CASE / PROTOCOL</th><th>COMPARISON VALUE</th><th>LEAN PROOF SCOPE</th><th></th></tr></thead>
+          <tbody id="cases"></tbody>
+        </table>
+      </div>
+      <aside id="detail" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section id="selection">
+    <p class="eyebrow">02 / CASE SELECTION</p>
+    <h2>All cases in two selected level groups</h2>
+    <p>The two source batches contain nine eligible cases. This collection takes all three L4 cases from <code>r3-observeprior</code> and all three L5 cases from <code>unified-METHOD</code>. The other three eligible unified-METHOD cases are L4 (6d0313, a9b382, and 15e04c). They fall outside the selected level groups. Runs marked void in the source records are excluded from the batch counts.</p>
+    <p>The r3 L4 protocol sent observation reminders at qualifying round boundaries. The unified-METHOD L5 batch used its common METHOD instructions. Each case has eight initial attempt records and a final interview. The 37bc5f run resumed after an interruption in attempt six. The L4 reviews and the general-v4 follow-up for 70b0a6 stay with their original cases.</p>
+    <p>The six historical cases in the <a class="textlink" href="../">sealed-level archive</a> are a separate earlier collection. The budget comparison here is descriptive for the six displayed cases. The two source protocols and the historical archive have separate denominators.</p>
+  </section>
+
+  <section id="transfer" class="transfer">
+    <p class="eyebrow">03 / PROOF SCOPE</p>
+    <h2>What transfers from a model to the engine?</h2>
+    <p>The archived Lean declarations certify statements about the learned models. Their action domains and premises are listed case by case. A transfer to the engine requires a correspondence between the initial states and between legal engine actions and model steps, including costs and terminal outcomes.</p>
+    <p>The replication operator reviewed the artifacts after the runs and separately investigated shared model repairs. That work was separate from the subjects’ original proofs and was performed by the operator, without third-party certification. The downloadable Lean files are the recorded case artifacts. The budget comparison and proof scopes on this page are tied to those records.</p>
+  </section>
+
+  <footer><div><b>AWM</b><p>Sealed-level replication records</p></div><a href="../">Earlier sealed-level archive ↗</a></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

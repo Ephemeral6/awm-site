@@ -3,7 +3,7 @@ PUBLIC RUN EXPORT — SCOPE AND REPRODUCTION
 All six cases appear together. The eight initial attempts, final interview and
 recorded follow-ups are preserved per case. Actual execution protocols and input
 hashes are retained in the downloaded run.json.
-Historical records are not relabelled as executions of a later release.
+The overview states the selection rule and identifies both protocols.
 
 This is a complete export of the allowlisted public evidence, not an unredacted
 client-session dump. Only structured public text fields are selected from result
@@ -11,6 +11,11 @@ records. Raw client sessions, hidden thinking, accounts, credentials, personal
 homes, operator reference solutions and engine source are not exported. Privacy
 redactions are explicit, and original public text hashes are retained. No model
 answer is replaced with an operator repair or a rewritten answer.
+
+The viewer serves public answers, verdict and gate fields, the protocol and
+budget labels, and the Lean files it can display. The complete prompt and
+provenance fields, gameplay, and other model files are supplied in the ZIP.
+Public replies may refer to their instructions in their own words.
 
 Archive contents:
 - run.json: all eight attempts, final, follow-ups, provenance and source coverage;

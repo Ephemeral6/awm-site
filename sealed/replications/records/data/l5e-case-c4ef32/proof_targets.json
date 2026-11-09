@@ -1,7 +1,0 @@
-[
-  {
-    "root": "models/unified_initial/lean",
-    "module": "L5Main",
-    "decl": "L5.L5_unwinnable"
-  }
-]
