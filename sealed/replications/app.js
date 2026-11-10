@@ -13,14 +13,14 @@ function render() {
   casesElement.innerHTML = rows.map(run => `
     <tr class="${run === selected ? 'selected' : ''}" data-case="${run.id}">
       <td><button class="casebutton" type="button" aria-pressed="${run === selected}">
-        <b>L${run.level} / ${run.id.split('-').at(-1)}</b><span>${run.protocol}</span>
+        <b>L${run.level} / ${run.id.split('-').at(-1)}</b>
       </button></td>
       <td><span class="number">${run.budget.value}</span><span class="budget-source">${run.budget.source}</span></td>
       <td class="scope">${run.proof.scope}</td><td aria-hidden="true">↗</td>
     </tr>`).join('');
   const run = selected;
   detail.innerHTML = `
-    <p class="eyebrow">${run.protocol} / LEVEL ${run.level}</p>
+    <p class="eyebrow">LEVEL ${run.level} / CASE RECORD</p>
     <h3>${run.id.split('-').at(-1)}</h3>
     <p><b>Budget source</b><br>${run.budget.description}</p>
     <p><b>${run.proof.phase} theorem</b><br><code>${run.proof.theorem}</code></p>

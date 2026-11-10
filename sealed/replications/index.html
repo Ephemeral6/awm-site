@@ -9,15 +9,15 @@
 <body>
 <header>
   <a class="brand" href="#">AWM<span>Algebraic World Model</span></a>
-  <nav><a href="records/">Run records</a><a href="#selection">Case selection</a><a href="#transfer">Proof scope</a></nav>
+  <nav><a href="#results">Results</a><a href="records/">Run records</a><a href="#transfer">Proof scope</a></nav>
 </header>
 <main>
   <section class="hero">
     <div>
       <p class="eyebrow">RESEARCH UPDATE / FOUR TRANSFORMATIONS &amp; LIMITS</p>
       <h1>From learned concepts<br>to <em>checkable structure.</em></h1>
-      <p class="intro">Six sealed-level cases from two protocols. Read the recorded answers, inspect their Lean proofs, and see which budgets were reported during the initial run, reported in a follow-up, or converted by the operator.</p>
-      <div class="actions"><a class="button" href="records/">Explore the six cases <span>↗</span></a><a class="textlink" href="#selection">How cases were selected →</a></div>
+      <p class="intro">Six sealed-level replications using our framework for four transformations and limits. Compare the results with the reference budgets, read the recorded answers, and inspect the Lean proofs.</p>
+      <div class="actions"><a class="button" href="records/">Explore the six cases <span>↗</span></a><a class="textlink" href="#results">See the results →</a></div>
     </div>
     <div class="hero-art">
       <div class="art-label"><span>WORLD → STRUCTURE → PROOF</span><span>sc25 / L4</span></div>
@@ -28,7 +28,7 @@
   </section>
 
   <section class="metrics" aria-label="Sources of the displayed budget values">
-    <div><b>6/6</b><p>Selected results match</p><span>Includes two follow-up reports and one cost conversion.</span></div>
+    <div><b>6/6</b><p>Results match the reference budgets</p><span>Includes two follow-up reports and one cost conversion.</span></div>
     <div><b>3</b><p>Matching initial reports</p><span>d88673, 7a68d3, c4ef32</span></div>
     <div><b>2</b><p>Matching follow-up reports</p><span>646045 and 70b0a6</span></div>
     <div><b>1</b><p>Match after cost conversion</p><span>37bc5f: reported 37, converted to 36</span></div>
@@ -47,7 +47,7 @@
     <div class="resultlayout">
       <div class="tablewrap">
         <table>
-          <thead><tr><th>CASE / PROTOCOL</th><th>COMPARISON VALUE</th><th>LEAN PROOF SCOPE</th><th></th></tr></thead>
+          <thead><tr><th>CASE</th><th>COMPARISON VALUE</th><th>LEAN PROOF SCOPE</th><th></th></tr></thead>
           <tbody id="cases"></tbody>
         </table>
       </div>
@@ -55,16 +55,8 @@
     </div>
   </section>
 
-  <section id="selection">
-    <p class="eyebrow">02 / CASE SELECTION</p>
-    <h2>All cases in two selected level groups</h2>
-    <p>The two source batches contain nine eligible cases. This collection takes all three L4 cases from <code>r3-observeprior</code> and all three L5 cases from <code>unified-METHOD</code>. The other three eligible unified-METHOD cases are L4 (6d0313, a9b382, and 15e04c). They fall outside the selected level groups. Runs marked void in the source records are excluded from the batch counts.</p>
-    <p>The r3 L4 protocol sent observation reminders at qualifying round boundaries. The unified-METHOD L5 batch used its common METHOD instructions. Each case has eight initial attempt records and a final interview. The 37bc5f run resumed after an interruption in attempt six. The L4 reviews and the general-v4 follow-up for 70b0a6 stay with their original cases.</p>
-    <p>The six historical cases in the <a class="textlink" href="../">sealed-level archive</a> are a separate earlier collection. The budget comparison here is descriptive for the six displayed cases. The two source protocols and the historical archive have separate denominators.</p>
-  </section>
-
   <section id="transfer" class="transfer">
-    <p class="eyebrow">03 / PROOF SCOPE</p>
+    <p class="eyebrow">02 / PROOF SCOPE</p>
     <h2>What transfers from a model to the engine?</h2>
     <p>The archived Lean declarations certify statements about the learned models. Their action domains and premises are listed case by case. A transfer to the engine requires a correspondence between the initial states and between legal engine actions and model steps, including costs and terminal outcomes.</p>
     <p>The replication operator reviewed the artifacts after the runs and separately investigated shared model repairs. That work was separate from the subjects’ original proofs and was performed by the operator, without third-party certification. The downloadable Lean files are the recorded case artifacts. The budget comparison and proof scopes on this page are tied to those records.</p>

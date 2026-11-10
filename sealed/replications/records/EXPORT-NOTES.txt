@@ -1,9 +1,18 @@
 PUBLIC RUN EXPORT — SCOPE AND REPRODUCTION
 
-All six cases appear together. The eight initial attempts, final interview and
-recorded follow-ups are preserved per case. Actual execution protocols and input
-hashes are retained in the downloaded run.json.
-The overview states the selection rule and identifies both protocols.
+All six cases used the framework for four transformations and limits. The
+eight initial attempt records, final interview and recorded follow-ups are
+preserved per case. Actual execution protocols and input hashes are retained
+in the downloaded run.json.
+
+The comparison covers the six cases shown: all three L4 cases from the
+r3-observeprior batch and all three L5 cases from the unified-METHOD batch.
+The former used observation reminders at qualifying round boundaries. The
+latter used the common METHOD instructions. The two batches contain nine
+eligible cases after excluding void runs. The three other unified-METHOD
+cases are L4 (6d0313, a9b382, and 15e04c). The original sealed archive is a
+separate earlier collection. The 37bc5f run resumed during attempt six,
+and follow-ups stay attached to their original cases.
 
 This is a complete export of the allowlisted public evidence, not an unredacted
 client-session dump. Only structured public text fields are selected from result
@@ -12,9 +21,9 @@ homes, operator reference solutions and engine source are not exported. Privacy
 redactions are explicit, and original public text hashes are retained. No model
 answer is replaced with an operator repair or a rewritten answer.
 
-The viewer serves public answers, verdict and gate fields, the protocol and
-budget labels, and the Lean files it can display. The complete prompt and
-provenance fields, gameplay, and other model files are supplied in the ZIP.
+The viewer shows public answers, verdict and gate fields, budget labels,
+and Lean files. The complete prompt and provenance fields, gameplay, and
+other model files are supplied in the ZIP.
 Public replies may refer to their instructions in their own words.
 
 Archive contents:
