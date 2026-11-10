@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AWM · Sealed-level replication records</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header>
+  <a class="brand" href="#">AWM<span>Algebraic World Model</span></a>
+  <nav><a href="#results">Results</a><a href="records/">Run records</a><a href="#transfer">Proof scope</a></nav>
+</header>
+<main>
+  <section class="hero">
+    <div>
+      <p class="eyebrow">RESEARCH UPDATE / FOUR TRANSFORMATIONS &amp; LIMITS</p>
+      <h1>From learned concepts<br>to <em>checkable structure.</em></h1>
+      <p class="intro">Six sealed-level replications using our framework for four transformations and limits. Compare the results with the reference budgets, read the recorded answers, and inspect the Lean proofs.</p>
+      <div class="actions"><a class="button" href="records/">Explore the six cases <span>↗</span></a><a class="textlink" href="#results">See the results →</a></div>
+    </div>
+    <div class="hero-art">
+      <div class="art-label"><span>WORLD → STRUCTURE → PROOF</span><span>sc25 / L4</span></div>
+      <img src="assets/sealed-start.png" alt="The sc25 L4 opening frame from the historical archive">
+      <div class="budget"><span>SEALED BUDGET <b>18</b></span><span class="arrow">→</span><span>REFERENCE MINIMUM <b>19</b></span></div>
+      <p>Reference frame from the historical archive</p>
+    </div>
+  </section>
+
+  <section class="metrics" aria-label="Sources of the displayed budget values">
+    <div><b>6/6</b><p>Results match the reference budgets</p><span>Includes two follow-up reports and one cost conversion.</span></div>
+    <div><b>3</b><p>Matching initial reports</p><span>d88673, 7a68d3, c4ef32</span></div>
+    <div><b>2</b><p>Matching follow-up reports</p><span>646045 and 70b0a6</span></div>
+    <div><b>1</b><p>Match after cost conversion</p><span>37bc5f: reported 37, converted to 36</span></div>
+  </section>
+
+  <section id="results">
+    <div class="sectionhead">
+      <div><p class="eyebrow">01 / REPLICATION RECORD</p><h2>Budget values and proof scopes</h2></div>
+      <div class="filters" role="group" aria-label="Filter cases">
+        <button class="active" data-filter="all" aria-pressed="true">All 6</button>
+        <button data-filter="L4" aria-pressed="false">L4 · 3</button>
+        <button data-filter="L5" aria-pressed="false">L5 · 3</button>
+      </div>
+    </div>
+    <p class="sectionintro">The reference minima are 19 for L4 and 36 for L5, measured as the initial budget with the winning move free. The table shows values on that scale and identifies how each was obtained. A numerical match and a proof about all legal engine actions are separate claims.</p>
+    <div class="resultlayout">
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>CASE</th><th>COMPARISON VALUE</th><th>LEAN PROOF SCOPE</th><th></th></tr></thead>
+          <tbody id="cases"></tbody>
+        </table>
+      </div>
+      <aside id="detail" aria-live="polite"></aside>
+    </div>
+  </section>
+
+  <section id="transfer" class="transfer">
+    <p class="eyebrow">02 / PROOF SCOPE</p>
+    <h2>What transfers from a model to the engine?</h2>
+    <p>The archived Lean declarations certify statements about the learned models. Their action domains and premises are listed case by case. A transfer to the engine requires a correspondence between the initial states and between legal engine actions and model steps, including costs and terminal outcomes.</p>
+    <p>The replication operator reviewed the artifacts after the runs and separately investigated shared model repairs. That work was separate from the subjects’ original proofs and was performed by the operator, without third-party certification. The downloadable Lean files are the recorded case artifacts. The budget comparison and proof scopes on this page are tied to those records.</p>
+  </section>
+
+  <footer><div><b>AWM</b><p>Sealed-level replication records</p></div><a href="../">Earlier sealed-level archive ↗</a></footer>
+</main>
+<script src="app.js"></script>
+</body>
+</html>

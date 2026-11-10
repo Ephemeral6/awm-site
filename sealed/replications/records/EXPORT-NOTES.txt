@@ -1,0 +1,54 @@
+PUBLIC RUN EXPORT — SCOPE AND REPRODUCTION
+
+All six cases used the framework for four transformations and limits. The
+eight initial attempt records, final interview and recorded follow-ups are
+preserved per case. Actual execution protocols and input hashes are retained
+in the downloaded run.json.
+
+The comparison covers the six cases shown: all three L4 cases from the
+r3-observeprior batch and all three L5 cases from the unified-METHOD batch.
+The former used observation reminders at qualifying round boundaries. The
+latter used the common METHOD instructions. The two batches contain nine
+eligible cases after excluding void runs. The three other unified-METHOD
+cases are L4 (6d0313, a9b382, and 15e04c). The original sealed archive is a
+separate earlier collection. The 37bc5f run resumed during attempt six,
+and follow-ups stay attached to their original cases.
+
+This is a complete export of the allowlisted public evidence, not an unredacted
+client-session dump. Only structured public text fields are selected from result
+records. Raw client sessions, hidden thinking, accounts, credentials, personal
+homes, operator reference solutions and engine source are not exported. Privacy
+redactions are explicit, and original public text hashes are retained. No model
+answer is replaced with an operator repair or a rewritten answer.
+
+The viewer shows public answers, verdict and gate fields, budget labels,
+and Lean files. The complete prompt and provenance fields, gameplay, and
+other model files are supplied in the ZIP.
+Public replies may refer to their instructions in their own words.
+
+Archive contents:
+- run.json: all eight attempts, final, follow-ups, provenance and source coverage;
+- answers.txt: readable public answers;
+- gameplay-*.jsonl: public action/frame records for the available snapshots;
+- models/: subject-created endpoint model/proof files;
+- proof_targets.json: main declarations actually recovered in Lean source;
+- verify.py and SHA256SUMS.json: offline integrity and cold-compile checks.
+
+Earlier source versions are credited only on exact original hash matches.
+Missing versions remain missing. Phase-endpoint snapshots may include later
+changes. A downloaded main theorem may therefore prove a different statement
+from an earlier attempt. The verifier checks closure, not semantic adequacy.
+
+To check hashes: python verify.py --hash-only
+To cold-compile: python verify.py --lean <absolute Lean 4.34.1 executable>
+The verifier uses a new temporary build and starts no model or game service.
+Re-executing the original interactive experiment additionally requires its real
+game environment and historical protocol. Privacy-safe public evidence is not
+presented as a bit-for-bit reproduction of private runtime/account state.
+
+Leakage boundary for future experiment-code publication:
+Historical learned models, answers and gameplay are result artifacts. They must
+never be mounted into a fresh subject workspace as experimental inputs. Future
+runner code needs a separate review of subject-visible files, prompts, memory,
+reference routes/bounds, environment configuration and archive mount paths.
+Publishing result artifacts does not itself certify a new runner as leak-free.

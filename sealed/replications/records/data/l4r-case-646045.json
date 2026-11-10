@@ -1,0 +1,1396 @@
+{
+  "id": "l4r-case-646045",
+  "level": 4,
+  "final_verdict": {
+    "verdict": "impossible",
+    "confidence": 78,
+    "stated": true
+  },
+  "final": {
+    "kind": "Final interview",
+    "text": "**1. What happened.** Levels 1–3 are beaten; every attempt since then has ended on level 4. In level 4 you move a block-shaped piece to a goal box behind a door, using a small 3×3 panel to draw patterns: a plus shrinks the piece to 2×2 or grows it back, and a vertical line fires a shot. Every action drains an energy bar, and running out ends the game.\n\nOver eight attempts I worked out how all of it behaves:\n- The door only opens when the shot is fired facing up from column 31, so it travels up a narrow stem and destroys a small box at the top.\n- A 4×4 piece can't stand at column 31 without shrinking and regrowing, because it moves in steps of 4.\n- A small energy square at the bottom left refills the bar.\n\nIn attempt 7 I played the cheapest route that exists: shrink, regrow, collect the refill, open the door, walk to the goal. Every bar reading matched my cost model. The final move, which touches the goal, needed one more unit than the bar had, and the game ended. Attempt 8 tested the last ways I could think of to save that unit: a discount for loaded hints, replaying a legend, other panel shapes, and free blocked moves. None worked.\n\nIt fails because the level needs 29 units and provides 28.\n\n**2. No, I don't see a way to win.**\n\nClaim: from the level-4 start, no sequence of actions wins.\n\nArgument: I enumerated every state reachable within the budget, 2555 of them. None has an affordable winning move. The Lean kernel re-checks this, so it covers every possible action sequence, not just the ones I tried. The cheapest win in the model costs 29 units against a cap of 28.\n\nWhat it rests on (established):\n- **Budget:** the bar holds 18 units. A move costs 1, even a blocked one. A panel click costs 1, and the click that completes a pattern costs 2, with or without a hint loaded. Collecting the energy square adds 10. A win must fit within the budget; the attempt-7 move at −1 ended the game without a win. These figures predicted every bar reading in attempts 5–8.\n- **Free clicks:** clicks off the panel and on the legend panels cost nothing and never change the board.\n- **Commits:** only the level's own legend patterns (plus and line) commit. The L-tromino, the X and the full 3×3 did not.\n- **Door:** it opens only on a shot fired facing up from column 31. Seen twice on level 4, from rows 23 and 29, plus once on level 3; at least six other configurations failed.\n- **Piece:** shrink keeps the top-left corner; grow shifts the piece two up and two left, whatever its facing. Moves stop at walls.\n- **Pickup:** the 2×2 piece overlapping the energy square, or any piece's front half covering it, collects it.\n- **Win:** the piece wins by touching the goal box.\n\nWhere the model is more generous than the game, which can only make a win easier, not harder:\n- grow is allowed anywhere on the board;\n- facing changes even on a blocked move;\n- the goal counts as touched if the next full step would reach it;\n- the pickup is counted before the move's cost.\n\nWhat the bound depends on that isn't fully established: no other panel shape commits (three non-legend shapes tested), and there is no second refill or cheaper commit. A single extra unit would make the route win (`route29_wins_with_cap29`). Trying further 3×3 shapes on level 4 would settle the first.\n\n**3. Rules I newly worked out, and from what:**\n- **The shot.** The vertical line fires a shot in the facing direction. Seen in captured animation frames: a 4-tall beam moving 2 columns per frame until it hit a wall.\n- **What opens the door.** Only the shot hitting the box at the top of the stem opens it. A 2×2 piece at column 31 facing up opened it; a shot fired straight into the door passed through it without opening it.\n- **Grow.** Repeating the plus on a 2×2 piece grows it back to 4×4, shifted two up and two left. Observed facing up and facing down.\n- **The energy square.** The 2×2 piece stepping onto it consumed it and raised the bar. Later, a 4×4 arriving facing down with its front half over it collected it too. Earlier 4×4 contacts had only its back half over the square and did nothing.\n- **Exact costs.** 18-unit bar, committing click costs 2, refill +10, game over below 0. Fitted to the bar readings in attempts 5–8 and predicted every one of them.\n- **Commit trigger.** A commit happens exactly when the selection equals one of the level's legend patterns. A leftover hint didn't block a plus commit, and other shapes never committed.\n- **Free actions.** Off-panel and legend clicks cost nothing; a legend click loads a hint, and a second one replays a demonstration.\n\n**4. Rules I'm still unsure about:**\n- **Other panel shapes.** Whether some shape I haven't tried commits on level 4. I tested three non-legend shapes out of hundreds.\n- **What decided the attempt-7 final move.** Either the budget check runs before the win check, or a win requires the piece to start flush against the goal box. The −1 budget explains it either way, so the two can't be told apart, and the model uses the more generous touch rule.\n- **Exact rule for the shot.** That the shot travels along the piece's left column, or top row, is inferred from four outcomes, not seen directly in a vertical-shot animation.\n- **Exact rule for the pickup.** \"Front half\" fits all four contacts, but a different trigger region could also fit them.\n\n**5. Lean proof.** File: `lean/L4BudgetProof.lean`, built on `lean/Game/L4Macro.lean`, `lean/Game/L4Budget.lean` and `lean/Game/L4BudgetCert.lean`. The 54 chunk files in `lean/Game/BChk/` are each checked by `decide +kernel`.\n\nMAIN-THEOREM: lean/L4BudgetProof.lean : L4M.L4_budget_no_win\n\n- **What it says:** `∀ as : List MAct, winsB b0 as 0 = false`. It covers every action list of any length, with the budget built into `winsB`.\n- **Hypotheses:** none. The premises are the definitions above, listed with their status in question 2.\n- **Stricter than the game:** commits are atomic macro actions (plus = 5, line = 4), and only plus and line exist.\n- **Non-vacuity:**\n  - `route29_wins_with_cap29`: one extra unit of budget makes the route win.\n  - `route29_fails_with_cap28`: at the real cap it fails.\n  - `replay_attempt7` and `played7_loses`: the model reproduces every observed position of attempt 7 and its outcome.\n\n`#print axioms` output from the last compile:\n```\n'L4M.replay_attempt7' does not depend on any axioms\n'L4M.played7_loses' depends on axioms: [propext]\n'L4M.L4_budget_no_win' depends on axioms: [propext, Quot.sound]\n'L4M.route29_wins_with_cap29' depends on axioms: [propext]\n'L4M.route29_fails_with_cap28' depends on axioms: [propext]\n'L4M.pickup_observed' does not depend on any axioms\n```\n\nVERDICT: impossible\nCONFIDENCE: 78",
+    "returncode": 0,
+    "wall_s": 60.2,
+    "is_error": false
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "verdict": {
+        "verdict": "undecided",
+        "confidence": 60,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "I reached level 4 and did not beat the game. Levels 1–3 are beaten; the run ended in GAME_OVER on level 4 when the energy bar ran out.\n\n**How the game works, as far as I established:**\n- **Moves:** the arrow actions slide a two-coloured 4×4 piece one piece-length. Walls cut a move short, and the piece turns to face the way it moved.\n- **Winning a level:** moving the piece into the goal box wins. Partly overlapping it is enough.\n- **Panel:** clicking cells of the 3×3 panel highlights them. Once the highlighted cells match one of the level's patterns (shown in the legend panel on the left), the panel clears and an effect fires:\n  - **Plus shape:** shrinks the piece to 2×2, keeping its top-left quarter.\n  - **L-shape:** teleports the piece onto the corner marks.\n  - **Vertical line:** sometimes removes the small box at the top and opens the door blocking the corridor.\n- **Energy bar:** every action drains the bar on the right edge. Once it is empty, the next action ends the game.\n\n**How the levels went:**\n- **Level 1:** shrank the piece so it fit through a narrow passage into the goal.\n- **Level 2:** teleported across a gap, then touched the goal.\n- **Level 3:** the vertical-line pattern opened the door only on my second try, with the piece just below the passage under the top box. Then I went down to the goal.\n- **Level 4:** this level's budget is about 18 actions, against about 48 on earlier levels. I spent two vertical-line attempts (piece under the passage, but offset by half its width) and neither did anything. That left too little to reach the goal, so I used the last actions to learn: the shrink keeps the top-left quarter, the click animations are now recorded, and an empty bar ends the game.\n\n**Record (METHOD.md):** five rule files in `concepts/` (movement, bar drain, panel clicks, pattern commit, win condition). All score 1.000 with the last settle showing no counterexamples; coverage is in the ledger. `work/NOTES.md` holds the findings and a level-4 plan for another attempt, which I didn't call `/reset` to start. The formal Lean step is still to be done, as the method says to do it after the run.\n\nTo get it logged, I made two changes to `play.py`: it now records the frame count per action and saves animation frames to `work/frames/`.",
+          "returncode": 0,
+          "wall_s": 707.9,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened on level 4.** You move a 4×4 piece to a goal box, and a door made of `d` cells blocks the corridor to it. On level 3 the door opened when I clicked a vertical-line pattern into the 3×3 panel (a \"commit\"). There the piece was directly under the narrow stem leading to a small box drawn in colour 6, and the box's stem lined up with the piece's left half. On level 4 I lined the piece up the same way, but the stem fell over its right half. I committed the pattern twice and both times the piece flashed but the door stayed shut.\n\nThe deeper problem is the energy bar. Every action drains it, and level 4 drains it about 2.6 times faster than levels 1–3: about 18 plain actions instead of about 48, and commits cost extra. I spent the budget on these two failed commits and then on learning moves (shrinking the piece, stepping into the stem). The bar emptied and the next action ended the game.\n\nThe cause of failure: I copied a condition fitted on one success (level 3's second commit) without allowing for the much smaller budget, so I tested it at the cost of the run.\n\n**2. Can level 4 be beaten?** I can't tell either way.\n\nWhat I can prove is conditional: under three assumptions, nothing shorter than 22 actions wins, while the real budget is at most 19.\n\nThe assumptions:\n- **H1' (not established):** the 6-commit opens the door only when the piece's top-left 2 columns are the stem's columns 31–32. This is fitted to one success and three failures.\n- **H2 (untested):** the plus pattern does not grow a 2×2 piece back to 4×4.\n- **H3 (untested):** the 2×2 `e` square at rows 34–35, cols 23–24 does not refill the bar.\n\nThe argument, using rules I did establish:\n- A 4×4 piece always moves exactly 4 columns, and level 4's walls sit on that grid. So its left column is always ≡ 1 (mod 4) and can never be 31.\n- Therefore, under H1', the door needs a shrink commit (4 clicks), a 2×2 piece at column 31, and a 6-commit (3 clicks).\n- After that, the 2×2 piece moves 2 columns per step, so it needs 13 more moves to touch the goal.\n- That gives at least 22 actions.\n\nThe budget: on level 4 a plain action costs exactly 7/4 of a bar notch (the 12 plain actions fit floor(7k/4) exactly), and the bar has 32 notches. So at most 19 actions can execute, before even counting the commit surcharge.\n\nThe bound leans most heavily on H1'. If the door opened on any commit, 8 actions would win. H3 is a specific, testable mechanism: walking onto the `e` square costs 6 actions and settles it.\n\n**3. Next attempt.**\n- Replay levels 1–3 with no detours. On level 3, commit only once the piece is lined up under the stem.\n- On level 4, first walk the piece onto the `e` square: down 2, left 4. Watch the bar.\n- If the bar refills, run the 22-action route proven in Lean: left, plus pattern ×4, left, line pattern ×3, right ×13.\n- If it doesn't refill, the only remaining lever is H1'. Try one 6-commit at a different alignment and accept that the level is probably lost.\n\n**4. Formal system.** This is new this attempt; there was nothing earlier to amend.\n- **a. Objects:** `St` holds six slots: `small`, `opened`, `won`, `x`, `dP`, `dL`. `dP` and `dL` are how many clicks the panel selection is away from the plus and line patterns. `work/MODEL.md` gives, for each slot, a pair of positions that become indistinguishable if it is dropped.\n  - Dropped: rows (this makes the model looser), facing (no rule reads it), the bar (it appears only as the length premise), and the `e` square (untested, which is H3).\n- **b. Rules:** `rLeft`, `rRight` (which includes the win-on-touch rule), `noop`, and `rClick` (toggle, commit, shrink keeping the top-left quarter, and the 6-effect behind the `fires` parameter).\n  - Two new rule files were added and settled: `shrink_topleft` and `empty_bar_gameover`.\n  - All seven rule files: 69 recorded moves checked, 0 counterexamples.\n- **c. Transforms:** two, recorded in `work/transforms.json`.\n  - Decomposition: `St` is the product of its slots, checked by `L4S.stIsLimit`.\n  - Generalization: `step` is the copairing of the per-action rules over the action type, checked by `L4S.actIsColimit` and `L4S.step_is_desc`.\n  - Python verdicts are unchanged by both.\n- **d.** `work/limits_table.json` lists every object type and rule. Each rule is marked as a definition, a consequence (`Inv`, via `inv_step`), or \"not in model\" (the bar, game over, teleport, the `e` square, facing, rows).\n\n**5. Proof.** File: `lean/L4Proof.lean`, built on `lean/Game/L4Model.lean`. The structure proofs are in `lean/Game/L4Structure.lean`.\n\nMAIN-THEOREM: lean/L4Proof.lean : L4.L4_no_win_within_21\n\n- **What it says:** for every `fires` satisfying `hfire : ∀ s, fires s = true → s.x = 31` (H1'), and every action list of length ≤ 21, `everGoal (step fires false) goal s0 as = false`.\n  - H2 is the explicit `grow = false` argument.\n  - H3 and the budget enter only through the length premise.\n  - The method: potential Φ(s0) = 22, Φ drops by at most 1 per step (`hstep`), and the invariant holds throughout (`inv_step`).\n- **Rules it leans on:** `move_dir` (moves only by the full piece size or not at all), `win_touch`, `click_toggle`, `commit_clears`, `shrink_topleft`, and the rule that the door blocks.\n- **Where the Lean model differs from the game:**\n  - Allowing only a full step or no move is stricter than the game in general. In level 4 every wall sits on the movement grid, which I checked by hand, not in Lean.\n  - The model is stricter wherever H4 might be false: H4 is the assumption that no pattern other than plus and line commits on this level. That is untested.\n- **Non-vacuity:**\n  - `win22_wins` gives a 22-action winning sequence, so the bound is tight.\n  - `win8_wins` shows that dropping H1' allows a win in 8 actions.\n\nVerbatim `#print axioms` output:\n```\n'L4.inv_step' depends on axioms: [propext, Quot.sound]\n'L4.hstep' depends on axioms: [propext, Quot.sound]\n'L4.pot' depends on axioms: [propext, Quot.sound]\n'L4.L4_no_win_within_21' depends on axioms: [propext, Quot.sound]\n'L4.win22_wins' does not depend on any axioms\n'L4.win8_wins' does not depend on any axioms\n'L4S.stIsLimit' does not depend on any axioms\n'L4S.actIsColimit' does not depend on any axioms\n'L4S.step_is_desc' depends on axioms: [Quot.sound]\n'L4S.branches_differ' depends on axioms: [propext]\n```\nThe theorem is clean, but it proves impossibility only under H1', H2 and H3 (plus the untested H4). I'm not willing to defend H1' or H3 as established, so it does not settle question 2.\n\n**6.** Not applicable: this attempt changed the formal system (it built it, and added two rules).\n\nVERDICT: undecided\nCONFIDENCE: 60",
+          "returncode": 0,
+          "wall_s": 532.9,
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "verdict": {
+        "verdict": "winnable",
+        "confidence": 60,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "The game has now ended in GAME_OVER on level 4, so I did not beat the game: I reached level 4, with levels 1–3 beaten and level 4 not.\n\n- **How it ended:** with the last of the bar I moved the piece into the door's rows (29–32), facing right. The bar was then empty, and the next action (the first click of the pattern) ended the game. That is the second time I've seen an empty bar make the next action end the game.\n- **What this attempt established:** the 2×2 `e` square does nothing when touched. The vertical-line pattern fires a shot out of the front of the piece, in the direction it faces.\n- **What is still untested:** whether that shot removes the door when it hits it directly. The bar ran out before I could fire it from this position.\n- **Plan for the next attempt (9 actions, budget about 18):** move down one, move right one so the piece faces right in the door's rows, then click the vertical-line pattern (three clicks) to fire into the door. If the door opens, four more moves right reach the goal.\n\nThe findings and this plan are in `work/NOTES.md`, and the rule checks show no counterexamples.",
+          "returncode": 0,
+          "wall_s": 27.0,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** On a fresh level 4 I tested two things.\n\n- **The `e` square:** I walked the piece fully over it (6 actions). The bar did not refill and the square stayed.\n- **The vertical-line pattern, facing right:** I committed it with the piece under the stem, facing right (7 more actions). The door did not open. The captured animation showed why:\n  - The commit fires a shot out of the front of the piece, in the direction it faces. The shot is as tall as the piece and travels 2 columns per frame until a wall.\n  - That shot ran along rows 21–24 and hit the wall at column 44.\n  - So level 3 worked because the shot went up the stem into the 6-box. My level-4 commits failed because the shot hit only bare wall.\n\nWith the bar nearly gone, I moved the piece into the door's rows facing right. The bar emptied, and the next click ended the game.\n\nCause of failure: I spent the budget (about 18 actions on this level) testing an unpromising idea first (the `e` square) and an untargeted shot second. That left nothing for the targeted shot.\n\n**2. A way to win: yes, under one untested premise.** The route takes 9 actions:\n- down (top row 29)\n- right (piece's left column 41, facing right, in the door's rows 29–32)\n- the vertical-line pattern: clicks (30,50), (30,55), (30,60)\n- right ×4 (45, 49, 53, then touching the goal)\n\nWhat is established:\n- How moves work, including that every move sets the facing.\n- That a commit fires a shot in the facing direction.\n- The win-on-touch rule (moving so the piece's next full step would reach the goal box wins).\n- The cost: 7 units per plain action, about 16 per commit, out of 128. So 9 actions cost about 72 units, within the budget.\n\nWhat I would still need to check:\n- **H_shot:** a shot that reaches the `d` door directly removes it. So far I have only seen the door open when the shot hit the 6-box. A secondary premise is that the shot doesn't stop on the 5-wall cells above and below the door, since its rows 29–32 are exactly the door's rows.\n- The first click of the commit settles it. If the door opens, the remaining 4 moves win.\n\n**3. Next attempt.** Play exactly the 9-action route above, with no exploration first. If the shot does not open the door, I will have about 9 actions left. A fallback that shoots the 6-box needs a 2×2 piece at column 31 and costs at least 22 actions, so at that point the level is lost. I would then use the rest to observe where the shot stops.\n\n**4. Formal system (amended, not rewritten).**\n- **a. Objects.** `St` gains two slots:\n  - `y`, the top row.\n  - `face`, the side the 9-half is on.\n\n  The pair of positions they distinguish: at column 41 facing right, top row 29 versus 21. In the first the shot travels along the door's rows; in the second it does not. The `e` square is still not in the model (touched, no effect).\n- **b. Rules.**\n  - Added `rUp` and `rDown`.\n  - Every move now sets `face`.\n  - The 6-effect condition `fires` is still a parameter, now allowed to read row and facing.\n  - Python ledger fix: the transition that crosses the attempt boundary is excluded in `bar_tick` and `empty_bar_gameover`. Check over 88 recorded moves: 0 counterexamples.\n- **c. Transforms.** Two amendments recorded in `work/transforms.json`:\n  - Decomposition: `St` is the product of 8 slots (`L4S.stIsLimit`).\n  - Generalization: `step` is the copairing over 6 action cases (`L4S.actIsColimit`, `L4S.step_is_desc`).\n\n  The attempt-1 theorems re-prove unchanged on the amended state.\n- **d.** `work/limits_table.json` is updated:\n  - `Dir` added as a base type.\n  - The shot's frame-by-frame travel is marked \"not in model\"; it is summarised by `fires`.\n  - The 6-effect rule is listed with its two competing hypotheses, H1' and H_shot.\n\n**5. Proof.** File: `lean/L4Proof.lean`, on `lean/Game/L4Model.lean`.\n\nMAIN-THEOREM: lean/L4Proof.lean : L4.L4_win9\n\n- **What it says:** for every `fires` with `hshot : fires sShot = true`, `everGoal (step fires false) goal s0 win9 = true`, and `win9.length = 9`.\n  - `sShot` is the exact state at the third click: piece 4×4 at column 41, row 29, facing right, door closed.\n  - H_shot is the only premise, and it is explicit.\n- **Rules it leans on:** `rDown`, `rRight` (including touching the goal), and `rClick`/commit.\n- **Non-vacuity:**\n  - `win9_needs_shot`: with no door effect, the same 9 actions don't win.\n  - `failed_commits_not_sShot`: both observed failed commits are at states other than `sShot`, so H_shot contradicts no observation.\n- **Where the model differs from the game:**\n  - Left/right moves ignore rows, and the win-on-touch rule is evaluated without row checks. This is looser than the game. It is harmless here because the witness runs in row 29, where the corridor really is.\n  - The bar isn't in the Lean model. The claim \"9 actions fit the budget\" rests on the measured cost of 7 units per action and about 16 per commit.\n- **The attempt-1 result still holds:** `L4_no_win_within_21` (impossible under H1'). H1' and H_shot are mutually exclusive, and the shot mechanism now explains the earlier failures without H1'.\n\n```\n'L4.L4_win9' depends on axioms: [propext, Quot.sound]\n'L4.win9_needs_shot' does not depend on any axioms\n'L4.failed_commits_not_sShot' does not depend on any axioms\n'L4.inv_step' depends on axioms: [propext, Quot.sound]\n'L4.hstep' depends on axioms: [propext, Quot.sound]\n'L4.pot' depends on axioms: [propext, Quot.sound]\n'L4.L4_no_win_within_21' depends on axioms: [propext, Quot.sound]\n'L4.win22_wins' does not depend on any axioms\n'L4.win8_wins' does not depend on any axioms\n'L4S.stIsLimit' does not depend on any axioms\n'L4S.actIsColimit' does not depend on any axioms\n'L4S.step_is_desc' depends on axioms: [Quot.sound]\n'L4S.branches_differ' depends on axioms: [propext]\n```\n\n**6.** Not applicable: the model changed (two new slots, two new rules, the commit re-described as a shot, and a new theorem).\n\nVERDICT: winnable\nCONFIDENCE: 60",
+          "returncode": 0,
+          "wall_s": 161.5,
+          "is_error": false
+        },
+        {
+          "kind": "Continuation 1",
+          "text": "The game has now ended in GAME_OVER on level 4, so I did not beat the game: I reached level 4, with levels 1–3 beaten and level 4 not.\n\n- **How it ended:** with the last of the bar I moved the piece into the door's rows (29–32), facing right. The bar was then empty, and the next action (the first click of the pattern) ended the game. That is the second time I've seen an empty bar make the next action end the game.\n- **What this attempt established:** the 2×2 `e` square does nothing when touched. The vertical-line pattern fires a shot out of the front of the piece, in the direction it faces.\n- **What is still untested:** whether that shot removes the door when it hits it directly. The bar ran out before I could fire it from this position.\n- **Plan for the next attempt (9 actions, budget about 18):** move down one, move right one so the piece faces right in the door's rows, then click the vertical-line pattern (three clicks) to fire into the door. If the door opens, four more moves right reach the goal.\n\nThe findings and this plan are in `work/NOTES.md`, and the rule checks show no counterexamples.",
+          "returncode": null,
+          "wall_s": 27.0,
+          "is_error": null
+        }
+      ]
+    },
+    {
+      "attempt": 3,
+      "verdict": {
+        "verdict": "impossible",
+        "confidence": 55,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 1,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "I reached level 4 and did not beat the game. Levels 1–3 stayed beaten; this attempt was spent entirely on level 4, and it ended in GAME_OVER there when the energy bar ran out.\n\n- **The planned route failed.** I played the 9-action plan: one move down, one move right so the piece faced the door in the corridor rows, then the vertical-line pattern to fire a shot. The shot travelled into the door and two columns past it, then vanished, and the door was redrawn unchanged. So shooting the door directly does not open it.\n- **The `e` square doesn't react to the shot either.** I fired a shot leftward across it; it passed over the square with no change to the square or the bar.\n- **The shrink rule is now settled.** Shrinking keeps the piece's top-left quarter whichever way it faces (now seen facing left as well as up).\n\nThe only remaining way I know to open the door is hitting the 6-box up the stem. That needs a 2×2 piece and well over the level's roughly 18-action budget. The untested possibilities are:\n- whether the plus pattern grows a 2×2 piece back to full size;\n- whether the `e` square reacts to a 2×2 piece;\n- whether anything changes how fast the bar drains.\n\nAll findings are in `work/NOTES.md`. The rule checks show no counterexamples after excluding the transitions that cross attempt boundaries.",
+          "returncode": 0,
+          "wall_s": 109.7,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** I played the route I had proven would win if a shot that hits the door destroys it: one move down, one move right so the 4×4 piece faced the `d` door in the corridor rows, then the vertical-line pattern. The shot flew into the door and a little past it, then vanished, and the door cells were redrawn intact. That premise was simply false.\n\nWith about 11 actions left, I fired a second shot leftward over the 2×2 `e` square; nothing happened. I spent the last clicks confirming that shrinking keeps the top-left quarter when the piece faces left too. Then the bar ran out and the next action ended the game.\n\nThe failure came from betting the attempt on an untested premise. The level itself is the bigger problem: its budget is only about 18 actions.\n\n**2. No, I no longer see a way to win.** Claim: from the level-4 start, no sequence of 21 or fewer actions wins. The real budget is at most 19 actions.\n\nThe argument:\n- **Opening the door.** The door only opens when a shot hits the 6-box. The 6-box can only be reached straight up the 2-wide stem at columns 31–32. An upward shot stops as soon as its left column meets wall: in level 3 the left column was over the stem and it worked; in level 4 the left column was column 29, a wall, and it failed. So the commit must happen with the piece facing up and its left column at 31.\n- **Piece size.** A 4×4 piece always sits at columns ≡ 1 (mod 4), so it can never be at 31. The piece must first shrink: 4 clicks. Then the commit: 3 clicks.\n- **Reaching the goal.** From column 31 the 2×2 piece moves 2 columns per step, so it needs 13 more moves to touch the goal.\n- **Total.** At least 22 actions.\n- **Budget.** Each plain action costs 7 of 128 units (measured in all three attempts), and commits cost more. So at most 19 actions fit.\n\nEstablished:\n- Movement and its 4-column grid.\n- Win on touch (moving so the piece's next full step would reach the goal box).\n- The shrink rule.\n- The cost per action, and that an empty bar means game over.\n- That a shot passes over the door and the `e` square without effect.\n- That touching the `e` square gives no refill (with the 4×4 piece).\n\nHypotheses the bound leans on:\n- **H1'':** the door opens only when the piece faces up with left column 31. The Lean bound actually uses only its weaker half, that the left column is 31. This is fitted to one success and five failures.\n- **H2:** the plus pattern doesn't grow a 2×2 piece back. By a hand count (not in Lean), even with growing the route needs 22 actions, because a re-grown piece lands off the corridor's row grid.\n- **H4:** no pattern other than the two on the legend commits on this level.\n- **No refill:** the `e` square is untested with a 2×2 piece.\n\nSpecific experiments that could overturn the answer:\n- Put the 2×2 piece onto or against the `e` square.\n- Try the plus pattern on a 2×2 piece (does it grow back?).\n- Click a third pattern shape on the panel.\n\n**3. Next attempt.** Level 4 is lost by my rules, so I'd spend the bar on those three experiments, cheapest first:\n- shrink (4 clicks), then plus again (4 clicks) to test growing;\n- move the 2×2 piece toward `e` with whatever remains.\n\nIf something refills the bar or shortens the route, I'd switch to the 23-action route proven to win in the model below: left, shrink, left, up, line pattern, then right ×13.\n\n**4. Formal system (amended).**\n- **a. Objects:** unchanged (8 slots).\n- **b. Rules:**\n  - The door-opening rule is now pinned down as `firesShot s := s.x = 31 ∧ s.face = U`. Its doc comment records the shot mechanism.\n  - The attempt-2 door-shot hypothesis (H_shot) is marked refuted in `work/limits_table.json`; `L4_win9` stays only as a conditional on a false premise.\n  - The shrink rule's notes record the facing-left evidence.\n  - The rule checks pass with the gate open.\n- **c.** TRANSFORMS-NONE: this attempt only instantiated an existing parameter and corrected rule notes; the object product and the action coproduct were unchanged.\n- **d.** `work/limits_table.json` is updated: the door-opening rule is now a definition instantiated by `firesShot`, and \"shot passes over door and `e`\" is listed as a consequence of the definitions.\n\n**5. Proof.** File: `lean/L4Proof.lean`.\n\nMAIN-THEOREM: lean/L4Proof.lean : L4.L4_shot_no_win_within_21\n\n- **What it says:** for every action list of length ≤ 21, `everGoal (step firesShot false) goal s0 as = false`.\n  - It is derived from the generic `L4_no_win_within_21`, which holds for any `fires` satisfying `fires s → s.x = 31`.\n  - The `false` argument is H2 (no growing).\n  - The budget enters as the length premise.\n- **Rules it leans on:** moves only by the full piece size (the 4-column grid, carried as a proven invariant), door blocks, win on touch, panel toggle, commit, shrink keeps top-left, and `firesShot`.\n- **Checks:**\n  - `firesShot_matches_failures`: the definition agrees with all five observed failed commits.\n  - `win23_wins`: a 23-action witness wins, so the model isn't vacuous.\n- **Where the model differs from the game:**\n  - Looser: left/right moves ignore rows.\n  - Stricter, and therefore premises: H1'', H2, H4, and the `e` square left out.\n  - The budget isn't modelled; it is the length premise.\n\n```\n'L4.L4_shot_no_win_within_21' depends on axioms: [propext, Quot.sound]\n'L4.firesShot_matches_failures' does not depend on any axioms\n'L4.win23_wins' does not depend on any axioms\n'L4.L4_no_win_within_21' depends on axioms: [propext, Quot.sound]\n'L4.inv_step' depends on axioms: [propext, Quot.sound]\n'L4.hstep' depends on axioms: [propext, Quot.sound]\n'L4.pot' depends on axioms: [propext, Quot.sound]\n```\n\n**6.** Not applicable: the model changed (H_shot refuted, the door-opening rule instantiated, two new theorems).\n\nVERDICT: impossible\nCONFIDENCE: 55",
+          "returncode": 0,
+          "wall_s": 92.3,
+          "is_error": false
+        },
+        {
+          "kind": "Gate follow-up",
+          "text": "No transformation was applied in attempt 3. The formal system did change: the door-opening condition was fixed to a definition (`L4.firesShot`), the attempt-2 door-shot hypothesis was marked refuted, and three theorems were added (`L4_shot_no_win_within_21`, `firesShot_matches_failures`, `win23_wins`). None of that changed how the model is structured, so there was nothing new to record in `work/transforms.json`.\n\nTRANSFORMS-NONE: attempt 3 only filled in the existing `fires` parameter with a definition and corrected rule notes; the state (8 slots, checked by `L4S.stIsLimit`) and the action cases (checked by `L4S.actIsColimit` / `L4S.step_is_desc`) were unchanged, so the two attempt-2 entries in `work/transforms.json` still cover them.",
+          "returncode": null,
+          "wall_s": 9.1,
+          "is_error": null
+        }
+      ]
+    },
+    {
+      "attempt": 4,
+      "verdict": {
+        "verdict": "impossible",
+        "confidence": 65,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "This attempt ended in GAME_OVER on level 4, the same as the last three: I reached level 4 and did not beat the game. Levels 1–3 stay beaten.\n\nMy rules said the level couldn't be won inside its roughly 18-action budget, so I spent this attempt testing the model's weakest assumptions instead.\n\n**Confirmed**\n- **H1'' (how the door opens):** I shrank the piece to 2×2, put it at column 31 under the stem facing up, and fired the vertical-line pattern. The shot went up the stem, the 6-box turned into floor, and the door opened.\n- **Bar cost:** a plain action costs about 7 units (1–2 notches) and a commit about 14 units, out of 128. Clicking a hint cell costs the same as a normal click.\n\n**Refuted**\n- **H2 (no growing):** the plus pattern applied to a 2×2 piece grows it back to 4×4, shifted 2 up and 2 left. That means shrink-then-grow can move the 4×4 piece onto column 31.\n\n**New**\n- Clicking anywhere off the panel (the `e` square, the background, the piece) costs nothing. The panel just flashes red with no other effect, so the `e` square is not special.\n- Clicking a legend panel is also free. It loads that pattern into the 3×3 panel as hint cells, but every hint cell still has to be clicked at full cost.\n\nEven with growing, the shortest route I can build is 21 actions with 3 commits:\n- plus pattern twice (shrink then grow);\n- left, then up;\n- vertical-line pattern (opens the door);\n- down ×2;\n- right ×6, the last one touching the goal.\n\nThat costs about 168 units, so it doesn't fit the budget. Some mechanism is still missing from my model. All findings are recorded in `work/NOTES.md`, and the rule checks pass with no counterexamples.",
+          "returncode": 0,
+          "wall_s": 321.3,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** Level 4 again; this attempt was spent on experiments, because my rules already said the level couldn't be won within its bar.\n- **The door rule, confirmed.** I shrank the piece to 2×2, put it at column 31 under the stem facing up, and fired the vertical-line pattern. The shot went up the stem, the 6-box became floor, and the door opened.\n- **Growing exists.** The plus pattern applied to the 2×2 piece grows it back to 4×4, shifted two cells up and two left.\n- **Free actions.** Clicking anywhere off the panel (the `e` square, the background, the piece) and clicking the legend panels costs nothing. Legend clicks only load a hint onto the panel; every hint cell still costs a full click.\n- **How it ended.** By then the bar had about one action left, and the next action ended the game.\n\nThe failure itself is the budget. Every action costs at least 7 of the bar's 128 units, so at most 19 actions can be played. The cheapest winning play needs 21.\n\n**2. I no longer see a way to win.**\n\nClaim: no play of at most 19 actions wins level 4.\n\nArgument: an exhaustive search over the model, re-checked by the Lean kernel.\n- I enumerated every state reachable from the level-4 start at action-count ≤ 19 (1549 states).\n- No action from any of them wins within the count.\n- The cheapest win in the model is 21 actions: left, shrink, up, grow (the piece lands at column 31), line pattern (door opens), R R D D R R R R.\n\nPremises the bound leans on:\n- **Budget (established):** at most 19 actions execute. Measured in four attempts: about 7 units per plain action, more per commit, and the action after the bar empties ends the game.\n- **H1'' (now positively confirmed):** the door opens only when the line pattern is fired with the piece's left column at 31 and the piece facing up. Evidence: one success in level 3, one in level 4, and six level-4 failures.\n- **Panel cost (established mechanism):** a commit needs as many paid clicks as its pattern has cells (plus 4, line 3). Free clicks change nothing on the board.\n- **Moves (established):** moves slide up to one piece-length and stop at walls; win on touching the goal box; shrink keeps the top-left quarter. Grow is modelled more permissively than observed: it is allowed anywhere on the board.\n- **Unestablished H4:** the only patterns that do anything here are the two shown on the legends.\n- **The `e` square is inert:** established for the 4×4 piece and for a shot passing over it; untested with a 2×2 piece on it.\n\nSpecific mechanisms that would overturn this:\n- Another panel shape has an effect here (test: commit a third shape such as the L-tromino).\n- The `e` square reacts to a 2×2 piece (test: shrink and step onto it).\n- Commits are cheaper than I measured (test: play the 21-action route and watch the bar).\n\n**3. Next attempt.** Play the 21-action route exactly, watching the bar after each action. If the bar runs out around action 17 as predicted, the budget premise is confirmed. Earlier spare actions could go to one of the tests above, but the route leaves no slack, so I'd run it as the primary test.\n\n**4. Formal system (amended).**\n- **a. Objects.** New macro state `L4M.MSt` with five slots: `small`, `opened`, `y`, `x`, `face`.\n  - The panel-distance slots (`dP`, `dL`) are dropped, because commits are now single macro actions costing their click counts.\n  - Pairs the slots distinguish: for `y`, a 4×4 piece at the goal's columns in row 29 versus row 21 (only the first can touch the goal); for `face`, the piece at column 31 facing up versus facing left (the line pattern opens the door only in the first).\n- **b. Rules** (definitions in `lean/Game/L4Macro.lean`):\n  - Moves clamp at walls; the level-4 geometry (region, stem, door, corridor, goal box) is written out at pixel level.\n  - Plus: shrink keeps the top-left quarter; grow shifts by (−2,−2).\n  - Line: the shot opens the door iff the left column is 31 and the piece faces up.\n  - Win on touching the goal box.\n  - New Python rule files: `grow_shift` and `offpanel_click_free`. Settle: gate open, no counterexamples.\n- **c. Transforms.** Two recorded in `work/transforms.json` (attempt 4):\n  - Decomposition: `L4MS.mstIsLimit`.\n  - Generalization: `L4MS.mactIsColimit` and `L4MS.stepM_is_desc`.\n  - Check that verdicts are unchanged: the Python checks show no counterexamples, and the Lean theorems `replay_attempt3` and `replay_attempt4` reproduce every observed level-4 position of attempts 3 and 4.\n- **d.** `work/limits_table.json` is updated:\n  - The macro state, actions and step function are listed as definitions.\n  - The certificate is a consequence of definitions.\n  - Free clicks and the budget are marked \"not in model\"; the budget enters only as the length premise.\n\n**5. Proof.**\n\nMAIN-THEOREM: lean/L4MacroProof.lean : L4M.L4_macro_no_win_within_19\n\n- **What it says:** for every macro-action list with total cost ≤ 19, `wins s0 as = false`.\n  - The 1549-state certificate is kernel-checked in 37 chunk files, `lean/Game/Chk/*.lean`, each compiled under a 2.5 GB memory cap.\n  - It is assembled in `bucket_ok`, and the induction is `safe`.\n- **Non-vacuity:**\n  - `win21_wins`: the model can be won in 21 actions, so the bound is tight up to 2.\n  - `open_door_short`: if the door started open, 6 moves would win, so H1'' is a real constraint.\n- **Rules it leans on:** moves with clamping, win on touch, shrink, grow, the line-pattern shot, and the geometry.\n- **Where the model differs from the game:**\n  - Commits are treated as atomic macro actions (plus = 4, line = 3). Justification: clicks between commits don't change the board, and a commit needs |pattern| paid clicks.\n  - H4 is built into the model (only the two legend patterns act).\n  - The `e` square is omitted.\n  - Looser than the game: grow is allowed anywhere, and facing changes even on a blocked move.\n\nVerbatim `#print axioms` output:\n```\n'L4M.replay_attempt4' does not depend on any axioms\n'L4M.replay_attempt3' does not depend on any axioms\n'L4M.L4_macro_no_win_within_19' depends on axioms: [propext, Quot.sound]\n'L4M.win21_wins' does not depend on any axioms\n'L4M.open_door_short' does not depend on any axioms\n'L4MS.mstIsLimit' does not depend on any axioms\n'L4MS.mactIsColimit' does not depend on any axioms\n'L4MS.stepM_is_desc' depends on axioms: [Quot.sound]\n```\n\n**6.** Not applicable: the model changed (grow added, H1'' confirmed, clamping and geometry added, new macro model and proof).\n\nVERDICT: impossible\nCONFIDENCE: 65",
+          "returncode": 0,
+          "wall_s": 832.0,
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "attempt": 5,
+      "verdict": {
+        "verdict": "impossible",
+        "confidence": 70,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "The game ended in GAME_OVER on level 4. I reached level 4 and did not beat the game; levels 1–3 stay beaten.\n\nThis attempt played the one route that fitted the budget, testing a new idea: that the vertical-line shot might win by reaching the goal box. The route was 16 actions:\n- down, left, then shrink the piece to 2×2;\n- down, left, up, so the 2×2 piece faces up at column 31;\n- vertical-line pattern;\n- right, so the piece faces right in the corridor rows;\n- vertical-line pattern again.\n\nWhat happened:\n- **Door rule (H1'') confirmed again, from a lower row.** The upward shot from row 29 removed the 6-box and opened the door. Firing from anywhere in column 31 facing up works.\n- **The second shot did not win.** It went through the open door and along the corridor to column 55, one column short of the goal box, then vanished. That same action emptied the bar and ended the game. So I can't fully rule out that a shot reaching the goal box would count, but nothing hit the box.\n- **Bar accounting was exact.** About 7 units per action and about 14 per commit, out of 128, matched up to the last action. The action that empties the bar can itself end the game: this commit did, while in attempt 1 a move that emptied it didn't.\n\nTwo rules were revised with the evidence recorded:\n- **`commit_clears` v3.** A hint I loaded at the end of attempt 4 was still on the panel. The plus pattern committed anyway, so a commit happens exactly when the selection matches a level pattern; hints don't matter. The revised rule holds on all 51 recorded panel clicks it covers.\n- **`empty_bar_gameover` v2.** It no longer predicts the outcome of the action that empties the bar.\n\nThe rule checks show no counterexamples, and the notes are in `work/NOTES.md`.\n\nWhat's still unclear: the cheapest route I know that wins by walking into the goal is 21 actions, about 168 units, so it doesn't fit. I haven't tested other panel shapes, or putting the 2×2 piece on the `e` square. If neither does anything, I don't see how level 4 fits its budget.",
+          "returncode": 0,
+          "wall_s": 190.1,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** Level 4 again. Every earlier route exceeded the bar, and the only idea left that fit the 128-unit budget was that the vertical-line shot might win by reaching the goal. So I played a 16-action route:\n- down, left, then shrink the piece to 2×2;\n- down, left, up, so the piece sits at column 31 facing up;\n- vertical-line pattern. The shot went up the stem and opened the door, confirming the door rule again from a lower row;\n- one move right, so the piece faces down the corridor;\n- vertical-line pattern again.\n\nThe second shot went through the open door and down the corridor to column 55, one column short of the goal box, then vanished. That same action spent the last of the bar and the game ended.\n\nIt failed because a shot does not reach or win the goal, and walking the piece in costs more actions than the bar allows.\n\nTwo rule fixes came out of it:\n- A hint left on the panel from the previous attempt showed that a commit happens exactly when the selection matches a level pattern; hint cells don't matter.\n- An action that empties the bar can end the game immediately.\n\n**2. No, I don't see a way to win.**\n\nClaim: no play of at most 19 actions wins level 4. The budget allows at most 19, since each action costs at least 7 of 128 units, and the action that empties the bar can end the game. The cheapest win in the model is 21 actions.\n\nArgument: an exhaustive search of the macro model from the start state, re-checked by the Lean kernel.\n\nWhat it rests on:\n- **Established:**\n  - The cost per action and when the game ends (measured in five attempts; the bar accounting matched exactly this time).\n  - The door opens only from a shot fired upward with the piece's left column at 31. It has now opened from rows 23 and 29, and failed in six other configurations.\n  - Shrink keeps the top-left quarter; grow shifts the piece by (−2,−2).\n  - Moves clamp at walls; the level geometry.\n  - The level is won by walking into the goal box. A shot down the corridor stopped short and did not win.\n- **Not established:**\n  - H4: no panel shape other than the two legend patterns does anything here.\n  - A 2×2 piece standing on the `e` square does nothing. Touching it with the 4×4 and shooting over it showed no effect.\n  - Whether a shot touching the goal would win. Even if it did, the only route that gets such a shot off is exactly this 16-action route, and it ended the game in the same action without the shot reaching the box.\n\nExperiments that would overturn the verdict: commit a third panel shape (3–4 clicks), or step the 2×2 piece onto the `e` square.\n\n**3. Next attempt.** Use the bar purely to test the two open mechanisms: a third panel shape (e.g. the L-tromino, 3 clicks), then shrink and move the 2×2 piece onto the `e` square. If either does something useful, re-plan from there. Otherwise the level is lost by my rules.\n\n**4. Formal system (amended).**\n- **a. Objects:** unchanged (`L4M.MSt`: `small`, `opened`, `y`, `x`, `face`).\n- **b. Rules:**\n  - Python checks revised: `commit_clears` v3 (commit iff the selection equals a level pattern) and `empty_bar_gameover` v2 (the action that empties the bar can itself end the game).\n  - The Lean step function already encoded v3, so no definition changed.\n  - New check `L4M.replay_attempt5`: the model reproduces all 9 observed positions of this attempt, including that the corridor shot doesn't win.\n  - The rule checks pass with no counterexamples.\n- **c.**\n\nTRANSFORMS-NONE: attempt 5 revised two Python-ledger rules whose Lean counterparts were already correct (the macro commit is exactly v3) and added a replay check; the object product and the action coproduct are unchanged, so no limit or colimit changed.\n\n- **d.** `work/limits_table.json` is updated:\n  - The commit rule and the game-over rule carry their attempt-5 notes.\n  - \"A shot does not win\" is listed as a consequence of the definitions.\n\n**5. Proof.**\n\nMAIN-THEOREM: lean/L4MacroProof.lean : L4M.L4_macro_no_win_within_19\n\n- **What it says:** every macro-action list with total cost ≤ 19 gives `wins s0 as = false`. The 1549-state reachable set is kernel-checked chunk by chunk in `lean/Game/Chk/*.lean`.\n- **Rules it leans on:** moves with clamping, win on touching the goal, shrink, grow, the line-pattern shot (H1''), and the geometry. The budget is the length premise.\n- **Where the model differs from the game:**\n  - Commits are atomic macro actions (plus = 4 clicks, line = 3), which matches v3.\n  - H4 is built into the model (only the two legend patterns act).\n  - The `e` square is omitted.\n  - Looser than the game: grow is allowed anywhere on the board, and facing changes even on a blocked move.\n- **Non-vacuity:**\n  - `win21_wins`: the model can be won in 21 actions.\n  - `open_door_short`: with the door already open, 6 moves would win, so H1'' is a real constraint.\n  - The replay checks for attempts 3, 4 and 5 match what was observed.\n\nVerbatim `#print axioms` output:\n```\n'L4M.replay_attempt5' does not depend on any axioms\n'L4M.replay_attempt4' does not depend on any axioms\n'L4M.replay_attempt3' does not depend on any axioms\n'L4M.L4_macro_no_win_within_19' depends on axioms: [propext, Quot.sound]\n'L4M.win21_wins' does not depend on any axioms\n'L4M.open_door_short' does not depend on any axioms\n```\n\n**6.** Not applicable: two rules were revised in the Python checks, and a replay check was added to the Lean model.\n\nVERDICT: impossible\nCONFIDENCE: 70",
+          "returncode": 0,
+          "wall_s": 56.4,
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "attempt": 6,
+      "verdict": {
+        "verdict": "impossible",
+        "confidence": 60,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "The game ended in GAME_OVER on level 4. I reached level 4 and did not beat the game; levels 1–3 stay beaten.\n\nThis attempt was all experiments on assumptions I hadn't properly tested, and one of them turned out badly wrong:\n\n- **The `e` square refills the energy bar.** When the shrunken 2×2 piece stepped onto it, the square disappeared and the bar jumped from 6 to 22 notches, roughly 68–75 units out of 128. I had called the square inert because the 4×4 piece covered it twice with no effect. Both times the 4×4 arrived facing left, so only its back half was over the square.\n- **Only the level's own patterns work.** The L-shaped pattern from level 2 does not commit on level 4, so only the patterns shown in a level's legend do. I updated the panel rule to match.\n- **Shrink and grow ignore facing.** Facing down, shrink still keeps the top-left corner and grow still lands two cells up and two left.\n- **Actions 5 and 7 don't exist.** The service rejects them.\n\nThe refill falsified three of my automated checks, and I revised each with the reason recorded. They all pass now. The new refill rule has only its own observation as evidence so far.\n\nEven with the refill, my planner finds no winning route if only the small piece can collect the square. If the square is collected whenever the piece's front (coloured) half covers it, whatever its size, an 18-action route exists:\n\n1. left ×3, down\n2. shrink, then grow (lands the 4×4 next to the square)\n3. down, collecting the square with the 4×4's front\n4. right ×2, down, up\n5. vertical-line pattern to open the door\n6. right ×6\n\nThat route spends 203 units, and the cap is 128 plus the refill. It fits only if the refill is at least about 69 units, so it may or may not fit. The plan and the evidence are in `work/NOTES.md`.",
+          "returncode": 0,
+          "wall_s": 246.4,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** I spent the attempt testing assumptions I hadn't properly checked.\n- Actions 5 and 7 don't exist; the service rejects them.\n- The level-2 L-shaped pattern does nothing on level 4. Only the patterns shown on a level's legend commit.\n- The small 2×2 `e` square is an energy pickup. When the shrunken 2×2 piece stepped onto it, the square disappeared and the bar went up by 16 notches. When the 4×4 piece covered it earlier, it had arrived facing left, so only its back half was over the square, and nothing happened. That is why I had wrongly called the square inert.\n- Grow and shrink behave the same when the piece faces down: grow shifts it two up and two left, shrink keeps the top-left corner.\n- The bar then ran out and the game ended.\n\nIt failed because even with the pickup, the level costs more than the bar holds. Fitting every bar reading exactly gives:\n- the bar holds 18 units;\n- a move or click costs 1, and the click that completes a pattern costs 2;\n- the pickup adds 10;\n- the game ends when the bar would go below zero.\n\n**2. I don't see a way to win.** I'm claiming that no sequence of actions of any length wins level 4.\n\nThe argument is a search over every state reachable within the budget, which the Lean kernel re-checks. To be safe, it gives the pickup more chances than observed: the square counts as collected if the 2×2 piece overlaps it *or* if any piece's front half covers it. The second condition (H_front) is untested.\n\nIt rests on:\n- **Established:**\n  - the exact budget figures above, which fit every reading in attempts 5 and 6;\n  - the door opens only when the line-pattern shot is fired facing up from column 31;\n  - grow and shrink placement, and moves stopping at walls;\n  - the level is won by moving into the goal box; a shot doesn't win;\n  - only the legend patterns commit (the L-tromino test this attempt);\n  - the pickup with the 2×2 piece.\n- **Not established:**\n  - H_front, which the proof grants anyway, so it only makes the bound stronger;\n  - whether a winning move that takes the bar to −1 still counts. The best route costs 29 units against a cap of 28 (18 + 10), so this is exactly the mechanism that would change the verdict.\n\nThe experiment that settles it is the 18-action route below: if H_front holds, the bar jumps at action 7, and the final move tells whether a win at −1 counts.\n\n**3. Next attempt.** Play that route:\n- left ×3, down;\n- shrink, then grow;\n- down: the 4×4 arrives facing down with its front over the square. If the bar doesn't jump here, H_front is false; stop and use the rest for experiments;\n- right ×2, down, up;\n- line pattern to open the door;\n- right ×6. The last move touches the goal at −1 remaining.\n\n**4. Formal system (amended).**\n- **a. Objects:** new object, the `e` pickup. The state now combines the board with a \"taken\" flag (`L4M.BSt`). The pair it separates: the same board with 20 units spent, which can still act if the pickup was taken and is out of budget if not.\n- **b. Rules:**\n  - The Python ledger got `commit_clears` v4 (only legend patterns commit), `bar_tick` v3 (pickup steps excluded) and a new rule, `e_refill` v2 (the pickup refills the bar).\n  - It currently settles with no counterexamples. `e_refill` has been checked only on the observation it came from.\n  - In Lean: the exact budget (`cap`, `bcost`, `winsB`) and the pickup rule (`pick`) in `lean/Game/L4Budget.lean`.\n- **c. Transforms:** one composition, `L4BS.bstIsLimit`: the state is a product of the board and the flag. `L4BS.stepB_components` shows the board part of the new step is the old one, so the earlier replay checks are unaffected. Recorded in `work/transforms.json` (attempt 6).\n- **d.** `work/limits_table.json` is updated with the new state, the pickup, the exact budget, the certificate and the commit rule v4.\n\n**5. Proof.**\n\nMAIN-THEOREM: lean/L4BudgetProof.lean : L4M.L4_budget_no_win\n\n- **What it says:** for every action list, `winsB b0 as 0 = false`. There is no length bound; the budget is inside the model.\n- **How it's checked:** 2555 reachable states, kernel-checked in 54 chunk files (`lean/Game/BChk/*.lean`). `bbucket_ok` assembles them and `safeB` is the induction.\n- **Rules it leans on:** moves with wall stops, win on touching the goal, shrink, grow, the line-pattern shot, the pickup, and the exact budget.\n- **Where the model differs from the game:**\n  - Looser than the game, which is the safe direction:\n    - H_front is included;\n    - grow is allowed anywhere;\n    - facing turns even when a move is blocked;\n    - the pickup counts before the move's cost is checked.\n  - Stricter than the game:\n    - commits are single actions (plus = 5, line = 4);\n    - a win must stay within the budget;\n    - only the legend patterns exist.\n- **Non-vacuity:**\n  - `route29_wins_with_cap29`: one extra unit of budget makes the 18-action route win.\n  - `route29_fails_with_cap28`: at the real cap it fails.\n  - `pickup_observed`: the model reproduces the observed pickup.\n\nVerbatim `#print axioms` output:\n```\n'L4M.L4_budget_no_win' depends on axioms: [propext, Quot.sound]\n'L4M.route29_wins_with_cap29' depends on axioms: [propext]\n'L4M.route29_fails_with_cap28' depends on axioms: [propext]\n'L4M.pickup_observed' does not depend on any axioms\n'L4BS.bstIsLimit' does not depend on any axioms\n'L4BS.stepB_components' depends on axioms: [propext]\n```\n\n**6.** Not applicable: the formal system changed (new object, exact budget, pickup rule, new theorem).\n\nVERDICT: impossible\nCONFIDENCE: 60",
+          "returncode": 0,
+          "wall_s": 778.4,
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "attempt": 7,
+      "verdict": {
+        "verdict": "impossible",
+        "confidence": 75,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "I reached level 4 and did not beat the game: levels 1–3 are beaten, and this attempt ended in GAME_OVER on level 4. It came down to the very last move.\n\n**What I tested first.** Before playing I listed which assumptions every possible route depended on. All of them needed two untested things:\n- **H_front:** the 4×4 piece collects the energy square when its front half covers it. Its back half covering the square had done nothing.\n- **Win at −1:** a winning move that takes the bar one unit below zero still counts.\n\n**What happened.** I played the 18-action route built on both:\n- **The bar model held exactly.** The bar holds 18 units; a move or click costs 1, the click that completes a pattern costs 2, and the pickup adds 10. That predicted every reading.\n- **H_front is confirmed.** The 4×4 piece moved down with its front half over the energy square, collected it, and the bar went from 2 to 12 units.\n- **The door opened.** A full-size 4×4 piece at column 31 facing up fires the door-opening shot too, not just the shrunken one.\n- **The final move failed.** Five moves right brought the piece to column 51 with exactly 0 left. The sixth move, which touches the goal, would take the bar to −1. The piece stopped against the goal box and the game ended without a win.\n\nSo either the budget is checked before the win, or a win needs the piece to start flush against the box, which would mean one more move. Either way the cheapest route costs 29 units against a cap of 28, and my search found nothing cheaper.\n\n**Bookkeeping.** I updated `work/NOTES.md`. In the rule checks, the goal-touch rule now treats moves that end the game as undecided, because a win can't be observed on them. With that change the checks pass with no counterexamples.",
+          "returncode": 0,
+          "wall_s": 143.9,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** On level 4 I played the 18-action route that my previous answer said was the only possible chance. It needed two things I hadn't seen yet:\n- the 4×4 piece collecting the `e` energy square with its front half;\n- a winning move counting even if it overspends the bar by one unit.\n\nThe route went exactly as modelled:\n- left ×3, down, shrink, down, grow;\n- down: the 4×4 arrived facing down with its front over the square, collected it, and the bar went from 2 to 12 units;\n- right ×2, up;\n- the vertical-line pattern: the shot opened the door, which showed a 4×4 at column 31 works too;\n- right ×5 to column 51, with 0 units left.\n\nThe sixth move right, the one that touches the goal, would take the bar to −1. The game ended there with no win. The cause is the budget: the cheapest route costs 29 units and the bar plus the refill holds 28.\n\n**2. No, I don't see a way to win.**\n\nClaim: no sequence of actions wins level 4.\n\nArgument: an exhaustive search of every state reachable within the budget, re-checked by the Lean kernel. The cheapest winning play costs 29 against a cap of 28.\n\nThe premises are now all established:\n- **Bar:** 18 units. A move or a click costs 1, the click that completes a pattern costs 2, the pickup adds 10. These figures predicted every bar reading in attempts 5–7.\n- **Win and budget:** a win must be paid within the budget. Observed this attempt: the winning move at −1 ended the game.\n- **Pickup:** the 2×2 piece overlapping the square, or any piece's front half covering it. Both observed.\n- **Door:** it opens only on a shot fired facing up from column 31.\n- **Piece:** shrink keeps the top-left corner and grow shifts two up and two left, whatever the facing. Moves stop at walls. A level is won by touching the goal box.\n- **Patterns:** only the level's legend patterns commit (the L-tromino test).\n\nThe model is deliberately more generous than the game where I wasn't sure:\n- grow is allowed anywhere on the board;\n- facing changes even when a move is blocked;\n- a win counts when the next full step would merely touch the goal. The last move suggests the piece may need to start flush against the box.\n\nTwo premises are not fully established:\n- No other 3×3 pattern shape commits on level 4. I tested one non-legend shape, the L-tromino.\n- Nothing else on the board refills the bar.\n\nSettling the first would mean committing other 3×3 shapes. A refill of one more unit, or any saving of one action, would make the win possible (`route29_wins_with_cap29`).\n\n**3. Next attempt.** Level 4 is lost under these rules. If given another attempt, I'd play the same route and spend the time before it testing whether other 3×3 shapes commit on level 4, since that is the only open mechanism that could save a unit.\n\n**4. Formal system (amended).**\n- **a. Objects:** unchanged (board state × pickup flag).\n- **b. Rules:**\n  - The front-half pickup moved from hypothesis to established; the `pick` definition is unchanged.\n  - \"A win must be paid within the budget\" is confirmed, and `winsB` is unchanged.\n  - In the Python checks, the goal-touch rule now treats actions that end the game as undecided, since a win can't be observed on them.\n  - New Lean checks: `L4M.replay_attempt7` reproduces all 18 observed positions, and `L4M.played7_loses` gets the outcome right.\n  - The checks pass with no counterexamples.\n- **c.**\n\nTRANSFORMS-NONE: attempt 7 confirmed hypotheses that the budget model already granted and added replay checks; no object, slot or rule shape changed, so no new limit or colimit was needed.\n\n- **d.** `work/limits_table.json` is updated: the pickup rule is marked established, the budget rule has its attempt-7 note, and \"a win must be paid within the budget\" is listed as a definition.\n\n**5. Proof.**\n\nMAIN-THEOREM: lean/L4BudgetProof.lean : L4M.L4_budget_no_win\n\n- **What it says:** for every action list, `winsB b0 as 0 = false`. There is no length bound; the budget is inside the model.\n- **How it's checked:** 2555 states, kernel-checked in 54 chunk files under `lean/Game/BChk/`.\n- **Rules it leans on:** moves with wall stops, win on touching the goal, shrink, grow, the shot rule, the pickup, the exact budget, and the commit rule (only legend patterns).\n- **Stricter than the game:**\n  - commits are single macro actions;\n  - only the plus and line patterns exist.\n- **Looser than the game:** grow anywhere, facing set on blocked moves, the generous win rule, and pickup counted before the move's cost.\n- **Non-vacuity:**\n  - `route29_wins_with_cap29`: one extra unit of budget makes the route win.\n  - `route29_fails_with_cap28`: at the real cap it fails.\n  - `replay_attempt7` and `played7_loses` match what was observed.\n\n```\n'L4M.replay_attempt7' does not depend on any axioms\n'L4M.played7_loses' depends on axioms: [propext]\n'L4M.L4_budget_no_win' depends on axioms: [propext, Quot.sound]\n'L4M.route29_wins_with_cap29' depends on axioms: [propext]\n'L4M.route29_fails_with_cap28' depends on axioms: [propext]\n'L4M.pickup_observed' does not depend on any axioms\n```\n\n**6.** Not applicable: hypotheses were promoted to established and new checks were added.\n\nVERDICT: impossible\nCONFIDENCE: 75",
+          "returncode": 0,
+          "wall_s": 56.0,
+          "is_error": false
+        }
+      ]
+    },
+    {
+      "attempt": 8,
+      "verdict": {
+        "verdict": "impossible",
+        "confidence": 78,
+        "stated": true
+      },
+      "gate": {
+        "ok": true,
+        "route": "A",
+        "reasons": []
+      },
+      "closed": true,
+      "gate_retries": 0,
+      "answers": [
+        {
+          "kind": "Play answer",
+          "text": "The game is over: I reached level 4 and did not beat it, so the game is not won. Levels 1–3 are beaten. My model says level 4 can't be won: the cheapest route costs 29 units and the bar plus the one refill holds only 28. So I used this attempt to test the cost assumptions that could save that one unit. None of them did:\n\n- **Re-clicking a legend panel** (the free pattern hints on the left) plays a short free demonstration of the pattern. It doesn't commit anything.\n- **Commits with the matching hint loaded** cost the same: shrinking still cost 5 units. There is no hint discount.\n- **The energy pickup** worked again exactly as modelled: the piece's front half over the square added 10 units.\n- **Other panel shapes don't commit** on level 4: the X shape and the full 3×3 did nothing, and the L-shape had already failed. Only the two patterns shown on the level's legend work.\n- **A blocked move** (the piece doesn't move) still costs 1 unit.\n\nEvery bar reading again matched the model exactly. The new findings are in `work/NOTES.md`, and the rule checks pass with no counterexamples.",
+          "returncode": 0,
+          "wall_s": 177.3,
+          "is_error": false
+        },
+        {
+          "kind": "Formal attempt answer",
+          "text": "**1. What happened.** I went into level 4 already holding a proof that it can't be won, so I spent the attempt checking the cost assumptions that the 1-unit shortfall depends on.\n- Clicking a legend panel a second time is free. It just plays a short demonstration of the pattern; nothing gets committed.\n- Committing a pattern while its matching hint is loaded costs the same 5 units. There is no discount.\n- I collected the energy square again with the 4×4 piece's front half; it added 10 units, exactly as before.\n- Two more panel shapes, an X and the full 3×3, did not commit. Together with the L-tromino earlier, that makes three non-legend shapes, all inert.\n- A blocked move costs 1 unit.\n- The bar then ran out and the game ended.\n\nIt failed because the level costs more than the budget: the cheapest winning play needs 29 units, and the bar plus the one refill holds 28.\n\n**2. No, I don't see a way to win.**\n\nClaim: no sequence of actions wins level 4.\n\nArgument: an exhaustive search of every state reachable within the budget, kernel-checked in Lean. The cheapest win in the model costs 29 units against a cap of 28.\n\nWhat it rests on, all established:\n- **Budget:** 18 units; a move costs 1, including a blocked one. A click costs 1, and the click that completes a pattern costs 2, with or without a hint loaded. The pickup adds 10. A win must be paid within the budget. These figures predicted every reading in attempts 5–8.\n- **Free clicks change nothing:** off-panel clicks and legend clicks, including the demonstration replay, never alter the board.\n- **Commits:** only the level's two legend patterns commit. Three other shapes were tested and failed.\n- **Door:** it opens only on a shot fired facing up from column 31.\n- **Piece and pickup:** shrink keeps the top-left corner; grow shifts the piece two up and two left. The 2×2 piece overlapping the square, or any piece's front half covering it, collects it. Moves stop at walls.\n- **Win:** the piece must touch the goal box. The search uses a slightly generous version of this.\n\nTwo premises are not fully established:\n- Other 3×3 shapes, beyond the three tested, might commit.\n- Some other mechanism might save a unit, such as a second refill or a cheaper commit.\n\nEither would need to save just one unit; `route29_wins_with_cap29` shows a single extra unit would make the level winnable. Testing the remaining shapes, a few at a time, would settle the first.\n\n**3. Next attempt.** The level is lost under my rules. I'd use the bar to test more 3×3 shapes for commits on level 4, with the 4×4 piece collecting the energy square early to pay for more clicks.\n\n**4.**\n- **a. Objects:** unchanged (board state × pickup flag).\n- **b. Rules:** no rule revised. This attempt confirmed existing definitions:\n  - a blocked move costs 1, which `bcost` already charges;\n  - there is no hint discount (hints are free board-irrelevant state, not modelled);\n  - only the legend patterns commit.\n\n  The model replays attempt 8's positions and bar readings exactly. The only ledger edit was registering the attempt-boundary transition.\n- **c.**\n\nTRANSFORMS-NONE: attempt 8 only confirmed existing rules (budget costs, commit set, pickup); no object, slot or rule changed, so there was nothing to decompose, compose, generalize or specialize.\n\n- **d.** No change needed to `work/limits_table.json`.\n\n**5. Proof** (the same system and theorem as before).\n\nMAIN-THEOREM: lean/L4BudgetProof.lean : L4M.L4_budget_no_win\n\n- **What it says:** for every action list, `winsB b0 as 0 = false`. The budget is inside the model.\n- **How it's checked:** a 2555-state certificate, kernel-checked in 54 chunk files under `lean/Game/BChk/`.\n- **Rules it leans on:** moves with wall stops, win on touching the goal, shrink, grow, the shot rule, the pickup, the exact budget, and only plus and line commit.\n- **Stricter than the game:**\n  - commits are single macro actions;\n  - only plus and line commit, which now rests on three tested shapes.\n- **Looser than the game:** grow anywhere, facing set on blocked moves, the generous goal-touch rule, and pickup counted before the move's cost.\n- **Non-vacuity:**\n  - `route29_wins_with_cap29`: one extra unit makes the route win.\n  - `route29_fails_with_cap28`: at the real cap it fails.\n  - `replay_attempt7` and `played7_loses` match what was observed.\n\n```\n'L4M.replay_attempt7' does not depend on any axioms\n'L4M.played7_loses' depends on axioms: [propext]\n'L4M.L4_budget_no_win' depends on axioms: [propext, Quot.sound]\n'L4M.route29_wins_with_cap29' depends on axioms: [propext]\n'L4M.route29_fails_with_cap28' depends on axioms: [propext]\n'L4M.pickup_observed' does not depend on any axioms\n```\n\n**6.**\n\nFORMAL-UNCHANGED: attempt 8 tested whether a loaded hint discounts a commit (no), whether replaying a legend commits (no, it plays a free demonstration), whether the X and full-3×3 shapes commit (no), and whether a blocked move is free (no, it costs 1). Every result matched the existing definitions (`bcost`, the macro action set, `pick`, `winsB`), and the model replays all of attempt 8's positions and bar readings. The model would have changed only if one of these had saved budget or committed: a hint discount, a free demonstration commit, a new pattern, or a free blocked move.\n\nVERDICT: impossible\nCONFIDENCE: 78",
+          "returncode": 0,
+          "wall_s": 46.8,
+          "is_error": false
+        }
+      ]
+    }
+  ],
+  "repair": {
+    "attempt_count": 1,
+    "answers": [
+      {
+        "kind": "attempt 1 play",
+        "text": "Audit attempt 1 ended in GAME_OVER on level 4. I replayed levels 1–3 from the fresh restart (beaten again), but level 4 is still not won, so the game is not beaten. I spent the level-4 bar on the open questions behind my \"impossible\" verdict.\n\n- **No carry-over of panel selections.** A cell I selected just before leaving level 1 was gone on level 2, so I can't pre-select a pattern before level 4 to save clicks there.\n- **Grow and shrink are the same in every direction.** A cheaper route of exactly 28 units, which would fit the budget, needed grow-while-facing-left to land differently. It doesn't. Shrink keeps the top-left corner and grow shifts two up and two left, now checked for all four facings.\n- **The pickup rule was wrong.** The 4×4 piece reached the energy square facing down with its front half over it, one step short of the usual spot, and nothing happened. That contradicts the \"front half\" rule I had marked as confirmed. All six contacts so far fit a narrower rule: the square is collected only when the piece's top-left corner sits exactly at (33,23). One more step down to (33,23) collected it, as predicted. This rule is now in the automated checks and holds on all 45 recorded moves it applies to.\n\nThe revised pickup rule is stricter than what my proof assumed, so the proof's model was more generous than the game. That is the safe direction, and the \"impossible\" verdict stands: the cheapest route still costs 29 units against a cap of 28.\n\nThe findings are in `work/NOTES.md`. I'm stopping here until the next attempt starts.",
+        "returncode": 0,
+        "wall_s": 320.1,
+        "is_error": false
+      },
+      {
+        "kind": "attempt 1 M2",
+        "text": "**Tested.** I replayed levels 1–3 from the restart (all beaten again), then on level 4:\n1. Whether a panel selection survives a level change, which would let me pre-select a pattern before level 4.\n2. Grow while facing left. A 28-unit route existed only if that grow landed one step differently.\n3. Shrink and grow while facing right.\n4. Exactly where the piece must stand to collect the energy square.\n\n**Observed.**\n1. The selection was cleared when level 2 loaded.\n2. Grow facing left shifts the piece two up and two left, as in every other direction, so that 28-unit route is impossible.\n3. Facing right, shrink keeps the top-left corner and grow shifts two up and two left. Placement is now the same for all four facings.\n4. The 4×4 piece one row short of the usual spot, with its front half over the square, did not collect it. One more step down collected it.\n\n**Account change.** My \"front half collects it\" pickup rule was wrong. All six contacts so far fit a narrower rule: the square is collected only when the piece's top-left corner is exactly at (33,23). The rule checks now carry this and hold on 45 transitions. My proof used the more generous rule, which errs in the safe direction for an \"impossible\" claim. So the bound is unchanged: the cheapest win costs 29 units against a bar of 18 units plus the refill of 10, i.e. 28. In my units, the smallest starting bar that would allow a win is 19, one more than the level gives.\n\n**Still uncertain.**\n- Panel shapes beyond the four tested (plus and line commit; the L-tromino, X and full 3×3 don't).\n- Whether a win at exactly 0 units left would count. The best route can't get there, so this doesn't affect the verdict.\n- The exact pickup trigger beyond those six contacts. The real rule is at most as permissive as the one the proof assumes, which the bound relies on.\n\nLEAST_BUDGET=19\nVERDICT: impossible\nREPAIR-DONE",
+        "returncode": 0,
+        "wall_s": 18.7,
+        "is_error": false
+      },
+      {
+        "kind": "M3",
+        "text": "My conclusion is unchanged: level 4 can't be won. The cheapest win costs 29 units and the level supplies 28. This round I found and fixed one wrong rule, ruled out the two mechanisms that could have saved a unit, and re-ran the proof against the corrected rule.\n\n**What changed**\n- **Pickup rule.** I had marked \"the piece collects the energy square when its front half covers it\" as confirmed. It's wrong. The 4×4 piece one row short of the usual spot, with its front half over the square, did not collect it. All six contacts so far fit a narrower rule: the square is collected only when the piece's top-left corner is exactly at (33,23).\n- **Lean model.** I widened its pickup rule to cover the new rule, the old one, and \"the small piece overlaps the square\". That way it stays at least as generous as the game. I regenerated the reachable-state certificate (2555 states) and re-checked it with the Lean kernel; the main theorem still holds.\n- **Two possible savings ruled out.**\n  - Grow facing left and grow facing right both shift the piece two up and two left, and shrink facing right keeps the top-left corner. Placement is now the same for all four facings. That kills the one route (28 units) that would have fit.\n  - A panel selection is cleared when a level loads, so a pattern can't be pre-selected before level 4.\n\n**Evidence for the conclusion**\n- **Budget:** 18 units. A move or click costs 1, including blocked moves; the click that completes a pattern costs 2; the energy square adds 10. A move that would take the bar below zero ends the game without a win. These figures predicted every bar reading across attempts 5–8 and the audit attempt.\n- **Patterns:** only the level's two legend patterns commit (plus and line). The L-tromino, X and full 3×3 did not.\n- **Door:** it opens only when the line pattern's shot is fired facing up from column 31.\n- **Exhaustive check:** the Lean kernel checked every state reachable within the budget, so no sequence of any length wins. One extra unit would make the known 29-unit route win (`route29_wins_with_cap29`); at the real cap it fails (`route29_fails_with_cap28`). The model also reproduces attempt 7 position by position, including its failed final move.\n\n**Still uncertain**\n- Panel shapes beyond the five tested. Only the legend patterns have ever committed.\n- The exact pickup trigger beyond the six contacts observed.\n- Whether a win needs the piece to start flush against the goal box. This could only make the true minimum higher.\n\n**Budget figures.** The proved minimum is 29 units of total spending, which needs a starting bar of 19 plus the 10-unit refill. The measured starting bar is 18. I have never had a working winning example. The 29-unit route was played in attempt 7 and failed one unit short.\n\nCHANGED_RULES=pickup: \"front half covers the square\" refuted; now \"piece top-left == (33,23)\" (Lean pick widened to a looser union); grow/shrink placement confirmed on all facings; panel selection cleared on level load\nLEAST_BUDGET=19\nMEASURED_BUDGET=18\nVERDICT: impossible\nCONFIDENCE: 78\nMAIN-THEOREM: lean/L4BudgetProof.lean : L4M.L4_budget_no_win",
+        "returncode": 0,
+        "wall_s": 484.9,
+        "is_error": false
+      }
+    ],
+    "final": {
+      "LEAST_BUDGET": "19",
+      "MEASURED_BUDGET": "18",
+      "VERDICT": "impossible",
+      "CONFIDENCE": "78",
+      "CHANGED_RULES": "pickup: \"front half covers the square\" refuted; now \"piece top-left == (33,23)\" (Lean pick widened to a looser union); grow/shrink placement confirmed on all facings; panel selection cleared on level load",
+      "REPAIR_DONE": false
+    }
+  },
+  "source_files": [
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B17_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B17_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B19_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B19_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B19_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B19_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B21_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B21_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B21_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B21_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B21_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B21_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B23_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B23_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B23_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B23_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B23_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B23_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B23_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B23_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B25_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B25_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B25_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B25_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B25_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B25_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B25_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B25_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B27_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B27_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B27_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B27_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B27_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B27_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B27_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B27_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B29_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B29_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B29_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B29_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B29_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B29_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B29_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B29_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B29_4.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B29_4.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B31_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B31_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B31_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B31_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B31_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B31_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B31_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B31_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B31_4.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B31_4.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B31_5.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B31_5.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B33_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B33_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B33_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B33_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B33_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B33_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B33_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B33_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B35_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B35_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B35_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B35_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B35_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B35_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B35_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B35_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B37_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B37_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B37_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B37_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B37_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B37_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B37_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B37_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B39_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B39_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B39_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B39_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B39_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B39_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B39_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B39_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B41_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B41_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B41_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B41_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B41_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B41_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B43_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B43_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B43_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B43_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B45_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B45_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B47_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B47_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B49_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B49_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/BChk/B51_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/BChk/B51_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C19_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C19_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C19_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C19_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C21_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C21_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C21_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C21_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C23_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C23_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C23_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C23_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C25_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C25_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C25_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C25_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C25_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C25_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C27_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C27_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C27_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C27_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C27_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C27_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C29_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C29_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C29_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C29_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C29_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C29_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C29_3.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C29_3.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C30_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C30_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C31_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C31_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C31_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C31_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C31_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C31_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C32_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C32_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C33_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C33_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C33_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C33_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C33_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C33_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C35_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C35_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C35_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C35_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C35_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C35_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C37_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C37_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C37_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C37_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C37_2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C37_2.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C39_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C39_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C39_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C39_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C41_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C41_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C41_1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C41_1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C43_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C43_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C45_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C45_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/Chk/C47_0.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/Chk/C47_0.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4Budget.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4Budget.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4BudgetCert.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4BudgetCert.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4BudgetStructure.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4BudgetStructure.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4Macro.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4Macro.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4MacroCert.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4MacroCert.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4MacroCheck.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4MacroCheck.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4MacroStructure.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4MacroStructure.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4Model.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4Model.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Game/L4Structure.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Game/L4Structure.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/L4BudgetProof.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/L4BudgetProof.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/L4MacroProof.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/L4MacroProof.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/L4Proof.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/L4Proof.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Limits/Basic.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Limits/Basic.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/LimitsSelftest.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/LimitsSelftest.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Selftest.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Selftest.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Skeleton1.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Skeleton1.lean"
+    },
+    {
+      "phase": "l4-main",
+      "path": "lean/Skeleton2.lean",
+      "url": "data/l4r-case-646045/models/l4-main/lean/Skeleton2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B17_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B17_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B19_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B19_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B19_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B19_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B21_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B21_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B21_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B21_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B21_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B21_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B23_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B23_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B23_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B23_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B23_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B23_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B23_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B23_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B25_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B25_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B25_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B25_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B25_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B25_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B25_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B25_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B27_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B27_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B27_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B27_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B27_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B27_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B27_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B27_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B29_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B29_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B29_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B29_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B29_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B29_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B29_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B29_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B29_4.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B29_4.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B31_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B31_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B31_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B31_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B31_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B31_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B31_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B31_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B31_4.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B31_4.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B31_5.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B31_5.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B33_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B33_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B33_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B33_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B33_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B33_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B33_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B33_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B35_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B35_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B35_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B35_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B35_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B35_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B35_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B35_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B37_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B37_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B37_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B37_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B37_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B37_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B37_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B37_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B39_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B39_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B39_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B39_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B39_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B39_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B39_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B39_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B41_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B41_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B41_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B41_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B41_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B41_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B43_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B43_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B43_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B43_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B45_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B45_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B47_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B47_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B49_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B49_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/BChk/B51_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/BChk/B51_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C19_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C19_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C19_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C19_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C21_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C21_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C21_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C21_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C23_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C23_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C23_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C23_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C25_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C25_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C25_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C25_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C25_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C25_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C27_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C27_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C27_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C27_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C27_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C27_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C29_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C29_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C29_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C29_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C29_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C29_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C29_3.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C29_3.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C30_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C30_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C31_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C31_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C31_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C31_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C31_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C31_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C32_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C32_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C33_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C33_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C33_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C33_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C33_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C33_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C35_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C35_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C35_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C35_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C35_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C35_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C37_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C37_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C37_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C37_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C37_2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C37_2.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C39_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C39_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C39_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C39_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C41_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C41_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C41_1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C41_1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C43_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C43_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C45_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C45_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/Chk/C47_0.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/Chk/C47_0.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4Budget.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4Budget.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4BudgetCert.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4BudgetCert.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4BudgetStructure.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4BudgetStructure.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4Macro.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4Macro.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4MacroCert.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4MacroCert.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4MacroCheck.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4MacroCheck.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4MacroStructure.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4MacroStructure.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4Model.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4Model.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Game/L4Structure.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Game/L4Structure.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/L4BudgetProof.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/L4BudgetProof.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/L4MacroProof.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/L4MacroProof.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/L4Proof.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/L4Proof.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Limits/Basic.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Limits/Basic.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/LimitsSelftest.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/LimitsSelftest.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Selftest.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Selftest.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Skeleton1.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Skeleton1.lean"
+    },
+    {
+      "phase": "l4-review",
+      "path": "lean/Skeleton2.lean",
+      "url": "data/l4r-case-646045/models/l4-review/lean/Skeleton2.lean"
+    }
+  ]
+}
