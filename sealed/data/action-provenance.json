@@ -1,0 +1,213 @@
+{
+  "method": "Replay recorded accepted actions on MD5-identical archived engine sources; validate every level, state and levels-completed outcome.",
+  "scope": "18 historical initial runs (144 attempts), plus six archived external-feedback rounds (24 attempts). Offline engine replay only; no new agent play.",
+  "runs": [
+    {
+      "case": "bast2-case-44ec53",
+      "attempts": 8,
+      "actions": 262,
+      "frame_hashes_checked": 0,
+      "bytes": 123392,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "bast2-case-4d3b31",
+      "attempts": 8,
+      "actions": 236,
+      "frame_hashes_checked": 0,
+      "bytes": 114770,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "bast2-case-98893b",
+      "attempts": 8,
+      "actions": 251,
+      "frame_hashes_checked": 0,
+      "bytes": 120690,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "bcl3-case-2f1a1c",
+      "attempts": 8,
+      "actions": 236,
+      "frame_hashes_checked": 0,
+      "bytes": 113462,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "bcl3-case-d267df",
+      "attempts": 8,
+      "actions": 255,
+      "frame_hashes_checked": 0,
+      "bytes": 119189,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "l5r-case-202da3",
+      "attempts": 8,
+      "actions": 378,
+      "frame_hashes_checked": 0,
+      "bytes": 159535,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5r-case-2cdca5",
+      "attempts": 8,
+      "actions": 380,
+      "frame_hashes_checked": 0,
+      "bytes": 158674,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5r-case-339b0a",
+      "attempts": 8,
+      "actions": 353,
+      "frame_hashes_checked": 0,
+      "bytes": 146027,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5r-case-3eb226",
+      "attempts": 8,
+      "actions": 350,
+      "frame_hashes_checked": 0,
+      "bytes": 150091,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5r-case-b3830e",
+      "attempts": 8,
+      "actions": 374,
+      "frame_hashes_checked": 0,
+      "bytes": 152948,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5r-case-fbac96",
+      "attempts": 8,
+      "actions": 361,
+      "frame_hashes_checked": 0,
+      "bytes": 155652,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "m15bcl-case-1dd6e6",
+      "attempts": 8,
+      "actions": 232,
+      "frame_hashes_checked": 0,
+      "bytes": 112699,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "l4p-case-2a3cc5",
+      "attempts": 8,
+      "actions": 529,
+      "frame_hashes_checked": 401,
+      "bytes": 181270,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "l5d-case-284967",
+      "attempts": 8,
+      "actions": 412,
+      "frame_hashes_checked": 0,
+      "bytes": 163566,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5d-case-4f4628",
+      "attempts": 8,
+      "actions": 378,
+      "frame_hashes_checked": 0,
+      "bytes": 155815,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "l5d-case-977714",
+      "attempts": 8,
+      "actions": 409,
+      "frame_hashes_checked": 0,
+      "bytes": 165393,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64"
+    },
+    {
+      "case": "m15fw-case-69fe87",
+      "attempts": 8,
+      "actions": 255,
+      "frame_hashes_checked": 0,
+      "bytes": 121630,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    },
+    {
+      "case": "m15fw-case-9ec8d4",
+      "attempts": 8,
+      "actions": 228,
+      "frame_hashes_checked": 0,
+      "bytes": 112694,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686"
+    }
+  ],
+  "total_attempts": 168,
+  "total_actions": 6925,
+  "recorded_pixel_hashes_checked": 401,
+  "feedback_runs": [
+    {
+      "case": "bast2-case-44ec53",
+      "attempts": 4,
+      "actions": 143,
+      "frame_hashes_checked": 0,
+      "bytes": 69876,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686",
+      "phase": "feedback"
+    },
+    {
+      "case": "bast2-case-4d3b31",
+      "attempts": 4,
+      "actions": 133,
+      "frame_hashes_checked": 0,
+      "bytes": 66326,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686",
+      "phase": "feedback"
+    },
+    {
+      "case": "l5r-case-202da3",
+      "attempts": 4,
+      "actions": 225,
+      "frame_hashes_checked": 0,
+      "bytes": 94448,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64",
+      "phase": "feedback"
+    },
+    {
+      "case": "l5r-case-339b0a",
+      "attempts": 4,
+      "actions": 243,
+      "frame_hashes_checked": 0,
+      "bytes": 95549,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64",
+      "phase": "feedback"
+    },
+    {
+      "case": "m15fw-case-9ec8d4",
+      "attempts": 4,
+      "actions": 128,
+      "frame_hashes_checked": 0,
+      "bytes": 63484,
+      "engine_md5": "7a922000d167e160fa69886c3ff24686",
+      "phase": "feedback"
+    },
+    {
+      "case": "l5d-case-977714",
+      "attempts": 4,
+      "actions": 174,
+      "frame_hashes_checked": 0,
+      "bytes": 75961,
+      "engine_md5": "0f2d4207224d46a655a678782df22e64",
+      "phase": "feedback"
+    }
+  ],
+  "feedback_attempts": 24,
+  "feedback_actions": 1046,
+  "initial_attempts": 144,
+  "initial_actions": 5879
+}

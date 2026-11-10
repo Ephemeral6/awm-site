@@ -1,5 +1,26 @@
 # Sealed-level experiment archive
 
+## Browsing replies, bounds and actions
+
+The sidebars show each run's reported initial bound and, where applicable, its
+report after external feedback. Units are explained in the selected run; an
+arrow does not imply a proof or a correct revised bound. The separate
+[baseline reader](baselines/) contains all 96 original attempt replies from
+12 baseline runs, their final interviews and the four archived feedback rounds.
+
+Game actions are available for all 144 original attempts and all 24 attempts
+in the six selected external-feedback rounds: 6,925 accepted actions in total.
+The attempt menu keeps original and feedback stages separate. Before/after
+frames are offline replays on source files whose MD5 matches the logged engine.
+Every recorded level, terminal state and levels-completed count was checked;
+401 recorded pixel hashes in the 2a3cc5 continuation also match. No new agent
+play was performed. [Replay provenance and counts](data/action-provenance.json).
+
+Replay data uses a 4,096-character, row-major hexadecimal initial frame (one
+palette index per pixel). Each action applies its listed `[start, hex]` patches
+to the preceding frame. The viewer shows the last frame returned by each action;
+log timestamps, action coordinates and source-line references remain attached.
+
 This page publishes a read-only export of six historical AWM runs on sealed sc25
 levels, together with two newer harness releases. Historical runs were not
 executions of the new four-transform/automatic-repair releases. The new releases
